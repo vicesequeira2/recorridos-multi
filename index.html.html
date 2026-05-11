@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
+<title>RECORRIDO MULTI v7.1 - LIMPIEZA</title>
+<script>
+const APP_VERSION="7.1";
+const sv=localStorage.getItem("app_version");
+if(sv&&sv!==APP_VERSION){localStorage.setItem("app_version",APP_VERSION);window.location.reload(true);}
+else{localStorage.setItem("app_version",APP_VERSION);}
+document.addEventListener('contextmenu',e=>e.preventDefault());
+document.addEventListener('keydown',e=>{if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C','K'].includes(e.key.toUpperCase()))||(e.ctrlKey&&['U','S'].includes(e.key.toUpperCase()))){e.preventDefault();return false;}});
+</script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import{getDatabase,ref,push,onValue,remove,set,get,onDisconnect}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+const cfg={apiKey:"AIzaSyBO5W7kvJy8blaklVRFeNqzx3vtyWEo5GU",authDomain:"recorridomulti.firebaseapp.com",databaseURL:"https://recorridomulti-default-rtdb.firebaseio.com",projectId:"recorridomulti",storageBucket:"recorridomulti.firebasestorage.app",messagingSenderId:"908732819318",appId:"1:908732819318:web:5562228028305932da3c57"};
+const app=initializeApp(cfg);
+const db=getDatabase(app);
+window._fb = { db, ref, push, onValue, remove, set, get, onDisconnect };
+window._fbReady = true;
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#080d14;--card:#0d1520;--accent:#0ea5e9;--border:#1a2940;--text:#e2ecf8;--muted:#5a7a9a;--green:#22c55e;--red:#ef4444;--orange:#f97316;--purple:#a855f7;--yellow:#fbbf24;}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Barlow',sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
+input,textarea,select{user-select:text;-webkit-user-select:text;}
+body{background:var(--bg);color:var(--text);overflow:hidden;}
+.shell{max-width:420px;margin:0 auto;height:100vh;display:flex;flex-direction:column;position:relative;}
+.watermark{font-size:11px;font-weight:900;color:#0ea5e9;letter-spacing:3px;text-align:center;padding:5px 0;background:#0ea5e912;border-bottom:1px solid #0ea5e930;}
+.hdr{padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;}
+.scrollable{flex:1;overflow-y:auto;padding:16px;padding-bottom:160px;}
+.label-sec{font-size:10px;font-weight:800;color:var(--muted);margin:16px 0 8px;letter-spacing:1.5px;text-transform:uppercase;}
+.mod-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.mod-item{padding:16px 10px;border-radius:12px;border:1px solid var(--border);text-align:center;cursor:pointer;background:var(--card);position:relative;transition:all .2s;}
+.mod-icon{font-size:24px;margin-bottom:5px;display:block;}
+.mod-name{font-size:11px;font-weight:700;}
+.ot-card{background:#1e1111;border:1px solid #451010;padding:14px;border-radius:12px;margin-bottom:10px;border-left:4px solid #ef4444;position:relative;}
+.ot-urgente{animation:otP 1.2s ease-in-out infinite;}
+@keyframes otP{0%,100%{background:#1e1111;box-shadow:none}50%{background:#2d0a0a;box-shadow:0 0 20px #ef444460;}}
+.ot-id-badge{position:absolute;top:8px;right:8px;font-size:9px;font-weight:900;color:#ef4444;background:#ef444420;padding:2px 6px;border-radius:4px;}
+.btn-ot-close{background:var(--green);color:white;border:none;padding:10px;border-radius:8px;font-weight:800;font-size:11px;cursor:pointer;width:100%;margin-top:8px;}
+.check-card{background:var(--card);border:1px solid var(--border);padding:12px 14px;border-radius:10px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;}
+.chk-btns{display:flex;gap:6px;}
+.chk-btns button{padding:10px 13px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-weight:800;font-size:11px;cursor:pointer;}
+.asi{background:#22c55e15!important;border-color:var(--green)!important;color:var(--green)!important;}
+.ano{background:#ef444415!important;border-color:var(--red)!important;color:var(--red)!important;}
+.pill-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.pill{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:9px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;}
+.pill.active{background:var(--accent);color:white;border-color:var(--accent);}
+.inp{width:100%;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;color:white;font-size:15px;margin-bottom:14px;outline:none;resize:none;}
+.footer-fixed{position:absolute;bottom:0;left:0;right:0;padding:16px;background:linear-gradient(transparent,var(--bg) 40%);z-index:10;}
+.btn-save{width:100%;padding:17px;background:var(--green);color:white;border:none;border-radius:16px;font-weight:900;font-size:15px;cursor:pointer;}
+.btn-save:disabled{opacity:.2;filter:grayscale(1);cursor:not-allowed;}
+.btn-xl{width:100%;padding:14px;background:var(--accent);color:white;border-radius:12px;border:none;font-weight:800;margin-top:10px;cursor:pointer;}
+.t-val{font-size:50px;font-weight:900;text-align:center;margin:10px 0;}
+.t-btn{width:100%;padding:15px;border-radius:10px;border:none;font-weight:900;cursor:pointer;margin-top:8px;}
+.tstart{background:var(--accent);color:white;}.tstop{background:var(--red);color:white;}
+.prog-wrap{position:sticky;top:0;background:var(--bg);z-index:5;padding:6px 0 10px;}
+.prog-bar{height:6px;background:var(--border);border-radius:10px;overflow:hidden;}
+.prog-fill{height:100%;background:var(--accent);transition:width .3s;}
+.fi{animation:fadeIn .3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.centered{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:30px;text-align:center;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+.dok{background:var(--green);animation:blink 2s infinite;}
+.dbsy{background:#f59e0b;}
+.derr{background:var(--red);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.tab-btn{flex:1;padding:11px;border:none;background:transparent;font-weight:900;font-size:12px;cursor:pointer;border-bottom:3px solid transparent;}
+.timeline-item{background:var(--card);border-radius:10px;padding:10px;margin-bottom:8px;border-left:3px solid var(--accent);}
+.badge-ok{background:#22c55e20;color:#22c55e;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;}
+.badge-no{background:#ef444420;color:#ef4444;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;}
+.badge-warning{background:#f9731620;color:#f97316;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;}
+.section-header{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;border:1px solid var(--border);transition:all .2s;}
+.section-header:hover{background:var(--border);}
+.ot-subsection{margin-top:8px;margin-left:8px;border-left:2px solid var(--border);padding-left:12px;}
+.stat-card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid var(--border);}
+.stat-number{font-size:28px;font-weight:900;color:var(--accent);}
+.stat-label{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.fallo-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);}
+.fallo-nombre{font-size:12px;font-weight:700;color:var(--text);}
+.fallo-count{background:#ef444420;color:#ef4444;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:800;}
+.filtro-group{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.filtro-select{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:12px;font-weight:600;flex:1;min-width:100px;}
+.filtro-select:focus{outline:none;border-color:var(--accent);}
+.filtro-reset{background:#ef444420;border:1px solid #ef444460;color:#ef4444;padding:8px 12px;border-radius:8px;font-weight:800;font-size:11px;cursor:pointer;}
+.security-badge{background:#22c55e20;border:1px solid #22c55e40;border-radius:20px;padding:2px 8px;font-size:9px;color:#22c55e;font-weight:700;margin-left:6px;}
+.recordatorio-card{background:linear-gradient(135deg,#f9731620,#f9731605);border:1px solid #f9731640;border-left:4px solid #f97316;border-radius:12px;padding:12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.recordatorio-tiempo{font-size:11px;color:#f97316;font-weight:800;font-family:monospace;}
+.recordatorio-boton{background:#22c55e;border:none;color:white;padding:8px 14px;border-radius:8px;font-weight:800;font-size:11px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const{useState,useEffect,useRef,useCallback}=React;
+
+// ============================================================
+// FUNCIONES DE HASH DE CONTRASEÑAS (SHA-256)
+// ============================================================
+const SALT_SECRETO = "R3c0rr1d0Mult1-S4lt-S3gur0-2024";
+
+const hashPassword = async (password) => {
+  try {
+    const passwordConSalt = password + SALT_SECRETO;
+    const encoder = new TextEncoder();
+    const data = encoder.encode(passwordConSalt);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (error) {
+    console.error("Error generando hash:", error);
+    let hash = 0;
+    for (let i = 0; i < password.length; i++) {
+      hash = ((hash << 5) - hash) + password.charCodeAt(i);
+      hash |= 0;
+    }
+    return (hash + SALT_SECRETO.length).toString(16);
+  }
+};
+
+const USUARIOS_ORIGINALES = [
+  {nombre:"Christopher",password:"1",rol:"Técnico"},
+  {nombre:"Gustavo",password:"2",rol:"Ciclo"},
+  {nombre:"Vicente",password:"admi",rol:"Administrador"},
+  {nombre:"Joel",password:"3",rol:"Coordinador"},
+  {nombre:"Geovanny",password:"4",rol:"Recorridos"},
+  {nombre:"Monitoreo",password:"5",rol:"Monitoreo"},
+];
+
+const CAJEROS=["Siman Sotano","Hooligan's Izq","Holligan's Cen","Hooligan's Der","Siman Terraza","Rosti","Katrin izq","Universal","Chilis izq","Chilis der","Katrin der"];
+const ENTRADAS=["Entrada Nesting","Entrada 2 Zapote","Entrada 1 Zapote","Entrada 1 Arturo Calle","Entrada 2 Arturo Calle","Entrada 2 Rosti","Entrada 1 Katrin","Entrada 2 Katrin","Entrada 1 Rosti"];
+const SALIDAS=["SALIDA NESTING","SALIDA 2 ZAPOTE","SALIDA 1 ZAPOTE","Salida 1 Arturo Calle","Salida 2 Arturo Calle","SALIDA REVERSIBLE ARTURO CALLE","SALIDA 1 ROSTI","Salida 2 Roti","SALIDA UNIVERSAL"];
+
+// 🔴 CAMBIO REALIZADO AQUÍ: "Rosti" → "Salida Rostipollo"
+const LIMPIEZA_CAJEROS = ["Katrin","Rosti","Hooligan","Chillis","Universal","Siman"];
+const LIMPIEZA_SALIDAS = ["ZAPOTE","Arturo Calle","Salida Rostipollo","universal"];
+
+const MODS=[
+  {id:"cajero",label:"Cajero",icon:"🏧",color:"#0ea5e9"},
+  {id:"entrada",label:"Entrada",icon:"🚗",color:"#22c55e"},
+  {id:"salida",label:"Salida",icon:"🚦",color:"#f97316"},
+  {id:"indicador",label:"Indicador",icon:"⏱",color:"#a855f7"},
+  {id:"ot",label:"Orden Trabajo (OT)",icon:"🔧",color:"#f43f5e"},
+  {id:"limpieza",label:"Limpieza",icon:"🧹",color:"#fbbf24"},
+  {id:"almuerzo",label:"Almuerzos Valet",icon:"🍽",color:"#e879f9"},
+];
+const CC=[{id:'ups',label:'UPS'},{id:'dat',label:'Datafono'},{id:'mini',label:'Mini PC'},{id:'qr',label:'Lector QR'},{id:'imp',label:'Impresora'},{id:'pap',label:'Papel'},{id:'lim_chk',label:'Limpieza'},{id:'anc',label:'Anclaje'},{id:'pan',label:'Pantalla'},{id:'int',label:'Intercom'}];
+const CE=[{id:'asta',label:'Asta'},{id:'loop',label:'Loop'},{id:'imp_ent',label:'Impresora'},{id:'tiq',label:'Tiquetes'},{id:'lpr_ent',label:'LPR'},{id:'ctr',label:'Cam Trasera'},{id:'cfr',label:'Cam Frontal'},{id:'ups_ent',label:'UPS'}];
+const CS=[{id:'asta_sal',label:'Asta'},{id:'loop_sal',label:'Loop'},{id:'qr_sal',label:'Lector QR'},{id:'lpr_sal',label:'LPR'},{id:'ctr_sal',label:'Cam Trasera'},{id:'cfr_sal',label:'Cam Frontal'},{id:'ups_sal',label:'UPS'}];
+const ALLCHK=[...CC,...CE,...CS];
+const fk=s=>s.replace(/[.#$/\[\]]/g,'_');
+
+const IU={Christopher:"🔧",Gustavo:"🔄",Vicente:"🧠",Joel:"📋",Geovanny:"👁",Monitoreo:"🖥"};
+const CU={Christopher:"#0ea5e9",Gustavo:"#22c55e",Vicente:"#f59e0b",Joel:"#a855f7",Geovanny:"#f97316",Monitoreo:"#06b6d4"};
+const VP=[
+  {nombre:"Marlon Centeno",minA:65,minC:15,cafe:true},
+  {nombre:"Johan Carvajal",minA:65,minC:15,cafe:true},
+  {nombre:"Daniel Zuñiga",minA:80,minC:0,cafe:false},
+  {nombre:"Esteban Gonzalez",minA:65,minC:15,cafe:true},
+  {nombre:"Gustavo Salas",minA:80,minC:0,cafe:false},
+  {nombre:"Outsorcin 1",minA:65,minC:15,cafe:true},
+  {nombre:"Outsorcin 2",minA:65,minC:15,cafe:true},
+];
+const ALM_OPS=["Vicente","Joel","Monitoreo"];
+const ALM_VIS=["Vicente","Joel","Monitoreo","Geovanny"];
+const COLS_R=["USUARIO","ROL","FECHA","HORA","MODULO","ACCION","ORDEN_ID","UBICACION","RESULTADO","NOTAS","UPS","Datafono","Mini PC","Lector QR","Impresora","Papel","Limpieza","Anclaje","Pantalla","Intercom","Asta","Loop","Tiquetes","LPR","Cam Trasera","Cam Frontal"];
+const COLS_A=["PERSONA","TIPO","FECHA","HORA_SALIDA","HORA_REGRESO","A_TIEMPO"];
+
+const esNuevoDia = () => {
+  const ahora = new Date();
+  const horaActual = ahora.getHours();
+  return horaActual >= 22;
+};
+
+const getFechaActual = () => {
+  const ahora = new Date();
+  if(esNuevoDia()){
+    const manana = new Date(ahora);
+    manana.setDate(manana.getDate() + 1);
+    return manana.toLocaleDateString("es");
+  }
+  return ahora.toLocaleDateString("es");
+};
+
+function canAccess(m,u){
+  if(m.id==="almuerzo")return ALM_VIS.includes(u.nombre);
+  if(u.nombre==="Monitoreo")return m.id==="ot"||m.id==="almuerzo";
+  if(["cajero","entrada","salida"].includes(m.id))return["Vicente","Geovanny","Christopher"].includes(u.nombre);
+  return true;
+}
+
+function App(){
+  const[usuario,setUsuario]=useState(null);
+  const[firebaseReady,setFirebaseReady]=useState(false);
+  const[screen,setScreen]=useState("home");
+  const[modulo,setModulo]=useState(null);
+  const[form,setForm]=useState({});
+  const[history,setHistory]=useState([]);
+  const[activeOTs,setActiveOTs]=useState([]);
+  const[vales,setVales]=useState([]);
+  const[timer,setTimer]=useState(0);
+  const[timerOn,setTimerOn]=useState(false);
+  const[sync,setSync]=useState("ok");
+  const[otAlert,setOtAlert]=useState(null);
+  const[onlineU,setOnlineU]=useState([]);
+  const[selMod,setSelMod]=useState(null);
+  const[clock,setClock]=useState("");
+  const[diaTab,setDiaTab]=useState("hoy");
+  const[passwords,setPasswords]=useState({});
+  const tRef=useRef(null);
+  const pLen=useRef(0);
+  const pOTLen=useRef(0);
+  const actx=useRef(null);
+  const [migrando, setMigrando] = useState(false);
+  const [recargarVales, setRecargarVales] = useState(0);
+
+  useEffect(()=>{
+    const check=setInterval(()=>{
+      if(window._fb && window._fb.db && window._fbReady){
+        clearInterval(check);
+        setFirebaseReady(true);
+      }
+    },50);
+    return()=>clearInterval(check);
+  },[]);
+
+  useEffect(()=>{
+    const fn=()=>setClock(new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+    fn();const id=setInterval(fn,1000);return()=>clearInterval(id);
+  },[]);
+
+  useEffect(()=>{
+    const u=()=>{if(!actx.current)actx.current=new(window.AudioContext||window.webkitAudioContext)();if(actx.current.state==='suspended')actx.current.resume();};
+    document.addEventListener('touchstart',u,{passive:true});document.addEventListener('click',u);
+    return()=>{document.removeEventListener('touchstart',u);document.removeEventListener('click',u);};
+  },[]);
+
+  const migrarPasswordsAHash = async () => {
+    if(migrando) return;
+    setMigrando(true);
+    try {
+      const { db, ref, get, set } = window._fb;
+      const snapshot = await get(ref(db, "passwords"));
+      const datosActuales = snapshot.val() || {};
+      
+      let cambios = false;
+      const nuevosPasswords = { ...datosActuales };
+      
+      for (const user of USUARIOS_ORIGINALES) {
+        const passwordActual = datosActuales[user.nombre];
+        if (passwordActual && passwordActual.length !== 64) {
+          const hash = await hashPassword(user.password);
+          nuevosPasswords[user.nombre] = hash;
+          cambios = true;
+        }
+        if (!passwordActual) {
+          const hash = await hashPassword(user.password);
+          nuevosPasswords[user.nombre] = hash;
+          cambios = true;
+        }
+      }
+      
+      if (cambios) {
+        await set(ref(db, "passwords"), nuevosPasswords);
+      }
+    } catch (error) {
+      console.error("Error en migración:", error);
+    } finally {
+      setMigrando(false);
+    }
+  };
+
+  const marcarRegreso = async (vale) => {
+    if(!window._fb) return;
+    const { db, ref, set } = window._fb;
+    const ahora = new Date();
+    const horaRegreso = ahora.toLocaleTimeString("es", {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    
+    const minPermitido = vale.tipo === "almuerzo" ? 65 : 15;
+    const [sh, sm, ss] = vale.salida.split(":").map(Number);
+    const [rh, rm, rs] = horaRegreso.split(":").map(Number);
+    const aTiempo = ((rh*60+rm)*60+(rs||0) - (sh*60+sm)*60-(ss||0)) <= minPermitido*60;
+    
+    const { _fbKey, ...rest } = vale;
+    await set(ref(db, `vales/${_fbKey}`), { ...rest, regreso: horaRegreso, aTiempo });
+    setRecargarVales(prev => prev + 1);
+  };
+
+  useEffect(()=>{
+    if(!firebaseReady)return;
+    const{db,ref,onValue,set}=window._fb;
+    
+    migrarPasswordsAHash();
+    
+    const s1=onValue(ref(db,"registros"),snap=>{
+      const d=snap.val();if(!d){setHistory([]);pLen.current=0;return;}
+      const arr=Object.entries(d).map(([k,v])=>({...v,_fbKey:k})).sort((a,b)=>(b._ts||0)-(a._ts||0));
+      pLen.current=arr.length;setHistory(arr);
+    });
+    const s2=onValue(ref(db,"activeOTs"),snap=>{
+      const d=snap.val();if(!d){setActiveOTs([]);pOTLen.current=0;return;}
+      const arr=Object.entries(d).map(([k,v])=>({...v,_fbKey:k}));
+      if(arr.length>pOTLen.current&&pOTLen.current>0){playSound();const n=arr[arr.length-1];setOtAlert({loc:n?.loc,det:n?.det});setTimeout(()=>setOtAlert(null),6000);}
+      pOTLen.current=arr.length;setActiveOTs(arr);
+    });
+    const s3=onValue(ref(db,"presencia"),snap=>{
+      const d=snap.val();
+      const list=d?Object.values(d).filter(v=>v.nombre&&v.nombre!==""&&v.nombre!=="Vicente"):[];
+      setOnlineU(list.map(v=>v.nombre));
+    });
+    const s4=onValue(ref(db,"vales"),snap=>{
+      const d=snap.val();if(!d){setVales([]);return;}
+      setVales(Object.entries(d).map(([k,v])=>({...v,_fbKey:k})));
+    });
+    const s5=onValue(ref(db,"passwords"),snap=>{
+      const d=snap.val();
+      if(d)setPasswords(d);
+      else{const def={};USUARIOS_ORIGINALES.forEach(async u=>{def[u.nombre]=await hashPassword(u.password);});set(ref(db,"passwords"),def);setPasswords(def);}
+    });
+    return()=>{s1();s2();s3();s4();s5();};
+  },[firebaseReady, recargarVales]);
+
+  const playSound=useCallback(()=>{
+    try{
+      const ctx=actx.current||new(window.AudioContext||window.webkitAudioContext)();
+      actx.current=ctx;if(ctx.state==='suspended')ctx.resume();
+      [523,659,784,1047].forEach((f,i)=>{
+        const o=ctx.createOscillator(),g=ctx.createGain();
+        o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.value=f;
+        const t=ctx.currentTime+i*0.18;
+        g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.5,t+0.05);g.gain.linearRampToValueAtTime(0,t+0.2);
+        o.start(t);o.stop(t+0.22);
+      });
+    }catch(e){}
+    try{navigator.vibrate&&navigator.vibrate([150,80,150,80,300]);}catch(e){}
+  },[]);
+
+  const setF=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const openMod=m=>{setModulo(m);setForm({ot_tipo:"ABRIR ORDEN DE TRABAJO",ot_id:"OT-"+Math.random().toString(36).substr(2,4).toUpperCase()});setTimer(0);setTimerOn(false);if(tRef.current)clearInterval(tRef.current);setScreen("form");};
+  const toggleTimer=()=>{if(timerOn){clearInterval(tRef.current);setF("timer_val",(timer/1000).toFixed(2));}else{const s=Date.now()-timer;tRef.current=setInterval(()=>setTimer(Date.now()-s),10);}setTimerOn(!timerOn);};
+
+  const calcProg=()=>{
+    if(!modulo)return 0;
+    if(form.ot_tipo==="CERRAR ORDEN DE TRABAJO"){
+      const ts=form.ot_detalle&&form.ot_detalle.trim().length>0;
+      const tr=form.ot_rapido_cierre&&form.ot_rapido_cierre.length>0;
+      return(ts||tr)?100:0;
+    }
+    if(modulo.id==='ot' && form.ot_tipo==="ABRIR ORDEN DE TRABAJO"){
+      const tieneRapido = form.ot_rapido && form.ot_rapido.length>0;
+      const tieneDetalle = form.ot_detalle && form.ot_detalle.trim().length>0;
+      if(tieneRapido) return 100;
+      if(tieneDetalle) return 100;
+      return 0;
+    }
+    let t=1,a=0;
+    if(form.cajero||form.entrada||form.salida||form.lim_loc||form.ot_ubicacion||form.ind_loc)a++;
+    if(modulo.id==='limpieza'){t+=2;if(form.lim_cat)a++;if(form.lim_estado)a++;}
+    const chk=modulo.id==='cajero'?CC:modulo.id==='entrada'?CE:modulo.id==='salida'?CS:[];
+    chk.forEach(c=>{t++;if(form[c.id])a++;});
+    if(modulo.id==='indicador'){t++;if(form.timer_val)a++;}
+    if(modulo.id==='ot'){t++;if(form.ot_detalle)a++;}
+    return Math.round((a/t)*100);
+  };
+
+  const isOTValid = () => {
+    if(modulo?.id !== 'ot') return true;
+    if(form.ot_tipo === "CERRAR ORDEN DE TRABAJO"){
+      const tieneSolucion = form.ot_detalle && form.ot_detalle.trim().length>0;
+      const tieneRapido = form.ot_rapido_cierre && form.ot_rapido_cierre.length>0;
+      return tieneSolucion || tieneRapido;
+    }
+    if(form.ot_tipo === "ABRIR ORDEN DE TRABAJO"){
+      const tieneRapido = form.ot_rapido && form.ot_rapido.length>0;
+      const tieneDetalle = form.ot_detalle && form.ot_detalle.trim().length>0;
+      return tieneRapido || tieneDetalle;
+    }
+    return true;
+  };
+
+  const save=async()=>{
+    if(!firebaseReady){alert("Firebase no listo");return;}
+    if(!isOTValid()){
+      if(form.ot_tipo === "ABRIR ORDEN DE TRABAJO"){
+        alert("⚠️ Debes seleccionar una RESPUESTA RÁPIDA o escribir el DETALLE TÉCNICO para abrir la orden");
+      } else {
+        alert("⚠️ Debes seleccionar una RESPUESTA RÁPIDA o escribir la SOLUCIÓN APLICADA para cerrar la orden");
+      }
+      return;
+    }
+    setSync("busy");
+    const{db,ref,push,set,get,remove}=window._fb;
+    const now=new Date();
+    const loc=form.lim_loc||form.ot_ubicacion||form.cajero||form.entrada||form.salida||form.ind_loc||"General";
+    const cr={};ALLCHK.forEach(c=>{if(form[c.id])cr[fk(c.label)]=form[c.id];});
+    const rec={_ts:Date.now(),USUARIO:usuario.nombre,ROL:usuario.rol,ORDEN_ID:form.ot_id||"-",
+      FECHA:now.toLocaleDateString("es"),HORA:now.toLocaleTimeString("es"),MODULO:modulo.label,
+      ACCION:modulo.id==='ot'?form.ot_tipo:"REVISIÓN",UBICACION:loc,
+      RESULTADO:modulo.id==='indicador'?`${form.timer_val}s`:modulo.id==='limpieza'?"LIMPIO":"OK",
+      NOTAS:[form.ot_rapido,form.ot_rapido_cierre,form.ot_detalle].filter(Boolean).join(' · ')||form.obs||"-",...cr};
+    try{
+      await push(ref(db,"registros"),rec);
+      if(modulo.id==='ot'){
+        if(form.ot_tipo==="CERRAR ORDEN DE TRABAJO"){
+          const snapshot=await get(ref(db,"activeOTs"));
+          const data=snapshot.val();
+          if(data){
+            const entries=Object.entries(data);
+            for(const[key,val] of entries){
+              if(val.ot_id===form.ot_id){
+                await remove(ref(db,`activeOTs/${key}`));
+              }
+            }
+          }
+        }else{
+          await push(ref(db,"activeOTs"),{ot_id:form.ot_id,loc,det:[form.ot_rapido,form.ot_detalle].filter(Boolean).join(' · ')||form.ot_tipo,fecha:rec.FECHA,_ts:Date.now()});
+          playSound();
+        }
+      }
+      setSync("ok");setScreen("success");
+    }catch(e){console.error(e);setSync("err");alert("Error: "+e.message);}
+  };
+
+  const downloadXLS=async()=>{
+    const pw=prompt("Ingrese la clave de acceso:");if(pw!=="2026"){if(pw!==null)alert("Clave incorrecta.");return;}
+    const wb=XLSX.utils.book_new();
+    const applyS=(ws,rng,hc,ec)=>{
+      for(let C=rng.s.c;C<=rng.e.c;C++){const cell=XLSX.utils.encode_cell({r:0,c:C});if(!ws[cell])continue;
+        ws[cell].s={font:{bold:true,color:{rgb:"FFFFFF"},sz:11},fill:{fgColor:{rgb:hc}},alignment:{horizontal:"center",vertical:"center"},border:{top:{style:"medium",color:{rgb:"000000"}},bottom:{style:"medium",color:{rgb:"000000"}},left:{style:"thin",color:{rgb:"000000"}},right:{style:"thin",color:{rgb:"000000"}}}};}
+      for(let R=1;R<=rng.e.r;R++)for(let C=rng.s.c;C<=rng.e.c;C++){const cell=XLSX.utils.encode_cell({r:R,c:C});if(!ws[cell])ws[cell]={t:"s",v:"-"};
+        ws[cell].s={font:{sz:10},alignment:{vertical:"center"},fill:{fgColor:{rgb:R%2===0?ec:"FFFFFF"}},border:{top:{style:"thin",color:{rgb:"CCCCCC"}},bottom:{style:"thin",color:{rgb:"CCCCCC"}},left:{style:"thin",color:{rgb:"CCCCCC"}},right:{style:"thin",color:{rgb:"CCCCCC"}}}};}
+    };
+    const recOrdenados = [...history].sort((a,b)=>b._ts - a._ts);
+    const recRows=recOrdenados.map(({_fbKey,_ts,...r})=>{const o={};COLS_R.forEach(c=>{o[c]=(r[c]!==undefined&&r[c]!==null&&r[c]!=="")?String(r[c]):"-";});return o;});
+    const ws1=XLSX.utils.json_to_sheet(recRows,{header:COLS_R});
+    ws1['!cols']=COLS_R.map(c=>({wch:Math.max(c.length+4,16)}));
+    applyS(ws1,XLSX.utils.decode_range(ws1['!ref']||"A1"),"0D4F9E","DCE9FF");
+    XLSX.utils.book_append_sheet(wb,ws1,"Recorridos");
+    const cerr=vales.filter(v=>v.regreso).sort((a,b)=>b._ts - a._ts);
+    const almR=cerr.map(({_fbKey,_ts,...v})=>({PERSONA:v.persona||"-",TIPO:v.tipo?v.tipo.toUpperCase():"-",FECHA:v.fecha||"-",HORA_SALIDA:v.salida||"-",HORA_REGRESO:v.regreso||"-",A_TIEMPO:v.aTiempo!==undefined?(v.aTiempo?"SÍ":"NO"):"-"}));
+    const ws2=XLSX.utils.json_to_sheet(almR,{header:COLS_A});
+    ws2['!cols']=COLS_A.map(c=>({wch:Math.max(c.length+4,18)}));
+    applyS(ws2,XLSX.utils.decode_range(ws2['!ref']||"A1"),"0D6B30","D4EDDA");
+    XLSX.utils.book_append_sheet(wb,ws2,"Almuerzos");
+    XLSX.writeFile(wb,`recorridos_${new Date().toLocaleDateString("es").replace(/\//g,"-")}.xlsx`,{cellStyles:true});
+    const{db,ref,set}=window._fb;
+    await set(ref(db,"registros"),null);await set(ref(db,"activeOTs"),null);await set(ref(db,"vales"),null);
+  };
+
+  const prog=calcProg();
+  const isStrict=["cajero","entrada","salida","limpieza"].includes(modulo?.id)||(form.ot_tipo==="CERRAR ORDEN DE TRABAJO");
+  const otValid = isOTValid();
+  const dotC=sync==="busy"?"dbsy":sync==="err"?"derr":"dok";
+  const hoy=getFechaActual();
+  const ayerD=new Date();ayerD.setDate(ayerD.getDate()-1);
+  const ayer=ayerD.toLocaleDateString("es");
+  const hoyH=history.filter(h=>h.FECHA===hoy);
+  const ayerH=history.filter(h=>h.FECHA===ayer);
+
+  const colaboradoresFuera = vales.filter(v => 
+    v.fecha === hoy && !v.regreso && 
+    (v.tipo === "almuerzo" || v.tipo === "cafe")
+  );
+
+  if(!firebaseReady)return(<div className="centered"><div style={{fontSize:36}}>🔄</div><p style={{marginTop:16,color:'var(--muted)',fontWeight:700}}>Conectando con Firebase...</p></div>);
+
+  if(!usuario)return(<LoginScreen passwords={passwords} onLogin={u=>{
+    setUsuario(u);
+    if(window._fb){const{db,ref,set,onDisconnect}=window._fb;const ur=ref(db,`presencia/${u.nombre}`);set(ur,{activo:true,ts:Date.now(),nombre:u.nombre});onDisconnect(ur).remove();window._fb.presenceRef=ur;}
+  }}/>);
+
+  return(
+    <div className="shell">
+      {otAlert&&(
+        <div className="fi" style={{position:'absolute',top:0,left:0,right:0,zIndex:999,background:'linear-gradient(135deg,#ef4444,#b91c1c)',padding:'13px 16px',boxShadow:'0 4px 20px #ef444460',display:'flex',alignItems:'center',gap:10}}>
+          <div style={{fontSize:24}}>🔧</div>
+          <div style={{flex:1}}><div style={{fontSize:12,fontWeight:900,color:'white'}}>¡NUEVA ORDEN DE TRABAJO!</div><div style={{fontSize:11,color:'#fecaca'}}>📍 {otAlert.loc}</div>{otAlert.det&&<div style={{fontSize:10,color:'#fca5a5'}}>{otAlert.det}</div>}</div>
+          <button onClick={()=>setOtAlert(null)} style={{background:'#ffffff30',border:'none',color:'white',fontWeight:900,fontSize:12,padding:'6px 10px',borderRadius:8,cursor:'pointer'}}>✕</button>
+        </div>
+      )}
+
+      {screen==="home"&&(
+        <div className="fi" style={{height:'100%',display:'flex',flexDirection:'column'}}>
+          <div className="watermark">— VICENTE.S —</div>
+          <div className="hdr">
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontSize:17,fontWeight:900}}>RECORRIDO <span style={{color:'var(--accent)'}}>MULTI</span> <span style={{fontSize:9,color:'var(--muted)',fontWeight:600}}>v7.1</span></div>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:3}}>
+                <div style={{display:'flex',alignItems:'center',gap:5}}>
+                  <div className={`dot ${dotC}`}></div>
+                  <span style={{fontSize:10,fontWeight:800,color:'var(--muted)'}}>EN VIVO</span>
+                  <span style={{fontSize:10,color:'#22c55e',fontWeight:900,marginLeft:4}}>{history.length} REG</span>
+                  <span style={{fontSize:10,fontWeight:900,marginLeft:4,color:'#a855f7',background:'#a855f715',padding:'2px 6px',borderRadius:20}}>👤 {onlineU.length}</span>
+                  <span className="security-badge">🔒 SHA-256</span>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:4}}>
+                  <span style={{fontSize:10,fontWeight:800,color:'var(--accent)'}}>{usuario.nombre}</span>
+                  <span style={{fontSize:9,color:'var(--muted)',background:'var(--border)',padding:'1px 5px',borderRadius:4}}>{usuario.rol}</span>
+                  {usuario.nombre==="Vicente"&&<button onClick={()=>setScreen("admin")} style={{fontSize:9,fontWeight:900,background:'#f59e0b20',border:'1px solid #f59e0b40',color:'#f59e0b',padding:'2px 6px',borderRadius:4,cursor:'pointer'}}>⚙️</button>}
+                  <button onClick={()=>setScreen("cambiarPw")} style={{fontSize:9,fontWeight:900,background:'#0ea5e920',border:'1px solid #0ea5e940',color:'var(--accent)',padding:'2px 6px',borderRadius:4,cursor:'pointer'}}>🔑</button>
+                  <button onClick={()=>{if(window._fb&&window._fb.presenceRef)window._fb.remove(window._fb.presenceRef);setUsuario(null);}} style={{fontSize:9,fontWeight:900,background:'#ef444420',border:'1px solid #ef444440',color:'#ef4444',padding:'2px 6px',borderRadius:4,cursor:'pointer'}}>SALIR</button>
+                </div>
+              </div>
+            </div>
+            <div style={{marginTop:8,background:'#0ea5e910',border:'1px solid #0ea5e920',borderRadius:8,padding:'7px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontSize:10,fontWeight:800,color:'var(--muted)'}}>🕐 HORA</span>
+              <span style={{fontSize:17,fontWeight:900,color:'var(--accent)'}}>{clock}</span>
+            </div>
+            {esNuevoDia() && (
+              <div style={{marginTop:6,background:'#f9731620',border:'1px solid #f9731640',borderRadius:6,padding:'4px 8px',textAlign:'center'}}>
+                <span style={{fontSize:9,color:'#f97316',fontWeight:700}}>🔄 Modo noche activo - Los recorridos se reinician a las 10pm</span>
+              </div>
+            )}
+          </div>
+          <div className="scrollable">
+            {usuario.nombre === "Monitoreo" && colaboradoresFuera.length > 0 && (
+              <div style={{marginBottom:16}}>
+                <div className="label-sec">⏰ COLABORADORES EN ALMUERZO/CAFÉ</div>
+                {colaboradoresFuera.map(vale => {
+                  const salidaTime = new Date(`${hoy} ${vale.salida}`);
+                  const ahoraTime = new Date();
+                  const minutosTranscurridos = Math.floor((ahoraTime - salidaTime) / 60000);
+                  const esAlmuerzo = vale.tipo === "almuerzo";
+                  const tiempoLimite = esAlmuerzo ? 65 : 15;
+                  const tiempoRestante = tiempoLimite - minutosTranscurridos;
+                  const estaTarde = minutosTranscurridos > tiempoLimite;
+                  
+                  return (
+                    <div key={vale._fbKey} className="recordatorio-card" style={{borderLeftColor: estaTarde ? '#ef4444' : '#f97316'}}>
+                      <div style={{flex:1}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                          <span style={{fontSize:16}}>{esAlmuerzo ? '🍽️' : '☕'}</span>
+                          <span style={{fontSize:14,fontWeight:900,color:estaTarde ? '#ef4444' : '#f97316'}}>{vale.persona}</span>
+                          {estaTarde && <span className="badge-no">⚠️ TARDE</span>}
+                        </div>
+                        <div style={{fontSize:11,color:'var(--muted)'}}>
+                          Salió: {vale.salida} • {esAlmuerzo ? 'Almuerzo (65min)' : 'Café (15min)'}
+                        </div>
+                        <div className="recordatorio-tiempo" style={{marginTop:4, color: estaTarde ? '#ef4444' : '#f97316'}}>
+                          {estaTarde 
+                            ? `⏰ Retraso: ${Math.abs(tiempoRestante)} minutos`
+                            : `⏳ Tiempo restante: ${tiempoRestante} minutos`
+                          }
+                        </div>
+                      </div>
+                      <button 
+                        className="recordatorio-boton" 
+                        onClick={() => marcarRegreso(vale)}
+                        style={{background: estaTarde ? '#ef4444' : '#22c55e'}}
+                      >
+                        ✅ REGRESAR
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {activeOTs.length>0&&usuario.nombre!=="Monitoreo"&&(
+              <div>
+                <div className="label-sec">⚠️ ÓRDENES PENDIENTES ({activeOTs.length})</div>
+                {activeOTs.map(o=>{
+                  const min=o._ts?Math.floor((Date.now()-o._ts)/60000):0;
+                  const urg=min>=5;
+                  const ct=min<5?'#22c55e':min<15?'#f59e0b':'#ef4444';
+                  return(
+                    <div key={o._fbKey} className={`ot-card${urg?' ot-urgente':''}`} style={urg?{borderLeftWidth:6}:{}}>
+                      <div className="ot-id-badge">{o.ot_id}</div>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
+                        <div style={{fontSize:14,fontWeight:900,color:'#f87171'}}>{o.loc}</div>
+                        <div style={{fontSize:11,fontWeight:900,color:ct,background:`${ct}20`,padding:'3px 8px',borderRadius:20,marginLeft:8,flexShrink:0}}>{urg?'🚨':''} {min<1?'Ahora':`${min} min`}</div>
+                      </div>
+                      <p style={{fontSize:12,color:'#94a3b8',marginBottom:6}}>{o.det}</p>
+                      {urg&&<div style={{fontSize:10,color:'#ef4444',fontWeight:700,marginBottom:6}}>⚠️ Lleva más de {min} min sin cerrar</div>}
+                      <button className="btn-ot-close" onClick={()=>{setModulo(MODS.find(m=>m.id==='ot'));setForm({ot_tipo:'CERRAR ORDEN DE TRABAJO',ot_ubicacion:o.loc,ot_id:o.ot_id,original_det:o.det});setScreen("form");}}>CERRAR ✓</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="label-sec">MENÚ</div>
+            <div className="mod-grid">
+              {MODS.map(m=>{
+                const ok=canAccess(m,usuario);
+                return(
+                  <div key={m.id} className="mod-item" onClick={()=>{if(!ok)return;if(m.id==='almuerzo')setScreen("almuerzo");else openMod(m);}} style={{opacity:ok?1:0.35,cursor:ok?'pointer':'not-allowed'}}>
+                    <span className="mod-icon">{m.icon}</span>
+                    <div className="mod-name" style={{color:m.color}}>{m.label}</div>
+                    {!ok&&<div style={{position:'absolute',top:6,right:8,fontSize:11}}>🔒</div>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {onlineU.filter(Boolean).length>0&&(
+              <div>
+                <div className="label-sec">🟢 EN LÍNEA</div>
+                <div style={{background:'var(--card)',border:'1px solid #22c55e30',borderRadius:12,padding:'10px 14px',display:'flex',flexWrap:'wrap',gap:7}}>
+                  {onlineU.filter(Boolean).map((u,i)=>{
+                    const c=CU[u]||'#22c55e';
+                    return(<div key={i} style={{display:'flex',alignItems:'center',gap:5,background:`${c}15`,border:`1px solid ${c}40`,borderRadius:20,padding:'4px 10px'}}>
+                      <span style={{fontSize:11}}>{IU[u]||'👤'}</span>
+                      <span style={{fontSize:11,fontWeight:800,color:c}}>{u}</span>
+                      <span style={{width:6,height:6,borderRadius:'50%',background:'#22c55e',display:'inline-block',animation:'blink 2s infinite'}}></span>
+                    </div>);
+                  })}
+                </div>
+              </div>
+            )}
+
+            {(hoyH.length>0||ayerH.length>0)&&(
+              <DashboardSimplificado
+                history={history}
+                hoyH={hoyH} ayerH={ayerH} hoy={hoy} ayer={ayer}
+                diaTab={diaTab} setDiaTab={setDiaTab}
+                activeOTs={activeOTs} selMod={selMod} setSelMod={setSelMod}
+              />
+            )}
+
+            {usuario.nombre==="Vicente"&&<button className="btn-xl" onClick={downloadXLS}>📥 DESCARGAR EXCEL Y LIMPIAR</button>}
+          </div>
+        </div>
+      )}
+
+      {screen==="form"&&(
+        <div className="fi" style={{height:'100%',display:'flex',flexDirection:'column'}}>
+          <div style={{background:'var(--card)',borderBottom:`3px solid ${modulo?.color}`,flexShrink:0}}>
+            <div style={{background:'#ef444418',borderBottom:'1px solid #ef444430',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <button onClick={()=>setScreen("home")} style={{background:'#ef4444',border:'none',color:'white',fontSize:13,fontWeight:900,padding:'10px 16px',borderRadius:12,cursor:'pointer'}}>← SALIR</button>
+              <div style={{fontWeight:900,fontSize:13}}>{modulo?.icon} {modulo?.label}</div>
+              <div style={{width:72}}></div>
+            </div>
+          </div>
+          <div className="scrollable">
+            <div className="prog-wrap">
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,fontWeight:800,marginBottom:5,color:'var(--accent)'}}><span>AVANCE</span><span>{prog}%</span></div>
+              <div className="prog-bar"><div className="prog-fill" style={{width:`${prog}%`,background:prog===100?'var(--green)':'var(--accent)'}}></div></div>
+            </div>
+
+            {form.ot_tipo==="CERRAR ORDEN DE TRABAJO"&&(
+              <div className="fi">
+                <div style={{background:'#1e1111',border:'1px solid #451010',padding:14,borderRadius:12,marginBottom:14}}>
+                  <b style={{color:'#f87171'}}>Cerrando {form.ot_id}</b>
+                  <div style={{fontSize:12,color:'#94a3b8',marginTop:4}}>📍 {form.ot_ubicacion}</div>
+                  {form.original_det&&<div style={{background:'#2a1515',borderRadius:8,padding:'8px 10px',marginTop:8}}><div style={{fontSize:9,fontWeight:900,color:'#ef4444',marginBottom:3}}>MOTIVO</div><div style={{fontSize:12,color:'#fca5a5'}}>{form.original_det}</div></div>}
+                </div>
+                {form.original_det&&form.original_det.includes("CAMBIO DE ROLLO")&&(
+                  <div className="fi">
+                    <div className="label-sec">⚡ RESPUESTA RÁPIDA</div>
+                    <button onClick={()=>setF('ot_rapido_cierre',form.ot_rapido_cierre==='ROLLO CAMBIADO'?null:'ROLLO CAMBIADO')} style={{width:'100%',padding:'13px',marginBottom:10,borderRadius:12,cursor:'pointer',fontWeight:900,fontSize:13,textAlign:'left',border:form.ot_rapido_cierre==='ROLLO CAMBIADO'?'2px solid #22c55e':'1px solid var(--border)',background:form.ot_rapido_cierre==='ROLLO CAMBIADO'?'#22c55e20':'var(--card)',color:form.ot_rapido_cierre==='ROLLO CAMBIADO'?'#22c55e':'var(--muted)'}}>🧻 {form.ot_rapido_cierre==='ROLLO CAMBIADO'?'✓ ':''} ROLLO CAMBIADO</button>
+                    <div className="label-sec">O SOLUCIÓN APLICADA</div>
+                  </div>
+                )}
+                {form.original_det&&form.original_det.includes("CAMBIO DE TIQUETE")&&(
+                  <div className="fi">
+                    <div className="label-sec">⚡ RESPUESTA RÁPIDA</div>
+                    <button onClick={()=>setF('ot_rapido_cierre',form.ot_rapido_cierre==='CAJA DE TIQUETE CAMBIADA'?null:'CAJA DE TIQUETE CAMBIADA')} style={{width:'100%',padding:'13px',marginBottom:10,borderRadius:12,cursor:'pointer',fontWeight:900,fontSize:13,textAlign:'left',border:form.ot_rapido_cierre==='CAJA DE TIQUETE CAMBIADA'?'2px solid #22c55e':'1px solid var(--border)',background:form.ot_rapido_cierre==='CAJA DE TIQUETE CAMBIADA'?'#22c55e20':'var(--card)',color:form.ot_rapido_cierre==='CAJA DE TIQUETE CAMBIADA'?'#22c55e':'var(--muted)'}}>🎫 {form.ot_rapido_cierre==='CAJA DE TIQUETE CAMBIADA'?'✓ ':''} CAJA DE TIQUETE CAMBIADA</button>
+                    <div className="label-sec">O SOLUCIÓN APLICADA</div>
+                  </div>
+                )}
+                <textarea className="inp" style={{borderColor:'var(--green)'}} placeholder="Describa la solución aplicada..." onChange={e=>setF('ot_detalle',e.target.value)}></textarea>
+              </div>
+            )}
+
+            {modulo?.id==='indicador'&&form.ot_tipo!=="CERRAR ORDEN DE TRABAJO"&&(
+              <>
+                <Sel label="Categoría" items={["Cajeros","Entradas","Salidas"]} active={form.ind_cat} onSelect={v=>{setF('ind_cat',v);setF('ind_loc',null);}}/>
+                {form.ind_cat&&<SelEst label="Equipo" items={form.ind_cat==="Cajeros"?CAJEROS:form.ind_cat==="Entradas"?ENTRADAS:SALIDAS} active={form.ind_loc} onSelect={v=>setF('ind_loc',v)} done={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO==="Indicador"&&h.FECHA===hoy).map(h=>h.UBICACION)}/>}
+                <div className="t-val">{(timer/1000).toFixed(2)}s</div>
+                <button className={`t-btn ${timerOn?'tstop':'tstart'}`} onClick={toggleTimer}>{timerOn?'DETENER':'INICIAR'}</button>
+              </>
+            )}
+
+            {modulo?.id==='ot'&&form.ot_tipo!=="CERRAR ORDEN DE TRABAJO"&&(
+              <>
+                <Sel label="Acción" items={["ABRIR ORDEN DE TRABAJO"]} active={form.ot_tipo} onSelect={v=>{setF('ot_tipo',v);setF('ot_area',null);}}/>
+                {form.ot_tipo==="ABRIR ORDEN DE TRABAJO"&&<Sel label="Área" items={["CAJEROS","ENTRADAS","SALIDAS","GUIADO","OTRO"]} active={form.ot_area} onSelect={v=>{setF('ot_area',v);setF('ot_ubicacion',null);setF('ot_rapido',null);setF('ot_detalle','');}}/>}
+                {form.ot_area&&!["GUIADO","OTRO"].includes(form.ot_area)&&<Sel label="Equipo" items={form.ot_area==="CAJEROS"?CAJEROS:form.ot_area==="ENTRADAS"?ENTRADAS:SALIDAS} active={form.ot_ubicacion} onSelect={v=>{setF('ot_ubicacion',v);setF('ot_rapido',null);setF('ot_detalle','');}}/>}
+                
+                {form.ot_area==="CAJEROS"&&form.ot_ubicacion&&(
+                  <div className="fi">
+                    <div className="label-sec">⚡ RESPUESTA RÁPIDA</div>
+                    <button onClick={()=>{setF('ot_rapido',form.ot_rapido==='CAMBIO DE ROLLO'?null:'CAMBIO DE ROLLO');setF('ot_detalle','');}} style={{width:'100%',padding:'13px',marginBottom:10,borderRadius:12,cursor:'pointer',fontWeight:900,fontSize:13,textAlign:'left',border:form.ot_rapido==='CAMBIO DE ROLLO'?'2px solid #22c55e':'1px solid var(--border)',background:form.ot_rapido==='CAMBIO DE ROLLO'?'#22c55e20':'var(--card)',color:form.ot_rapido==='CAMBIO DE ROLLO'?'#22c55e':'var(--muted)'}}>🧻 {form.ot_rapido==='CAMBIO DE ROLLO'?'✓ ':''} CAMBIO DE ROLLO</button>
+                    <div className="label-sec">O DETALLE TÉCNICO</div>
+                    <textarea className="inp" placeholder="Describe el problema técnico en detalle..." value={form.ot_detalle||''} onChange={e=>{setF('ot_detalle',e.target.value);if(e.target.value.trim()){setF('ot_rapido',null);}}}></textarea>
+                  </div>
+                )}
+                
+                {form.ot_area==="ENTRADAS"&&form.ot_ubicacion&&(
+                  <div className="fi">
+                    <div className="label-sec">⚡ RESPUESTA RÁPIDA</div>
+                    <button onClick={()=>{setF('ot_rapido',form.ot_rapido==='CAMBIO DE TIQUETE'?null:'CAMBIO DE TIQUETE');setF('ot_detalle','');}} style={{width:'100%',padding:'13px',marginBottom:10,borderRadius:12,cursor:'pointer',fontWeight:900,fontSize:13,textAlign:'left',border:form.ot_rapido==='CAMBIO DE TIQUETE'?'2px solid #22c55e':'1px solid var(--border)',background:form.ot_rapido==='CAMBIO DE TIQUETE'?'#22c55e20':'var(--card)',color:form.ot_rapido==='CAMBIO DE TIQUETE'?'#22c55e':'var(--muted)'}}>🎫 {form.ot_rapido==='CAMBIO DE TIQUETE'?'✓ ':''} CAMBIO DE TIQUETE</button>
+                    <div className="label-sec">O DETALLE TÉCNICO</div>
+                    <textarea className="inp" placeholder="Describe el problema técnico en detalle..." value={form.ot_detalle||''} onChange={e=>{setF('ot_detalle',e.target.value);if(e.target.value.trim()){setF('ot_rapido',null);}}}></textarea>
+                  </div>
+                )}
+                
+                {form.ot_area==="SALIDAS"&&form.ot_ubicacion&&(
+                  <div className="fi">
+                    <div className="label-sec">⚡ RESPUESTA RÁPIDA</div>
+                    <button onClick={()=>{setF('ot_rapido',form.ot_rapido==='CAÍDA DE AGUJA'?null:'CAÍDA DE AGUJA');setF('ot_detalle','');}} style={{width:'100%',padding:'13px',marginBottom:10,borderRadius:12,cursor:'pointer',fontWeight:900,fontSize:13,textAlign:'left',border:form.ot_rapido==='CAÍDA DE AGUJA'?'2px solid #22c55e':'1px solid var(--border)',background:form.ot_rapido==='CAÍDA DE AGUJA'?'#22c55e20':'var(--card)',color:form.ot_rapido==='CAÍDA DE AGUJA'?'#22c55e':'var(--muted)'}}>📌 {form.ot_rapido==='CAÍDA DE AGUJA'?'✓ ':''} CAÍDA DE AGUJA</button>
+                    <div className="label-sec">O DETALLE TÉCNICO</div>
+                    <textarea className="inp" placeholder="Describe el problema técnico en detalle..." value={form.ot_detalle||''} onChange={e=>{setF('ot_detalle',e.target.value);if(e.target.value.trim()){setF('ot_rapido',null);}}}></textarea>
+                  </div>
+                )}
+                
+                {form.ot_area && ["GUIADO","OTRO"].includes(form.ot_area) && (
+                  <div className="fi">
+                    <div className="label-sec">DETALLE TÉCNICO (OBLIGATORIO)</div>
+                    <textarea className="inp" placeholder="Describe el problema técnico en detalle..." onChange={e=>setF('ot_detalle',e.target.value)}></textarea>
+                  </div>
+                )}
+              </>
+            )}
+
+            {modulo?.id==='limpieza'&&(
+              <>
+                <Sel label="Categoría" items={["Cajeros","Salidas"]} active={form.lim_cat} onSelect={v=>{setF('lim_cat',v);setF('lim_loc',null);}}/>
+                {form.lim_cat&&<SelCnt label="Equipo" items={form.lim_cat==="Cajeros"?LIMPIEZA_CAJEROS:LIMPIEZA_SALIDAS} active={form.lim_loc} onSelect={v=>setF('lim_loc',v)} counts={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO==="Limpieza"&&h.FECHA===hoy).reduce((a,h)=>{a[h.UBICACION]=(a[h.UBICACION]||0)+1;return a;},{})}/>}
+                <Sel label="Estado" items={["LIMPIO"]} active={form.lim_estado} onSelect={v=>setF('lim_estado',v)}/>
+              </>
+            )}
+
+            {["cajero","entrada","salida"].includes(modulo?.id)&&(
+              <>
+                <SelEst label="Ubicación" items={modulo.id==='cajero'?CAJEROS:modulo.id==='entrada'?ENTRADAS:SALIDAS} active={form[modulo.id]} onSelect={v=>setF(modulo.id,v)} done={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO===modulo.label&&h.FECHA===hoy).map(h=>h.UBICACION)}/>
+                {(modulo.id==='cajero'?CC:modulo.id==='entrada'?CE:CS).map(c=>(
+                  <div key={c.id} className="check-card">
+                    <b>{c.label}</b>
+                    <div className="chk-btns">
+                      <button className={form[c.id]==='SI'?'asi':''} onClick={()=>setF(c.id,'SI')}>SI</button>
+                      <button className={form[c.id]==='NO'?'ano':''} onClick={()=>setF(c.id,'NO')}>NO</button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {modulo?.id!=='ot'&&<textarea className="inp" rows="3" placeholder="Observaciones..." onChange={e=>setF('obs',e.target.value)}></textarea>}
+          </div>
+          <div className="footer-fixed">
+            <button className="btn-save" disabled={
+              (modulo?.id==='indicador'&&timerOn) || 
+              (modulo?.id==='ot' && !otValid) ||
+              (isStrict && modulo?.id!=='ot' ? prog<100 : (modulo?.id!=='ot' && prog<40))
+            } onClick={save}>
+              {sync==='busy'?'⏳ GUARDANDO...':
+               modulo?.id==='indicador'&&timerOn?'⏱ DETÉN EL CRONÓMETRO':
+               modulo?.id==='ot' && !otValid ? (form.ot_tipo==="ABRIR ORDEN DE TRABAJO"?'📝 REQUIERE RESPUESTA RÁPIDA O DETALLE TÉCNICO':'📝 REQUIERE SOLUCIÓN APLICADA'):
+               (isStrict && modulo?.id!=='ot' && prog<100)?'📝 COMPLETA TODOS LOS CAMPOS':
+               'GUARDAR REGISTRO ✓'}
+            </button>
+            <button onClick={()=>setScreen("home")} style={{width:'100%',marginTop:10,padding:'12px',background:'transparent',border:'2px solid #ef444460',color:'#ef4444',borderRadius:14,fontWeight:900,fontSize:13,cursor:'pointer'}}>← VOLVER SIN GUARDAR</button>
+          </div>
+        </div>
+      )}
+
+      {screen==="success"&&(
+        <div className="centered fi">
+          <div style={{fontSize:70}}>✅</div>
+          <h2 style={{marginTop:12,fontSize:24}}>GUARDADO</h2>
+          <p style={{color:'var(--green)',fontSize:12,marginTop:8,fontWeight:700}}>🟢 SINCRONIZADO · Todos lo ven ahora</p>
+          <button className="btn-save" style={{marginTop:30,maxWidth:300,width:'100%'}} onClick={()=>setScreen("home")}>← VOLVER AL INICIO</button>
+        </div>
+      )}
+
+      {screen==="almuerzo"&&<AlmuerzoScreen vales={vales} soloLec={!ALM_OPS.includes(usuario.nombre)} onVolver={()=>setScreen("home")} fb={window._fb} hoy={hoy} onRegreso={marcarRegreso}/>}
+      {screen==="cambiarPw"&&<CambiarPw usuario={usuario} passwords={passwords} onVolver={()=>setScreen("home")}/>}
+      {screen==="admin"&&usuario.nombre==="Vicente"&&<AdminPanel history={history} activeOTs={activeOTs} passwords={passwords} onVolver={()=>setScreen("home")} fb={window._fb}/>}
+    </div>
+  );
+}
+
+/* ── DASHBOARD SIMPLIFICADO ── */
+function DashboardSimplificado({history, hoyH, ayerH, hoy, ayer, diaTab, setDiaTab, activeOTs, selMod, setSelMod}){
+  const datosBase = diaTab==="hoy"?hoyH:ayerH;
+  const label = diaTab==="hoy"?hoy:ayer;
+  
+  const [filtroModulo, setFiltroModulo] = useState("");
+  const [filtroUbicacion, setFiltroUbicacion] = useState("");
+  
+  const datos = datosBase.filter(r => {
+    if(filtroModulo && r.MODULO !== filtroModulo) return false;
+    if(filtroUbicacion && !r.UBICACION?.toLowerCase().includes(filtroUbicacion.toLowerCase())) return false;
+    return true;
+  });
+  
+  const resetFiltros = () => {
+    setFiltroModulo("");
+    setFiltroUbicacion("");
+  };
+  
+  const modulosUnicos = [...new Set(datosBase.map(r => r.MODULO).filter(Boolean))];
+  
+  const totalOTs = datos.filter(r => r.MODULO === "Orden Trabajo (OT)").length;
+  const otsAbiertasActivas = activeOTs.length;
+  const totalNOs = datos.reduce((acc,h)=>{
+    if(h.MODULO !== "Orden Trabajo (OT)"){
+      ALLCHK.forEach(c=>{if(h[fk(c.label)]==="NO") acc++;});
+    }
+    return acc;
+  },0);
+  
+  const fallasFrecuentes = (() => {
+    const fallas = {};
+    const registrosRevision = datos.filter(r => ["Cajero","Entrada","Salida"].includes(r.MODULO));
+    registrosRevision.forEach(r => {
+      ALLCHK.forEach(c => {
+        if(r[fk(c.label)] === "NO") {
+          const clave = `${r.UBICACION} - ${c.label}`;
+          fallas[clave] = (fallas[clave] || 0) + 1;
+        }
+      });
+    });
+    return Object.entries(fallas)
+      .sort((a,b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([nombre, count]) => ({ nombre, count }));
+  })();
+  
+  const [showOTs, setShowOTs] = useState(true);
+  const todasOTs = datos.filter(r => r.MODULO === "Orden Trabajo (OT)");
+  
+  const pm = MODS.filter(m=>m.id !== "ot" && m.id !== "almuerzo").map(m=>({
+    ...m,
+    n: datos.filter(h=>h.MODULO===m.label).length,
+    registros: datos.filter(h=>h.MODULO===m.label)
+  })).filter(m=>m.n>0);
+  const maxN = pm.length ? Math.max(...pm.map(x=>x.n)) : 1;
+  
+  const getDetalleRevision = (registro) => {
+    if(registro.MODULO === "Limpieza") return "🧹 Limpieza realizada";
+    if(registro.MODULO === "Indicador") return `⏱ Tiempo: ${registro.RESULTADO}`;
+    if(registro.MODULO === "Orden Trabajo (OT)"){
+      if(registro.ACCION === "ABRIR ORDEN DE TRABAJO") return `🔧 OT ${registro.ORDEN_ID}: ${registro.NOTAS || registro.UBICACION}`;
+      if(registro.ACCION === "CERRAR ORDEN DE TRABAJO") return `✅ OT ${registro.ORDEN_ID} cerrada: ${registro.NOTAS || "Solucionada"}`;
+    }
+    if(registro.MODULO === "Cajero" || registro.MODULO === "Entrada" || registro.MODULO === "Salida"){
+      const itemsNO = [];
+      ALLCHK.forEach(c => {
+        if(registro[fk(c.label)] === "NO") itemsNO.push(c.label);
+      });
+      if(itemsNO.length > 0) return `⚠️ Fallas: ${itemsNO.join(", ")}`;
+      return "✅ Todo en orden";
+    }
+    return registro.NOTAS && registro.NOTAS !== "-" ? registro.NOTAS : "Revisión completada";
+  };
+
+  const getIconoEstado = (registro) => {
+    if(registro.MODULO === "Limpieza") return "🧹";
+    if(registro.MODULO === "Indicador") return "⏱";
+    if(registro.MODULO === "Orden Trabajo (OT)"){
+      if(registro.ACCION === "ABRIR ORDEN DE TRABAJO") return "🔧";
+      return "✅";
+    }
+    let tieneNO = false;
+    ALLCHK.forEach(c => {
+      if(registro[fk(c.label)] === "NO") tieneNO = true;
+    });
+    if(tieneNO) return "⚠️";
+    return "✅";
+  };
+
+  const getColorEstado = (registro) => {
+    if(registro.MODULO === "Orden Trabajo (OT)"){
+      if(registro.ACCION === "ABRIR ORDEN DE TRABAJO") return "#ef4444";
+      return "#22c55e";
+    }
+    let tieneNO = false;
+    ALLCHK.forEach(c => {
+      if(registro[fk(c.label)] === "NO") tieneNO = true;
+    });
+    if(tieneNO) return "#ef4444";
+    if(registro.MODULO === "Limpieza") return "#fbbf24";
+    if(registro.MODULO === "Indicador") return "#a855f7";
+    return "#22c55e";
+  };
+
+  return(
+    <div style={{marginTop:14}}>
+      <div style={{display:'flex',background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,marginBottom:12,overflow:'hidden'}}>
+        <button onClick={()=>{setDiaTab("hoy");resetFiltros();}} style={{flex:1,padding:'11px',border:'none',fontWeight:900,fontSize:12,cursor:'pointer',background:diaTab==="hoy"?'var(--accent)':'transparent',color:diaTab==="hoy"?'white':'var(--muted)'}}>📅 HOY · {hoyH.length}</button>
+        <button onClick={()=>{setDiaTab("ayer");resetFiltros();}} style={{flex:1,padding:'11px',border:'none',fontWeight:900,fontSize:12,cursor:'pointer',background:diaTab==="ayer"?'#a855f7':'transparent',color:diaTab==="ayer"?'white':'var(--muted)'}}>🗓 AYER · {ayerH.length}</button>
+      </div>
+
+      <div className="label-sec">🔍 FILTROS</div>
+      <div className="filtro-group">
+        <select className="filtro-select" value={filtroModulo} onChange={e=>setFiltroModulo(e.target.value)}>
+          <option value="">📋 Todos los módulos</option>
+          {modulosUnicos.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+      <div className="filtro-group">
+        <input className="filtro-select" type="text" placeholder="📍 Buscar ubicación..." value={filtroUbicacion} onChange={e=>setFiltroUbicacion(e.target.value)}/>
+        <button className="filtro-reset" onClick={resetFiltros}>✕ LIMPIAR</button>
+      </div>
+
+      <div className="label-sec">📊 ESTADÍSTICAS · {label}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:6,marginBottom:14}}>
+        <div style={{background:'#0ea5e912',border:'1px solid #0ea5e930',borderRadius:12,padding:'10px 4px',textAlign:'center'}}>
+          <div className="stat-number" style={{fontSize:20,color:'var(--accent)'}}>{datos.length}</div>
+          <div className="stat-label">TOTAL</div>
+        </div>
+        <div style={{background:'#ef444412',border:'1px solid #ef444430',borderRadius:12,padding:'10px 4px',textAlign:'center'}}>
+          <div className="stat-number" style={{fontSize:20,color:'#ef4444'}}>{otsAbiertasActivas}</div>
+          <div className="stat-label">OTs ABIERTAS</div>
+        </div>
+        <div style={{background:'#22c55e12',border:'1px solid #22c55e30',borderRadius:12,padding:'10px 4px',textAlign:'center'}}>
+          <div className="stat-number" style={{fontSize:20,color:'#22c55e'}}>{totalOTs}</div>
+          <div className="stat-label">TOTAL OTs</div>
+        </div>
+        <div style={{background:'#f9731612',border:'1px solid #f9731630',borderRadius:12,padding:'10px 4px',textAlign:'center'}}>
+          <div className="stat-number" style={{fontSize:20,color:'#f97316'}}>{totalNOs}</div>
+          <div className="stat-label">TOTAL NOs</div>
+        </div>
+      </div>
+
+      {fallasFrecuentes.length > 0 && (
+        <div className="stat-card" style={{borderLeft:`4px solid var(--red)`}}>
+          <div className="stat-label" style={{marginBottom:8}}>⚠️ TOP 10 FALLAS MÁS FRECUENTES</div>
+          {fallasFrecuentes.map((falla, idx) => (
+            <div key={idx} className="fallo-item">
+              <span className="fallo-nombre">{idx+1}. {falla.nombre}</span>
+              <span className="fallo-count">{falla.count} veces</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {todasOTs.length > 0 && (
+        <div style={{marginBottom:16}}>
+          <div onClick={()=>setShowOTs(!showOTs)} className="section-header" style={{background:'var(--card)',borderColor:'var(--accent)',borderLeft:'4px solid var(--accent)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{fontSize:16}}>🔧</span>
+              <span style={{fontSize:13,fontWeight:900,color:'var(--accent)'}}>ÓRDENES DE TRABAJO</span>
+              <span style={{fontSize:11,color:'var(--muted)',background:'var(--border)',padding:'2px 6px',borderRadius:10}}>{todasOTs.length}</span>
+            </div>
+            <span style={{fontSize:16,color:'var(--accent)',transition:'transform .2s',transform:showOTs?'rotate(180deg)':'rotate(0deg)'}}>▼</span>
+          </div>
+          
+          {showOTs && (
+            <div className="ot-subsection">
+              {todasOTs.map((ot,idx)=>(
+                <div key={idx} className="timeline-item" style={{borderLeftColor:ot.ACCION==="ABRIR ORDEN DE TRABAJO"?'#ef4444':'#22c55e',background:ot.ACCION==="ABRIR ORDEN DE TRABAJO"?'#1e1111':'#0d1e0d'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:14}}>{ot.ACCION==="ABRIR ORDEN DE TRABAJO"?'🔧':'✅'}</span>
+                      <span style={{fontSize:12,fontWeight:900,color:ot.ACCION==="ABRIR ORDEN DE TRABAJO"?'#f87171':'#22c55e'}}>{ot.ORDEN_ID}</span>
+                    </div>
+                    <span className={ot.ACCION==="ABRIR ORDEN DE TRABAJO"?"badge-warning":"badge-ok"}>{ot.HORA}</span>
+                  </div>
+                  <div style={{fontSize:12,color:'var(--text)',marginBottom:4}}>📍 {ot.UBICACION}</div>
+                  <div style={{fontSize:10,color:'#94a3b8'}}>👤 {ot.USUARIO}</div>
+                  {ot.NOTAS && ot.NOTAS !== "-" && <div style={{fontSize:10,color:'var(--muted)',marginTop:4,fontStyle:'italic'}}>📝 {ot.NOTAS}</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {pm.map(m=>{
+        const pct = Math.min((m.n/maxN)*100,100);
+        const isOpen = selMod === m.label;
+        return(
+          <div key={m.id} style={{marginBottom:12}}>
+            <div onClick={()=>setSelMod(isOpen?null:m.label)} style={{background:isOpen?`${m.color}12`:'var(--card)',border:`2px solid ${isOpen?m.color:'var(--border)'}`,borderRadius:14,padding:'12px 14px',cursor:'pointer',transition:'all .2s'}}>
+              <div style={{display:'flex',alignItems:'center',gap:10}}>
+                <div style={{width:44,height:44,borderRadius:12,background:`${m.color}25`,border:`1px solid ${m.color}50`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{m.icon}</div>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
+                    <span style={{fontSize:14,fontWeight:800,color:isOpen?m.color:'var(--text)'}}>{m.label}</span>
+                    <span style={{fontSize:22,fontWeight:900,color:m.color}}>{m.n}</span>
+                  </div>
+                  <div style={{background:'var(--border)',borderRadius:10,height:8}}><div style={{height:'100%',borderRadius:10,background:`linear-gradient(90deg,${m.color},${m.color}99)`,width:`${pct}%`}}></div></div>
+                </div>
+              </div>
+            </div>
+            
+            {isOpen && m.registros.length > 0 && (
+              <div className="fi" style={{marginTop:6,padding:'8px',background:`${m.color}06`,borderRadius:12}}>
+                {m.registros.map((r,idx)=>(
+                  <div key={idx} className="timeline-item" style={{borderLeftColor:getColorEstado(r),marginBottom:8}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8}}>
+                        <span style={{fontSize:16}}>{getIconoEstado(r)}</span>
+                        <span style={{fontSize:13,fontWeight:800,color:getColorEstado(r)}}>{r.UBICACION}</span>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:6}}>
+                        <span className={getIconoEstado(r)==="⚠️"?"badge-no":"badge-ok"}>{r.HORA}</span>
+                        <span style={{fontSize:10,color:'var(--muted)'}}>👤 {r.USUARIO}</span>
+                      </div>
+                    </div>
+                    <div style={{fontSize:11,color:'var(--text)',marginBottom:4}}>{getDetalleRevision(r)}</div>
+                    {r.NOTAS && r.NOTAS !== "-" && r.NOTAS !== "OK" && !(r.MODULO === "Cajero" || r.MODULO === "Entrada" || r.MODULO === "Salida") && (
+                      <div style={{fontSize:10,color:'var(--muted)',fontStyle:'italic',marginTop:4,paddingTop:4,borderTop:'1px solid var(--border)'}}>📝 {r.NOTAS}</div>
+                    )}
+                    {(r.MODULO === "Cajero" || r.MODULO === "Entrada" || r.MODULO === "Salida") && (()=>{
+                      const itemsNO = [];
+                      const itemsSI = [];
+                      ALLCHK.forEach(c => {
+                        if(r[fk(c.label)] === "NO") itemsNO.push(c.label);
+                        else if(r[fk(c.label)] === "SI") itemsSI.push(c.label);
+                      });
+                      if(itemsNO.length > 0 || itemsSI.length > 0) return(
+                        <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
+                          {itemsNO.map(item=>(
+                            <span key={item} style={{background:'#ef444420',color:'#ef4444',padding:'2px 8px',borderRadius:12,fontSize:9,fontWeight:700}}>❌ {item}</span>
+                          ))}
+                          {itemsSI.slice(0,3).map(item=>(
+                            <span key={item} style={{background:'#22c55e20',color:'#22c55e',padding:'2px 8px',borderRadius:12,fontSize:9,fontWeight:700}}>✅ {item}</span>
+                          ))}
+                          {itemsSI.length > 3 && <span style={{fontSize:9,color:'var(--muted)'}}>+{itemsSI.length-3}</span>}
+                        </div>
+                      );
+                      return null;
+                    })()}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ── SELECTORES ── */
+function Sel({label,items,active,onSelect}){
+  return(<div><div className="label-sec">{label}</div><div className="pill-grid">{items.map(i=><button key={i} className={`pill${active===i?' active':''}`} onClick={()=>onSelect(i)}>{i}</button>)}</div></div>);
+}
+function SelEst({label,items,active,onSelect,done=[]}){
+  return(<div>
+    <div className="label-sec" style={{display:'flex',alignItems:'center',gap:8}}>{label}<span style={{fontSize:9,color:'var(--green)',fontWeight:700}}>✓ {done.length} realizados</span></div>
+    <div className="pill-grid">{items.map(i=>{const h=done.includes(i),s=active===i;return(<button key={i} onClick={()=>onSelect(i)} style={{padding:'9px 12px',borderRadius:20,fontSize:11,fontWeight:700,cursor:'pointer',position:'relative',border:s?'2px solid var(--accent)':h?'1px solid #22c55e80':'1px solid var(--border)',background:s?'var(--accent)':h?'#22c55e18':'var(--card)',color:s?'white':h?'var(--green)':'var(--muted)'}}>{h&&!s&&<span style={{marginRight:3}}>✓</span>}{i}</button>);})}</div>
+  </div>);
+}
+function SelCnt({label,items,active,onSelect,counts={}}){
+  const C=[{bg:'var(--card)',b:'var(--border)',t:'var(--muted)'},{bg:'#22c55e18',b:'#22c55e80',t:'#22c55e'},{bg:'#0ea5e918',b:'#0ea5e980',t:'#0ea5e9'},{bg:'#f9731618',b:'#f9731680',t:'#f97316'},{bg:'#a855f718',b:'#a855f780',t:'#a855f7'}];
+  return(<div>
+    <div className="label-sec">{label} <span style={{fontSize:9,color:'var(--muted)',fontWeight:700}}>🧹=veces</span></div>
+    <div className="pill-grid">{items.map(i=>{const n=counts[i]||0,c=C[Math.min(n,C.length-1)],s=active===i;return(<button key={i} onClick={()=>onSelect(i)} style={{padding:'9px 12px',borderRadius:20,fontSize:11,fontWeight:700,cursor:'pointer',position:'relative',border:s?'2px solid var(--accent)':`1px solid ${c.b}`,background:s?'var(--accent)':c.bg,color:s?'white':c.t}}>{i}{n>0&&!s&&<span style={{position:'absolute',top:-5,right:-5,background:c.t,color:'white',borderRadius:'50%',width:15,height:15,fontSize:9,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{n}</span>}</button>);})}</div>
+  </div>);
+}
+
+/* ── ALMUERZO SCREEN ── */
+function AlmuerzoScreen({vales,soloLec,onVolver,fb,hoy,onRegreso}){
+  const[clock,setClock]=useState("");
+  const[saving,setSaving]=useState(null);
+  const[tab,setTab]=useState("almuerzo");
+  useEffect(()=>{const t=()=>setClock(new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'}));t();const id=setInterval(t,1000);return()=>clearInterval(id);},[]);
+  const personas=tab==="cafe"?VP.filter(p=>p.cafe):VP;
+  const getV=(n,t)=>vales.find(v=>v.persona===n&&v.fecha===hoy&&v.tipo===t&&!v.regreso);
+  const TC=tab==="almuerzo"?"#f97316":"#06b6d4";
+  const regSal=async n=>{if(!fb)return;setSaving(n+tab);const h=new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'});await fb.push(fb.ref(fb.db,"vales"),{persona:n,fecha:hoy,tipo:tab,salida:h,regreso:null,_ts:Date.now()});setSaving(null);};
+  const regReg=async(v,min)=>{if(!fb)return;setSaving(v.persona+tab);const h=new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'});const[sh,sm,ss]=v.salida.split(":").map(Number);const[rh,rm,rs]=h.split(":").map(Number);const ok=((rh*60+rm)*60+(rs||0)-(sh*60+sm)*60-(ss||0))<=min*60;const{_fbKey,...rest}=v;await fb.set(fb.ref(fb.db,`vales/${_fbKey}`),{...rest,regreso:h,aTiempo:ok});setSaving(null);};
+  const hist=vales.filter(v=>v.fecha===hoy&&v.regreso&&v.tipo===tab);
+  const aT=hist.filter(v=>v.aTiempo).length;const tard=hist.filter(v=>!v.aTiempo).length;
+  return(
+    <div className="fi" style={{height:'100%',display:'flex',flexDirection:'column'}}>
+      <div style={{background:'var(--card)',borderBottom:'3px solid #e879f9',flexShrink:0}}>
+        <div style={{background:'#ef444418',borderBottom:'1px solid #ef444430',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <button onClick={onVolver} style={{background:'#ef4444',border:'none',color:'white',fontSize:13,fontWeight:900,padding:'10px 16px',borderRadius:12,cursor:'pointer'}}>← SALIR</button>
+          <div style={{fontWeight:900,fontSize:13}}>🍽 ALMUERZOS VALET</div>
+          <div style={{fontSize:12,fontWeight:900,color:'#e879f9'}}>{clock}</div>
+        </div>
+        <div style={{display:'flex'}}>
+          <button className="tab-btn" onClick={()=>setTab("almuerzo")} style={{color:tab==="almuerzo"?'#f97316':'var(--muted)',borderBottomColor:tab==="almuerzo"?'#f97316':'transparent'}}>🍽 ALMUERZO</button>
+          <button className="tab-btn" onClick={()=>setTab("cafe")} style={{color:tab==="cafe"?'#06b6d4':'var(--muted)',borderBottomColor:tab==="cafe"?'#06b6d4':'transparent'}}>☕ CAFÉ</button>
+        </div>
+      </div>
+      <div className="scrollable">
+        <div className="label-sec">📊 RESUMEN · {hoy}</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
+          <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 8px',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:TC}}>{hist.length}</div><div style={{fontSize:9,color:'var(--muted)',fontWeight:700,marginTop:2}}>REGISTROS</div></div>
+          <div style={{background:'#22c55e12',border:'1px solid #22c55e40',borderRadius:12,padding:'12px 8px',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'#22c55e'}}>{aT}</div><div style={{fontSize:9,color:'var(--muted)',fontWeight:700,marginTop:2}}>A TIEMPO</div></div>
+          <div style={{background:'#ef444412',border:'1px solid #ef444440',borderRadius:12,padding:'12px 8px',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'#ef4444'}}>{tard}</div><div style={{fontSize:9,color:'var(--muted)',fontWeight:700,marginTop:2}}>TARDE</div></div>
+        </div>
+        <div className="label-sec">PERSONAL</div>
+        {personas.map(p=>{
+          const min=tab==="almuerzo"?p.minA:p.minC;
+          const v=getV(p.nombre,tab);const fuera=!!v;const sv=saving===p.nombre+tab;
+          const comp=vales.some(x=>x.persona===p.nombre&&x.fecha===hoy&&x.tipo===tab&&x.regreso);
+          if(comp&&!fuera)return null;
+          return(
+            <div key={p.nombre} style={{borderRadius:14,marginBottom:9,overflow:'hidden',border:fuera?`2px solid ${TC}`:'1px solid var(--border)',background:fuera?`${TC}12`:'var(--card)'}}>
+              <div style={{padding:'16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div style={{fontWeight:900,fontSize:15,color:fuera?TC:'var(--text)'}}>{p.nombre}</div>
+                <div>
+                  {!soloLec?(
+                    !v?
+                      <button onClick={()=>regSal(p.nombre)} disabled={sv} style={{background:TC,color:'white',border:'none',padding:'11px 16px',borderRadius:12,fontWeight:900,fontSize:12,cursor:'pointer'}}>{sv?'...':tab==="almuerzo"?'SALIDA 🍽':'SALIDA ☕'}</button>:
+                      <button onClick={()=>regReg(v,min)} disabled={sv} style={{background:'#22c55e',color:'white',border:'none',padding:'11px 16px',borderRadius:12,fontWeight:900,fontSize:12,cursor:'pointer'}}>{sv?'...':tab==="almuerzo"?'VUELVE 🍽':'VUELVE ☕'}</button>
+                  ):(
+                    <span style={{fontSize:11,fontWeight:800,padding:'6px 12px',borderRadius:20,color:fuera?TC:'#22c55e',background:fuera?`${TC}20`:'#22c55e15'}}>{fuera?'⏳ FUERA':'✅ EN PUESTO'}</span>
+                  )}
+                </div>
+              </div>
+              {fuera&&!soloLec&&<div style={{background:`${TC}18`,padding:'6px 16px',borderTop:`1px solid ${TC}30`}}><div style={{fontSize:10,color:TC,fontWeight:700}}>Salió a las {v.salida}</div></div>}
+            </div>
+          );
+        })}
+        {hist.length>0&&(
+          <div>
+            <div className="label-sec">📋 HISTORIAL · {tab==="almuerzo"?"ALMUERZO":"CAFÉ"}</div>
+            {hist.map((v,i)=>(
+              <div key={i} style={{background:v.aTiempo?'#22c55e12':'#ef444412',border:`1px solid ${v.aTiempo?'#22c55e40':'#ef444440'}`,borderRadius:10,padding:'10px 14px',marginBottom:7,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div><div style={{fontWeight:900,fontSize:12}}>{v.persona}</div><div style={{fontSize:10,color:'var(--muted)'}}>🚶 {v.salida} → ✅ {v.regreso}</div></div>
+                <div style={{fontSize:22}}>{v.aTiempo?'✅':'🔴'}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── ADMIN PANEL ── */
+function AdminPanel({history,activeOTs,passwords,onVolver,fb}){
+  const[tab,setTab]=useState("usuarios");
+  const[showPws,setShowPws]=useState({});
+  const[editPw,setEditPw]=useState({});
+  const[saving,setSaving]=useState(null);
+  const[msg,setMsg]=useState(null);
+  const[confirm,setConfirm]=useState(null);
+  const gPw=async n=>{const nv=(editPw[n]||"").trim();if(!nv){setMsg({t:'err',m:'Escribe una contraseña'});return;}setSaving(n);await fb.set(fb.ref(fb.db,`passwords/${n}`),nv);setEditPw(p=>({...p,[n]:""}));setMsg({t:'ok',m:`✅ Contraseña de ${n} actualizada`});setTimeout(()=>setMsg(null),2500);setSaving(null);};
+  const eOT=async o=>{await fb.remove(fb.ref(fb.db,`activeOTs/${o._fbKey}`));setMsg({t:'ok',m:`✅ Orden ${o.ot_id} anulada`});setTimeout(()=>setMsg(null),2500);setConfirm(null);};
+  const eReg=async r=>{await fb.remove(fb.ref(fb.db,`registros/${r._fbKey}`));setMsg({t:'ok',m:'✅ Registro eliminado'});setTimeout(()=>setMsg(null),2500);setConfirm(null);};
+  return(
+    <div className="fi" style={{height:'100%',display:'flex',flexDirection:'column'}}>
+      <div style={{background:'var(--card)',borderBottom:'3px solid #f59e0b',flexShrink:0}}>
+        <div style={{background:'#f59e0b18',borderBottom:'1px solid #f59e0b30',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <button onClick={onVolver} style={{background:'#ef4444',border:'none',color:'white',fontSize:13,fontWeight:900,padding:'10px 16px',borderRadius:12,cursor:'pointer'}}>← VOLVER</button>
+          <div style={{fontWeight:900,fontSize:13}}>⚙️ ADMINISTRADOR</div>
+          <div style={{width:80}}></div>
+        </div>
+        <div style={{display:'flex'}}>
+          {[{id:'usuarios',l:'👥 USUARIOS'},{id:'ordenes',l:'🔧 ÓRDENES'},{id:'registros',l:'📋 REGISTROS'}].map(t=>(
+            <button key={t.id} className="tab-btn" onClick={()=>setTab(t.id)} style={{color:tab===t.id?'#f59e0b':'var(--muted)',borderBottomColor:tab===t.id?'#f59e0b':'transparent',fontSize:11}}>{t.l}</button>
+          ))}
+        </div>
+      </div>
+      {confirm&&(
+        <div style={{position:'absolute',top:0,left:0,right:0,bottom:0,background:'#000000cc',zIndex:999,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+          <div style={{background:'var(--card)',border:'1px solid #ef444460',borderRadius:16,padding:24,width:'100%',maxWidth:340}}>
+            <div style={{fontSize:14,fontWeight:900,color:'#f87171',marginBottom:8}}>⚠️ ¿Confirmar?</div>
+            <div style={{fontSize:12,color:'var(--muted)',marginBottom:20}}>{confirm.label}</div>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={()=>setConfirm(null)} style={{flex:1,padding:'12px',background:'var(--border)',border:'none',borderRadius:10,color:'var(--text)',fontWeight:900,cursor:'pointer'}}>CANCELAR</button>
+              <button onClick={()=>confirm.tipo==='ot'?eOT(confirm.data):eReg(confirm.data)} style={{flex:1,padding:'12px',background:'#ef4444',border:'none',borderRadius:10,color:'white',fontWeight:900,cursor:'pointer'}}>ELIMINAR</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="scrollable">
+        {msg&&<div style={{background:msg.t==='ok'?'#22c55e20':'#ef444420',border:`1px solid ${msg.t==='ok'?'#22c55e50':'#ef444450'}`,borderRadius:10,padding:'10px 14px',marginBottom:12,fontSize:12,fontWeight:700,color:msg.t==='ok'?'#22c55e':'#ef4444',textAlign:'center'}}>{msg.m}</div>}
+        {tab==="usuarios"&&(
+          <div>
+            <div className="label-sec">👥 CONTRASEÑAS</div>
+            {USUARIOS_ORIGINALES.map(u=>{
+              const pw=passwords[u.nombre]||u.password;
+              return(
+                <div key={u.nombre} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:'14px',marginBottom:10}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                    <span style={{fontSize:22}}>{IU[u.nombre]||'👤'}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:900,fontSize:13,color:CU[u.nombre]||'var(--text)'}}>{u.nombre}</div>
+                      <div style={{fontSize:9,color:'var(--muted)',fontWeight:700}}>{u.rol}</div>
+                    </div>
+                  </div>
+                  <div style={{background:'var(--bg)',borderRadius:8,padding:'8px 12px',marginBottom:10,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span style={{fontSize:11,color:'var(--muted)',fontWeight:700}}>Contraseña:</span>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:13,fontWeight:900,color:'var(--accent)',letterSpacing:showPws[u.nombre]?1:3}}>{showPws[u.nombre]?pw:'••••'}</span>
+                      <button onClick={()=>setShowPws(p=>({...p,[u.nombre]:!p[u.nombre]}))} style={{background:'none',border:'none',color:'var(--muted)',fontSize:14,cursor:'pointer'}}>{showPws[u.nombre]?'🙈':'👁'}</button>
+                    </div>
+                  </div>
+                  <div style={{display:'flex',gap:8}}>
+                    <input style={{flex:1,background:'var(--bg)',border:'1px solid var(--border)',borderRadius:8,padding:'10px',color:'white',fontSize:13,outline:'none'}} type="text" placeholder="Nueva contraseña..." value={editPw[u.nombre]||""} onChange={e=>setEditPw(p=>({...p,[u.nombre]:e.target.value}))}/>
+                    <button onClick={()=>gPw(u.nombre)} disabled={saving===u.nombre} style={{padding:'10px 14px',background:'var(--accent)',color:'white',border:'none',borderRadius:8,fontWeight:900,fontSize:12,cursor:'pointer',opacity:saving===u.nombre?0.5:1}}>{saving===u.nombre?'...':'GUARDAR'}</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {tab==="ordenes"&&(
+          <div>
+            <div className="label-sec">🔧 ÓRDENES ACTIVAS · {activeOTs.length}</div>
+            {activeOTs.length===0&&<div style={{color:'var(--muted)',textAlign:'center',padding:'30px 0',fontSize:13}}>Sin órdenes activas</div>}
+            {activeOTs.map(o=>(
+              <div key={o._fbKey} style={{background:'#1e1111',border:'1px solid #451010',borderRadius:12,padding:'14px',marginBottom:10,borderLeft:'4px solid #ef4444'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:9,fontWeight:900,color:'#ef4444',marginBottom:3}}>{o.ot_id}</div>
+                    <div style={{fontSize:14,fontWeight:900,color:'#f87171'}}>{o.loc}</div>
+                    <div style={{fontSize:11,color:'#94a3b8',marginTop:2}}>{o.det}</div>
+                    <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>📅 {o.fecha}</div>
+                  </div>
+                  <button onClick={()=>setConfirm({tipo:'ot',data:o,label:`Anular la orden ${o.ot_id} de ${o.loc}`})} style={{background:'#ef444420',border:'1px solid #ef444460',color:'#ef4444',padding:'8px 12px',borderRadius:8,fontWeight:900,fontSize:11,cursor:'pointer',marginLeft:8}}>🗑 ANULAR</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {tab==="registros"&&(
+          <div>
+            <div className="label-sec">📋 REGISTROS · {history.length}</div>
+            {history.length===0&&<div style={{color:'var(--muted)',textAlign:'center',padding:'30px 0',fontSize:13}}>Sin registros</div>}
+            {history.slice(0,50).map((r,i)=>(
+              <div key={r._fbKey||i} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:10,padding:'12px 14px',marginBottom:8}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                  <div style={{flex:1}}>
+                    <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:3}}>
+                      <span style={{fontSize:12,fontWeight:900,color:'var(--accent)'}}>{r.MODULO}</span>
+                      <span style={{fontSize:9,color:'var(--muted)'}}>{r.FECHA} {r.HORA}</span>
+                    </div>
+                    <div style={{fontSize:11,color:'var(--text)',fontWeight:700}}>{r.UBICACION}</div>
+                    {r.USUARIO&&<div style={{fontSize:10,color:'#a855f7',marginTop:2,fontWeight:700}}>{r.USUARIO}</div>}
+                    {r.NOTAS&&r.NOTAS!=='-'&&<div style={{fontSize:10,color:'var(--muted)',marginTop:2,fontStyle:'italic'}}>{r.NOTAS}</div>}
+                  </div>
+                  <button onClick={()=>setConfirm({tipo:'reg',data:r,label:`Eliminar registro de ${r.MODULO} - ${r.UBICACION}`})} style={{background:'#ef444420',border:'1px solid #ef444460',color:'#ef4444',padding:'7px 10px',borderRadius:8,fontWeight:900,fontSize:11,cursor:'pointer',marginLeft:8,flexShrink:0}}>🗑</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── CAMBIAR CONTRASEÑA ── */
+function CambiarPw({usuario,passwords,onVolver}){
+  const[pwA,setPwA]=useState("");const[pwN,setPwN]=useState("");const[pwC,setPwC]=useState("");
+  const[show,setShow]=useState(false);const[msg,setMsg]=useState(null);const[saving,setSaving]=useState(false);
+  const pw0=passwords[usuario.nombre]||usuario.password;
+  const go=async()=>{
+    if(!pwA){setMsg({t:'err',m:'Ingresa tu contraseña actual'});return;}
+    if(pwA!==pw0){setMsg({t:'err',m:'Contraseña actual incorrecta'});return;}
+    if(!pwN){setMsg({t:'err',m:'Ingresa una nueva contraseña'});return;}
+    if(pwN!==pwC){setMsg({t:'err',m:'Las contraseñas no coinciden'});return;}
+    if(pwN===pw0){setMsg({t:'err',m:'La nueva debe ser diferente'});return;}
+    setSaving(true);
+    try{await window._fb.set(window._fb.ref(window._fb.db,`passwords/${usuario.nombre}`),pwN);setMsg({t:'ok',m:'✅ Contraseña actualizada'});setPwA("");setPwN("");setPwC("");setTimeout(()=>onVolver(),2000);}
+    catch(e){setMsg({t:'err',m:'Error al guardar'});}
+    setSaving(false);
+  };
+  return(
+    <div className="fi" style={{height:'100%',display:'flex',flexDirection:'column'}}>
+      <div style={{background:'var(--card)',borderBottom:'3px solid var(--accent)',flexShrink:0}}>
+        <div style={{background:'#ef444418',borderBottom:'1px solid #ef444430',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <button onClick={onVolver} style={{background:'#ef4444',border:'none',color:'white',fontSize:13,fontWeight:900,padding:'10px 16px',borderRadius:12,cursor:'pointer'}}>← VOLVER</button>
+          <div style={{fontWeight:900,fontSize:13}}>🔑 CAMBIAR CONTRASEÑA</div>
+          <div style={{width:80}}></div>
+        </div>
+      </div>
+      <div className="scrollable">
+        <div style={{marginTop:10,background:'#0ea5e910',border:'1px solid #0ea5e930',borderRadius:12,padding:'14px 16px',marginBottom:20,display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:24}}>{IU[usuario.nombre]||'👤'}</span>
+          <div><div style={{fontWeight:900,fontSize:14,color:'var(--accent)'}}>{usuario.nombre}</div><div style={{fontSize:10,color:'var(--muted)',fontWeight:700}}>{usuario.rol}</div></div>
+        </div>
+        {[{v:pwA,s:setPwA,l:'CONTRASEÑA ACTUAL',p:'Tu contraseña actual...'},{v:pwN,s:setPwN,l:'NUEVA CONTRASEÑA',p:'Nueva contraseña...'},{v:pwC,s:setPwC,l:'CONFIRMAR NUEVA',p:'Repite la nueva contraseña...'}].map(({v,s,l,p})=>(
+          <div key={l}>
+            <div className="label-sec">{l}</div>
+            <input style={{width:'100%',background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:'14px',color:'white',fontSize:15,outline:'none',marginBottom:14}} type={show?"text":"password"} placeholder={p} value={v} onChange={e=>{s(e.target.value);setMsg(null);}}/>
+          </div>
+        ))}
+        <button type="button" onClick={()=>setShow(!show)} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:8,color:'var(--muted)',fontSize:13,cursor:'pointer',padding:'8px 14px',marginBottom:14,width:'100%'}}>{show?'🙈 Ocultar':'👁 Mostrar contraseñas'}</button>
+        {msg&&<div style={{background:msg.t==='ok'?'#22c55e20':'#ef444420',border:`1px solid ${msg.t==='ok'?'#22c55e50':'#ef444450'}`,borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:13,fontWeight:700,color:msg.t==='ok'?'#22c55e':'#ef4444',textAlign:'center'}}>{msg.m}</div>}
+        <button onClick={go} disabled={saving} style={{width:'100%',padding:'17px',background:saving?'var(--border)':'var(--accent)',color:'white',border:'none',borderRadius:16,fontWeight:900,fontSize:15,cursor:saving?'not-allowed':'pointer'}}>{saving?'⏳ GUARDANDO...':'🔑 ACTUALIZAR CONTRASEÑA'}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── LOGIN ── */
+function LoginScreen({passwords,onLogin}){
+  const[sel,setSel]=useState(null);
+  const[pw,setPw]=useState("");
+  const[err,setErr]=useState("");
+  const[show,setShow]=useState(false);
+  const[verificando,setVerificando]=useState(false);
+
+  const hashPassword = async (password) => {
+    const passwordConSalt = password + SALT_SECRETO;
+    const encoder = new TextEncoder();
+    const data = encoder.encode(passwordConSalt);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  const go = async () => {
+    if(!sel) return;
+    setVerificando(true);
+    try {
+      const hashIngresado = await hashPassword(pw);
+      const hashGuardado = passwords[sel.nombre];
+      
+      if(hashIngresado === hashGuardado) {
+        onLogin(sel);
+      } else {
+        setErr("Contraseña incorrecta");
+        setTimeout(()=>setErr(""),2500);
+      }
+    } catch (error) {
+      console.error("Error verificando contraseña:", error);
+      setErr("Error al verificar");
+      setTimeout(()=>setErr(""),2500);
+    } finally {
+      setVerificando(false);
+    }
+  };
+
+  return(
+    <div className="shell" style={{overflowY:'auto'}}>
+      <div className="watermark">— VICENTE.S —</div>
+      <div className="fi" style={{padding:'24px 20px 40px'}}>
+        <div style={{textAlign:'center',marginBottom:22}}>
+          <div style={{fontSize:36,marginBottom:6}}>🔐</div>
+          <div style={{fontSize:22,fontWeight:900}}>RECORRIDO <span style={{color:'var(--accent)'}}>MULTI</span></div>
+          <div style={{fontSize:11,color:'var(--muted)',marginTop:3,fontWeight:700}}>Selecciona tu usuario</div>
+          <div style={{fontSize:9,color:'#ffffff15',marginTop:2}}>v7.1 · SHA-256 Security</div>
+          <div style={{fontSize:8,color:'#22c55e',marginTop:4}}>🔒 Contraseñas encriptadas</div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
+          {USUARIOS_ORIGINALES.map(u=>{
+            const s=sel?.nombre===u.nombre;const c=CU[u.nombre]||'var(--accent)';
+            return(
+              <div key={u.nombre} onClick={()=>{setSel(u);setPw("");setErr("");}} style={{padding:'18px 10px',borderRadius:16,textAlign:'center',cursor:'pointer',transition:'all .2s',border:s?`2px solid ${c}`:'1px solid var(--border)',background:s?`${c}15`:'var(--card)',boxShadow:s?`0 0 14px ${c}40`:'none'}}>
+                <div style={{fontSize:28,marginBottom:7,width:50,height:50,borderRadius:'50%',border:`2px solid ${s?c:'var(--border)'}`,background:s?`${c}20`:'#ffffff08',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>{IU[u.nombre]||'👤'}</div>
+                <div style={{fontSize:13,fontWeight:900,color:s?c:'var(--text)'}}>{u.nombre}</div>
+              </div>
+            );
+          })}
+        </div>
+        {sel&&(
+          <div className="fi">
+            <div style={{background:'#0ea5e910',border:'1px solid #0ea5e930',borderRadius:10,padding:'10px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
+              <div style={{fontSize:13,fontWeight:900,color:'var(--accent)'}}>{sel.nombre}</div>
+              <button onClick={()=>setSel(null)} style={{marginLeft:'auto',background:'#ef444425',border:'1px solid #ef444460',color:'#ef4444',fontSize:13,fontWeight:900,cursor:'pointer',borderRadius:8,padding:'4px 10px'}}>✕</button>
+            </div>
+            <div className="label-sec">CONTRASEÑA</div>
+            <form onSubmit={e=>{e.preventDefault();go();}} autoComplete="on">
+              <input type="text" name="username" value={sel.nombre} readOnly style={{display:'none'}} autoComplete="username"/>
+              <div style={{position:'relative',marginBottom:12}}>
+                <input className="inp" style={{marginBottom:0,paddingRight:46}} type={show?"text":"password"} name="password" placeholder="Contraseña..." value={pw} autoFocus autoComplete="current-password" onChange={e=>{setPw(e.target.value);setErr("");}} onKeyDown={e=>e.key==='Enter'&&go()}/>
+                <button type="button" onClick={()=>setShow(!show)} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'var(--muted)',fontSize:18,cursor:'pointer'}}>{show?'🙈':'👁'}</button>
+              </div>
+              {err&&<div style={{background:'#ef444420',border:'1px solid #ef444450',borderRadius:10,padding:'10px 14px',marginBottom:12,fontSize:12,fontWeight:700,color:'#ef4444',textAlign:'center'}}>⚠️ {err}</div>}
+              <button type="submit" className="btn-save" disabled={verificando}>{verificando?'🔒 VERIFICANDO...':'INGRESAR →'}</button>
+            </form>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const root=ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>
