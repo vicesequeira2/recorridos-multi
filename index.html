@@ -2561,7 +2561,7 @@ function CamarasScreen({
   camAlertaVisible, setCamAlertaVisible,
   camEscalado, setCamEscalado,
   camUltima, camSiguiente, camRevisiones,
-  camConfig, history, openMod, fb, hoy
+  camConfig, setCamConfig, history, openMod, fb, hoy
 }){
   const CC_COLOR="#06b6d4";
   const[subTab,setSubTab]=useState("dashboard");
@@ -2858,6 +2858,35 @@ function CamarasScreen({
               )}
             </div>
 
+            {/* Editor de intervalo rápido */}
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <span style={{fontSize:11,fontWeight:800,color:"var(--muted)"}}>⏱ INTERVALO DE REVISIÓN</span>
+                <span style={{fontSize:16,fontWeight:900,color:CC_COLOR}}>{camConfig.intervalo} min</span>
+              </div>
+              <input
+                type="range" min={10} max={120} step={5}
+                value={camConfig.intervalo}
+                onChange={e=>{
+                  const v=parseInt(e.target.value);
+                  setCamConfig(p=>({...p,intervalo:v}));
+                }}
+                onMouseUp={async e=>{
+                  const v=parseInt(e.target.value);
+                  if(fb) await fb.set(fb.ref(fb.db,"cam_config"),{...camConfig,intervalo:v});
+                }}
+                onTouchEnd={async e=>{
+                  const v=parseInt(e.target.value);
+                  if(fb) await fb.set(fb.ref(fb.db,"cam_config"),{...camConfig,intervalo:v});
+                }}
+                style={{width:"100%",accentColor:CC_COLOR}}
+              />
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:2}}>
+                <span style={{fontSize:8,color:"var(--muted)"}}>10 min</span>
+                <span style={{fontSize:8,color:"var(--muted)"}}>120 min</span>
+              </div>
+            </div>
+
             {/* KPIs hoy */}
             <div className="label-sec">📊 HOY · {hoy}</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
@@ -3001,52 +3030,133 @@ function App(){
     return()=>unsub();
   },[]);
 
-  // ── Motor del temporizador de cámaras (solo para Monitoreo)
+  // ── Motor del temporizador de cámaras — persistido en Firebase
+  // La próxima revisión se guarda en /cam_estado para sobrevivir logouts
   useEffect(()=>{
-    if(!usuario||usuario.rol!=="Monitoreo")return;
-    // Calcular próxima revisión
-    const calcSig=()=>{
+    if(!window._fb)return;
+    // Escuchar estado persistido en Firebase (próxima revisión + si hay pendiente)
+    const unsub=window._fb.onValue(window._fb.ref(window._fb.db,"cam_estado"),snap=>{
+      const d=snap.val();
+      if(!d) return;
       const ahora=Date.now();
-      const sig=ahora+camConfig.intervalo*60*1000;
-      setCamSiguiente(sig);
-      return sig;
-    };
-    const arrancar=()=>{
-      if(camTimerRef.current)clearTimeout(camTimerRef.current);
-      const sig=calcSig();
-      setCamAlertaVisible(false);
-      setCamEscalado(false);
-      camTimerRef.current=setTimeout(()=>{
-        // Verificar horario operativo
-        const h=new Date().getHours()+(new Date().getMinutes()/60);
-        if(h<camConfig.horaInicio||h>camConfig.horaFin) {arrancar();return;}
+      if(d.pendiente){
+        // Había una revisión pendiente sin atender → mostrar alerta inmediato
         setCamAlertaVisible(true);
-        // Escalamiento si no responde en X minutos
+        setCamSiguiente(null);
+        if(d.escalado) setCamEscalado(true);
+      } else if(d.siguiente){
+        setCamSiguiente(d.siguiente);
+        if(d.siguiente<=ahora){
+          // Ya venció mientras estaba fuera de sesión
+          const h=new Date().getHours()+(new Date().getMinutes()/60);
+          if(h>=camConfig.horaInicio&&h<=camConfig.horaFin){
+            setCamAlertaVisible(true);
+            // Marcar como pendiente en Firebase para que persista
+            window._fb.set(window._fb.ref(window._fb.db,"cam_estado"),{
+              siguiente:d.siguiente,pendiente:true,escalado:false,ts:Date.now()
+            });
+          }
+        }
+      }
+    });
+    return()=>unsub();
+  },[window._fb,camConfig.horaInicio,camConfig.horaFin]);
+
+  // Refs para acceder a la config más reciente sin re-ejecutar el effect
+  const camConfigRef=useRef(camConfig);
+  useEffect(()=>{ camConfigRef.current=camConfig; },[camConfig]);
+
+  // ── Motor del timer: solo se monta/desmonta con la sesión de Monitoreo
+  // Cuando cambia camConfig, solo actualiza el ref, NO reinicia el timer
+  useEffect(()=>{
+    if(!usuario||usuario.rol!=="Monitoreo"||!window._fb)return;
+    const {db,ref,set,get}=window._fb;
+
+    const iniciarTimer=(tsSiguiente)=>{
+      if(camTimerRef.current)clearTimeout(camTimerRef.current);
+      const resta=Math.max(0,tsSiguiente-Date.now());
+      setCamSiguiente(tsSiguiente);
+      camTimerRef.current=setTimeout(()=>{
+        // Leer config actual desde ref (no re-ejecuta el effect)
+        const cfg=camConfigRef.current;
+        const h=new Date().getHours()+(new Date().getMinutes()/60);
+        if(h<cfg.horaInicio||h>cfg.horaFin){
+          programarSiguiente(); return;
+        }
+        setCamAlertaVisible(true);
+        setCamEscalado(false);
+        set(ref(db,"cam_estado"),{siguiente:tsSiguiente,pendiente:true,escalado:false,ts:Date.now()});
         if(camEscRef.current)clearTimeout(camEscRef.current);
         camEscRef.current=setTimeout(()=>{
           setCamEscalado(true);
-          // Registrar escalamiento en Firebase
-          if(window._fb){
-            const ahora2=new Date();
-            window._fb.push(window._fb.ref(window._fb.db,"cam_revisiones"),{
-              tipo:"ESCALAMIENTO",
-              estado:"no_atendida",
-              fecha:ahora2.toLocaleDateString("es"),
-              hora:ahora2.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"}),
-              usuario:usuario.nombre,
-              ts:Date.now()
-            });
-          }
-        },camConfig.escalamiento*60*1000);
-      },camConfig.intervalo*60*1000);
+          set(ref(db,"cam_estado/escalado"),true);
+        },cfg.escalamiento*60*1000);
+      },resta);
     };
-    arrancar();
-    window._camArrancar=arrancar;
+
+    const programarSiguiente=()=>{
+      const cfg=camConfigRef.current;
+      const sig=Date.now()+cfg.intervalo*60*1000;
+      set(ref(db,"cam_estado"),{siguiente:sig,pendiente:false,escalado:false,ts:Date.now()});
+      setCamAlertaVisible(false);
+      setCamEscalado(false);
+      iniciarTimer(sig);
+    };
+
+    // Al entrar: siempre leer estado de Firebase
+    get(ref(db,"cam_estado")).then(snap=>{
+      const d=snap.val();
+      const ahora=Date.now();
+      const cfg=camConfigRef.current;
+      if(!d){
+        programarSiguiente(); return;
+      }
+      if(d.pendiente){
+        // Había revisión pendiente → mostrar alerta inmediatamente
+        setCamAlertaVisible(true);
+        if(d.escalado) setCamEscalado(true);
+        // Restaurar el timestamp de cuando venció para la hora de alerta
+        setCamSiguiente(d.siguiente||null);
+      } else if(d.siguiente){
+        if(d.siguiente<=ahora){
+          // Venció mientras estaba fuera
+          const h=new Date().getHours()+(new Date().getMinutes()/60);
+          if(h>=cfg.horaInicio&&h<=cfg.horaFin){
+            setCamAlertaVisible(true);
+            set(ref(db,"cam_estado"),{...d,pendiente:true,escalado:false});
+          } else {
+            programarSiguiente();
+          }
+        } else {
+          // Timer activo: retomar exactamente donde quedó
+          iniciarTimer(d.siguiente);
+        }
+      } else {
+        programarSiguiente();
+      }
+    }).catch(()=>programarSiguiente());
+
+    window._camArrancar=programarSiguiente;
+
     return()=>{
       if(camTimerRef.current)clearTimeout(camTimerRef.current);
       if(camEscRef.current)clearTimeout(camEscRef.current);
     };
-  },[usuario,camConfig]);
+  // Solo depende del usuario — camConfig se lee via ref para no reiniciar
+  },[usuario?.nombre]);
+
+  // Cuando Vicente cambia el intervalo: actualizar el timer sin reiniciar la sesión
+  const prevIntervalRef=useRef(null);
+  useEffect(()=>{
+    if(!usuario||usuario.rol!=="Monitoreo"||!window._fb)return;
+    if(prevIntervalRef.current===null){
+      prevIntervalRef.current=camConfig.intervalo; return;
+    }
+    if(prevIntervalRef.current===camConfig.intervalo) return;
+    prevIntervalRef.current=camConfig.intervalo;
+    // Solo reprogramar si no hay revisión pendiente
+    if(!camAlertaVisible&&window._camArrancar) window._camArrancar();
+  },[camConfig.intervalo]);
   const[passwords,setPasswords]=useState({});
   const[dynCajeros,setDynCajeros]=useState(null);
   const[dynEntradas,setDynEntradas]=useState(null);
@@ -3410,7 +3520,7 @@ function App(){
               camAlertaVisible={camAlertaVisible} setCamAlertaVisible={setCamAlertaVisible}
               camEscalado={camEscalado} setCamEscalado={setCamEscalado}
               camUltima={camUltima} camSiguiente={camSiguiente}
-              camRevisiones={camRevisiones} camConfig={camConfig}
+              camRevisiones={camRevisiones} camConfig={camConfig} setCamConfig={setCamConfig}
               history={history} openMod={openMod} fb={window._fb} hoy={hoy}
             />
           </div>
