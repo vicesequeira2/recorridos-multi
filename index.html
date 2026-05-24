@@ -176,6 +176,7 @@ const MODS=[
   {id:"ot",label:"Orden Trabajo (OT)",icon:"🔧",color:"#f43f5e"},
   {id:"limpieza",label:"Limpieza",icon:"🧹",color:"#fbbf24"},
   {id:"almuerzo",label:"Almuerzos Valet",icon:"🍽",color:"#e879f9"},
+  {id:"camaras",label:"Cámaras Perimetrales",icon:"📹",color:"#06b6d4"},
 ];
 const CC=[{id:'ups',label:'UPS'},{id:'dat',label:'Datafono'},{id:'mini',label:'Mini PC'},{id:'qr',label:'Lector QR'},{id:'imp',label:'Impresora'},{id:'pap',label:'Papel'},{id:'lim_chk',label:'Limpieza'},{id:'anc',label:'Anclaje'},{id:'pan',label:'Pantalla'},{id:'int',label:'Intercom'}];
 const CE=[{id:'asta',label:'Asta'},{id:'loop',label:'Loop'},{id:'imp_ent',label:'Impresora'},{id:'tiq',label:'Tiquetes'},{id:'lpr_ent',label:'LPR'},{id:'ctr',label:'Cam Trasera'},{id:'cfr',label:'Cam Frontal'},{id:'ups_ent',label:'UPS'}];
@@ -217,12 +218,14 @@ const getFechaActual = () => {
 
 // permisos dinámicos: window._permisos = { NombreUsuario: { modId: true/false } }
 function canAccess(m,u){
-  if(u.nombre==="Vicente") return true; // admin siempre accede a todo
+  if(u.nombre==="Vicente") return true;
   const permsU = (window._permisos||{})[u.nombre];
   if(permsU && typeof permsU[m.id] !== "undefined") return !!permsU[m.id];
-  // fallback a lógica original si no hay permisos en Firebase
+  // Módulo cámaras: SOLO Monitoreo
+  if(m.id==="camaras") return u.rol==="Monitoreo";
+  // Monitoreo: accede a OT, almuerzo y cámaras únicamente
+  if(u.rol==="Monitoreo") return m.id==="ot"||m.id==="almuerzo"||m.id==="camaras";
   if(m.id==="almuerzo") return ALM_VIS.includes(u.nombre);
-  if(u.nombre==="Monitoreo") return m.id==="ot"||m.id==="almuerzo";
   if(["cajero","entrada","salida"].includes(m.id)) return ["Vicente","Geovanny","Christopher"].includes(u.nombre);
   return true;
 }
@@ -2554,416 +2557,210 @@ function DashboardEjecutivo({history, hoyH, ayerH, hoy, ayer, diaTab, setDiaTab,
 // ============================================================
 
 // ══════════════════════════════════════════════════════
-// MÓDULO CÁMARAS PERIMETRALES — Solo rol Monitoreo
+// PANEL MONITOREO — Vista principal para rol Monitoreo
+// Incluye: módulos habituales + OTs de cámaras + almuerzos
 // ══════════════════════════════════════════════════════
-function CamarasScreen({
-  usuario, camScreen, setCamScreen,
-  camAlertaVisible, setCamAlertaVisible,
-  camEscalado, setCamEscalado,
-  camUltima, camSiguiente, camRevisiones,
-  camConfig, setCamConfig, history, openMod, fb, hoy
-}){
-  const CC_COLOR="#06b6d4";
-  const[subTab,setSubTab]=useState("dashboard");
-  const[clock,setClock]=useState("");
-  const[countdown,setCountdown]=useState("");
-  const[saving,setSaving]=useState(false);
-  const[camConfirm,setCamConfirm]=useState(null);
-  const[camAlertaTs,setCamAlertaTs]=useState(null); // timestamp exacto cuando sonó la alerta
-  const camActxRef=useRef(null);
 
-  // Sonido de alerta para cámaras
-  const playCamAlert=()=>{
-    try{
-      if(!camActxRef.current) camActxRef.current=new(window.AudioContext||window.webkitAudioContext)();
-      const ctx=camActxRef.current;
-      if(ctx.state==="suspended") ctx.resume();
-      // Tres pulsos de alerta
-      [0,0.4,0.8].forEach(t=>{
-        const o=ctx.createOscillator();
-        const g=ctx.createGain();
-        o.connect(g);g.connect(ctx.destination);
-        o.type="sine";
-        o.frequency.setValueAtTime(880,ctx.currentTime+t);
-        o.frequency.exponentialRampToValueAtTime(440,ctx.currentTime+t+0.3);
-        g.gain.setValueAtTime(0.5,ctx.currentTime+t);
-        g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+t+0.3);
-        o.start(ctx.currentTime+t);
-        o.stop(ctx.currentTime+t+0.35);
-      });
-      navigator.vibrate&&navigator.vibrate([200,100,200,100,400]);
-    }catch(e){}
-  };
+
+// ══════════════════════════════════════════════════════
+// PANTALLA MÓDULO CÁMARAS PERIMETRALES (solo Monitoreo)
+// ══════════════════════════════════════════════════════
+function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camConfig, clock, fb, openMod, hoy, onVolver}){
+  const CC="#06b6d4";
+  const[countdown,setCountdown]=useState("");
+  const camOTs=activeOTs.filter(o=>o.tipo==="cam_revision");
+  const histHoy=camRevisiones.filter(r=>r.fecha===hoy);
+  const totalOK=histHoy.filter(r=>r.estado==="ok").length;
+  const totalAnom=histHoy.filter(r=>r.estado==="anomalia").length;
 
   useEffect(()=>{
-    const t=()=>{
-      const ahora=new Date();
-      setClock(ahora.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
+    const id=setInterval(()=>{
       if(camSiguiente){
         const diff=Math.max(0,Math.floor((camSiguiente-Date.now())/1000));
-        const m=Math.floor(diff/60);
-        const s=diff%60;
-        setCountdown(`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`);
+        setCountdown(`${String(Math.floor(diff/60)).padStart(2,"0")}:${String(diff%60).padStart(2,"0")}`);
       }
-    };
-    t();const id=setInterval(t,1000);return()=>clearInterval(id);
+    },1000);
+    return()=>clearInterval(id);
   },[camSiguiente]);
-
-  // Disparar sonido y capturar timestamp exacto cuando aparece la alerta
-  const prevAlertaRef=useRef(false);
-  useEffect(()=>{
-    if(camAlertaVisible&&!prevAlertaRef.current){
-      // Capturar hora exacta del disparo de la alerta
-      const ts=new Date();
-      setCamAlertaTs({
-        fecha:ts.toLocaleDateString("es"),
-        hora:ts.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"}),
-        ts:Date.now()
-      });
-      playCamAlert();
-      // Repetir sonido cada 2 min si sigue sin atenderse
-      const id=setInterval(()=>{if(camAlertaVisible) playCamAlert();},120000);
-      prevAlertaRef.current=true;
-      return()=>clearInterval(id);
-    }
-    if(!camAlertaVisible){
-      prevAlertaRef.current=false;
-    }
-  },[camAlertaVisible]);
-
-  // guardarRevision recibe el timestamp exacto de cuando sonó la alerta
-  const guardarRevision=async(estado,notas="",tsAlerta)=>{
-    if(!fb)return;
-    setSaving(true);
-    // Usar la hora exacta de la alerta, NO la hora de confirmación
-    const fechaReg=tsAlerta?.fecha||new Date().toLocaleDateString("es");
-    const horaReg=tsAlerta?.hora||new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    const tsReg=tsAlerta?.ts||Date.now();
-    const horaConfirm=new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    const reg={
-      tipo:"REVISION_CAMARAS",
-      estado,
-      fecha:fechaReg,
-      hora:horaReg,           // hora en que sonó la alerta
-      horaConfirmacion:horaConfirm, // hora en que el usuario confirmó
-      notas,
-      escalado:camEscalado||false,
-      usuario:usuario.nombre,
-      ts:tsReg
-    };
-    await fb.push(fb.ref(fb.db,"cam_revisiones"),reg);
-    // También en registros generales
-    await fb.push(fb.ref(fb.db,"registros"),{
-      USUARIO:usuario.nombre,ROL:usuario.rol,
-      FECHA:fechaReg,
-      HORA:horaReg,
-      MODULO:"Cámaras Perimetrales",
-      ACCION:estado==="ok"?"REVISIÓN OK":"ANOMALÍA DETECTADA",
-      UBICACION:"Cámaras Perimetrales",
-      NOTAS:`Alerta: ${horaReg} · Confirmado: ${horaConfirm}${camEscalado?" · ⚠️ ESCALADO":""}${notas?" · "+notas:""}`,
-      _ts:tsReg
-    });
-    setSaving(false);
-    setCamAlertaVisible(false);
-    setCamEscalado(false);
-    setCamAlertaTs(null);
-    if(window._camArrancar) window._camArrancar();
-  };
-
-  const incidencias=camRevisiones.filter(r=>r.estado==="anomalia"||r.estado==="no_atendida").length;
-  const hoyRevs=camRevisiones.filter(r=>r.fecha===hoy);
-  const hoyOK=hoyRevs.filter(r=>r.estado==="ok").length;
-  const hoyInc=hoyRevs.filter(r=>r.estado==="anomalia").length;
 
   return(
     <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column"}}>
-
-      {/* ── ALERTA MODAL ── */}
-      {/* ── MODAL DE CONFIRMACIÓN ── */}
-      {camConfirm&&(
-        <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"#000000e8",zIndex:10000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{width:"100%",maxWidth:340,background:"#0d1520",border:`2px solid ${camConfirm.color}`,borderRadius:20,padding:24}}>
-            <div style={{textAlign:"center",marginBottom:16}}>
-              <div style={{fontSize:40,marginBottom:8}}>{camConfirm.icon}</div>
-              <div style={{fontSize:15,fontWeight:900,color:camConfirm.color,marginBottom:6}}>{camConfirm.label}</div>
-              <div style={{fontSize:11,color:"#5a7a9a",lineHeight:1.6}}>{camConfirm.detalle}</div>
-            </div>
-            {/* Info del registro */}
-            <div style={{background:"#ffffff08",borderRadius:12,padding:"12px",marginBottom:16,fontSize:11,color:"#94a3b8"}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <span style={{fontWeight:700}}>📅 Fecha</span>
-                <span>{new Date().toLocaleDateString("es")}</span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <span style={{fontWeight:700}}>🕒 Hora de alerta</span>
-                <span style={{color:"#22c55e",fontWeight:800}}>{camConfirm.ts?.hora||clock}</span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
-                <span style={{fontWeight:700}}>✍️ Hora confirmación</span>
-                <span style={{color:"#94a3b8"}}>{clock}</span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between"}}>
-                <span style={{fontWeight:700}}>👤 Usuario</span>
-                <span>{usuario.nombre}</span>
-              </div>
-            </div>
-            <div style={{display:"flex",gap:10}}>
-              <button
-                onClick={()=>setCamConfirm(null)}
-                style={{flex:1,padding:"12px",background:"var(--border)",border:"none",borderRadius:12,color:"var(--text)",fontWeight:900,fontSize:12,cursor:"pointer"}}
-              >
-                ← CANCELAR
-              </button>
-              <button
-                disabled={saving}
-                onClick={async()=>{
-                  const estado=camConfirm.estado;
-                  const notas=camConfirm.notas;
-                  const ts=camConfirm.ts;
-                  setCamConfirm(null);
-                  await guardarRevision(estado,notas,ts);
-                  if(estado==="anomalia"){
-                    const otMod={id:"ot",label:"Orden Trabajo (OT)",icon:"🔧",color:"#f43f5e"};
-                    openMod(otMod);
-                  }
-                }}
-                style={{flex:2,padding:"12px",background:camConfirm.color,border:"none",borderRadius:12,color:"white",fontWeight:900,fontSize:12,cursor:"pointer",opacity:saving?0.5:1}}
-              >
-                {saving?"⏳ GUARDANDO...":camConfirm.accion}
-              </button>
-            </div>
+      {/* Header */}
+      <div style={{background:"var(--card)",borderBottom:`3px solid ${CC}`,flexShrink:0}}>
+        <div style={{background:`${CC}10`,borderBottom:`1px solid ${CC}25`,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <button onClick={onVolver} style={{background:"#ef4444",border:"none",color:"white",fontSize:13,fontWeight:900,padding:"10px 16px",borderRadius:12,cursor:"pointer"}}>← SALIR</button>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontWeight:900,fontSize:14,color:CC}}>📹 CÁMARAS PERIMETRALES</div>
+            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700}}>{hoy}</div>
           </div>
-        </div>
-      )}
-
-      {camAlertaVisible&&(
-        <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"#000000d8",zIndex:9999,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{width:"100%",maxWidth:360,background:camEscalado?"#2d0a0a":"#071a1f",border:`2px solid ${camEscalado?"#ef4444":CC_COLOR}`,borderRadius:20,padding:24,textAlign:"center"}}>
-            <div style={{fontSize:52,marginBottom:8,animation:"pop .4s ease"}}>{camEscalado?"🚨":"📹"}</div>
-            <div style={{fontSize:16,fontWeight:900,color:camEscalado?"#ef4444":CC_COLOR,marginBottom:4}}>
-              {camEscalado?"⚠️ ALERTA NO ATENDIDA":"REVISIÓN DE CÁMARAS"}
-            </div>
-            <div style={{fontSize:12,color:"#94a3b8",marginBottom:4}}>Cámaras Perimetrales</div>
-            <div style={{fontSize:13,fontWeight:700,color:"#e2ecf8",marginBottom:16,background:"#ffffff0a",borderRadius:10,padding:"10px"}}>
-              {camEscalado
-                ? "Esta alerta lleva más de "+camConfig.escalamiento+" minutos sin ser atendida."
-                : "Realizar revisión de cámaras perimetrales"}
-            </div>
-            <div style={{fontSize:11,color:"#5a7a9a",marginBottom:20}}>
-              📅 {new Date().toLocaleDateString("es")} · 🕒 {clock}
-            </div>
-
-            {/* Opciones — piden confirmación antes de guardar */}
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              <button
-                onClick={()=>setCamConfirm({
-                  estado:"ok",
-                  notas:"Se realizó revisión de cámaras perimetrales y todo está bien",
-                  icon:"✅",
-                  label:"¿Confirmar que todo está bien?",
-                  detalle:"Se guardará el registro y el contador se reiniciará.",
-                  color:"#22c55e",
-                  accion:"GUARDAR — TODO OK",
-                  ts:camAlertaTs
-                })}
-                disabled={saving}
-                style={{width:"100%",padding:"14px",background:"#22c55e20",border:"2px solid #22c55e",borderRadius:14,color:"#22c55e",fontWeight:900,fontSize:13,cursor:"pointer"}}
-              >
-                ✅ Todo está bien
-              </button>
-              <button
-                onClick={()=>setCamConfirm({
-                  estado:"anomalia",
-                  notas:"Se detectó una anomalía — OT generada",
-                  icon:"⚠️",
-                  label:"¿Confirmar anomalía detectada?",
-                  detalle:"Se abrirá una Orden de Trabajo y se registrará el incidente.",
-                  color:"#ef4444",
-                  accion:"CONFIRMAR ANOMALÍA",
-                  ts:camAlertaTs
-                })}
-                disabled={saving}
-                style={{width:"100%",padding:"14px",background:"#ef444420",border:"2px solid #ef4444",borderRadius:14,color:"#ef4444",fontWeight:900,fontSize:13,cursor:"pointer"}}
-              >
-                ⚠️ Se detectó una anomalía
-              </button>
-              <button
-                onClick={()=>setCamAlertaVisible(false)}
-                style={{width:"100%",padding:"10px",background:"transparent",border:"1px solid #2a4060",borderRadius:12,color:"#5a7a9a",fontWeight:700,fontSize:11,cursor:"pointer"}}
-              >
-                Ver después
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── HEADER ── */}
-      <div style={{background:"var(--card)",borderBottom:`2px solid ${CC_COLOR}`,flexShrink:0,padding:"12px 14px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <div>
-            <div style={{fontSize:14,fontWeight:900,color:CC_COLOR}}>📹 CÁMARAS PERIMETRALES</div>
-            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700}}>Monitoreo · {hoy}</div>
-          </div>
-          <div style={{textAlign:"right"}}>
-            <div style={{fontSize:16,fontWeight:900,color:"var(--text)"}}>{clock}</div>
-            {camAlertaVisible&&(
-              <div style={{fontSize:9,fontWeight:800,color:"#ef4444",animation:"blink 1s infinite"}}>● REVISIÓN PENDIENTE</div>
-            )}
-          </div>
-        </div>
-        {/* Sub-tabs */}
-        <div style={{display:"flex",gap:6}}>
-          {[{id:"dashboard",l:"📊 Panel"},{id:"historial",l:"📋 Historial"}].map(t=>(
-            <button key={t.id} onClick={()=>setSubTab(t.id)} style={{padding:"6px 12px",borderRadius:20,border:`1px solid ${subTab===t.id?CC_COLOR:"var(--border)"}`,background:subTab===t.id?`${CC_COLOR}18`:"transparent",color:subTab===t.id?CC_COLOR:"var(--muted)",fontWeight:800,fontSize:11,cursor:"pointer"}}>
-              {t.l}
-            </button>
-          ))}
+          <div style={{fontSize:14,fontWeight:900,color:CC}}>{clock}</div>
         </div>
       </div>
 
       <div className="scrollable">
 
-        {/* ── DASHBOARD ── */}
-        {subTab==="dashboard"&&(
-          <div>
-            {/* Countdown */}
-            <div style={{background:camAlertaVisible?"#ef444415":`${CC_COLOR}10`,border:`2px solid ${camAlertaVisible?"#ef4444":CC_COLOR}40`,borderRadius:16,padding:"20px",marginBottom:14,textAlign:"center"}}>
-              {camAlertaVisible?(
-                <>
-                  <div style={{fontSize:36,marginBottom:4}}>🔔</div>
-                  <div style={{fontSize:16,fontWeight:900,color:"#ef4444"}}>REVISIÓN REQUERIDA</div>
-                  <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Toca el botón para registrar</div>
-                  <button onClick={()=>setCamAlertaVisible(true)} style={{marginTop:14,padding:"12px 24px",background:"#ef4444",border:"none",borderRadius:12,color:"white",fontWeight:900,fontSize:13,cursor:"pointer"}}>
-                    📹 ABRIR REVISIÓN
-                  </button>
-                </>
-              ):(
-                <>
-                  <div style={{fontSize:11,fontWeight:800,color:"var(--muted)",marginBottom:4}}>PRÓXIMA REVISIÓN EN</div>
-                  <div style={{fontSize:48,fontWeight:900,color:CC_COLOR,fontVariantNumeric:"tabular-nums",letterSpacing:2}}>{countdown||"--:--"}</div>
-                  <div style={{fontSize:10,color:"var(--muted)",marginTop:4}}>Intervalo: cada {camConfig.intervalo} min · {String(Math.floor(camConfig.horaInicio)).padStart(2,"0")}:00 – {String(Math.floor(camConfig.horaFin)).padStart(2,"0")}:30</div>
-                  {/* Barra progreso */}
-                  {camSiguiente&&(()=>{
-                    const total=camConfig.intervalo*60*1000;
-                    const resta=Math.max(0,camSiguiente-Date.now());
-                    const pct=Math.round(((total-resta)/total)*100);
-                    return(
-                      <div style={{height:4,background:"var(--border)",borderRadius:4,marginTop:12,overflow:"hidden"}}>
-                        <div style={{height:"100%",width:`${pct}%`,background:pct>80?"#f97316":CC_COLOR,borderRadius:4,transition:"width 1s"}}/>
-                      </div>
-                    );
-                  })()}
-                </>
-              )}
+        {/* Contador próxima revisión */}
+        <div style={{background:camOTs.length>0?`#ef444412`:`${CC}10`,border:`2px solid ${camOTs.length>0?"#ef4444":CC}40`,borderRadius:16,padding:"20px",marginBottom:14,textAlign:"center"}}>
+          {camOTs.length>0?(
+            <>
+              <div style={{fontSize:32,marginBottom:6}}>🔴</div>
+              <div style={{fontSize:15,fontWeight:900,color:"#ef4444"}}>REVISIÓN PENDIENTE</div>
+              <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{camOTs.length} OT{camOTs.length>1?"s":""} de cámara abierta{camOTs.length>1?"s":""}</div>
+            </>
+          ):(
+            <>
+              <div style={{fontSize:11,fontWeight:800,color:"var(--muted)",marginBottom:4}}>PRÓXIMA REVISIÓN EN</div>
+              <div style={{fontSize:48,fontWeight:900,color:CC,letterSpacing:2,fontVariantNumeric:"tabular-nums"}}>{countdown||"--:--"}</div>
+              <div style={{fontSize:10,color:"var(--muted)",marginTop:4}}>Cada {camConfig.intervalo} min · Horario {String(Math.floor(camConfig.horaInicio)).padStart(2,"0")}:{camConfig.horaInicio%1===0.5?"30":"00"} – {String(Math.floor(camConfig.horaFin)).padStart(2,"0")}:{camConfig.horaFin%1===0.5?"30":"00"}</div>
+              {camSiguiente&&(()=>{
+                const total=camConfig.intervalo*60*1000;
+                const pct=Math.round(((total-Math.max(0,camSiguiente-Date.now()))/total)*100);
+                return(<div style={{height:5,background:"var(--border)",borderRadius:4,marginTop:12,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${pct}%`,background:pct>80?"#f97316":CC,borderRadius:4,transition:"width 1s"}}/>
+                </div>);
+              })()}
+            </>
+          )}
+        </div>
+
+        {/* KPIs hoy */}
+        <div className="label-sec">📊 RESUMEN HOY · {hoy}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
+          {[
+            {v:histHoy.length,l:"Revisiones",c:CC},
+            {v:totalOK,l:"OK",c:"#22c55e"},
+            {v:totalAnom,l:"Anomalías",c:totalAnom>0?"#ef4444":"#22c55e"},
+          ].map((k,i)=>(
+            <div key={i} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 8px",textAlign:"center"}}>
+              <div style={{fontSize:22,fontWeight:900,color:k.c}}>{k.v}</div>
+              <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>{k.l}</div>
             </div>
+          ))}
+        </div>
 
-            {/* Editor de intervalo rápido */}
-            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",marginBottom:14}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                <span style={{fontSize:11,fontWeight:800,color:"var(--muted)"}}>⏱ INTERVALO DE REVISIÓN</span>
-                <span style={{fontSize:16,fontWeight:900,color:CC_COLOR}}>{camConfig.intervalo} min</span>
-              </div>
-              <input
-                type="range" min={10} max={120} step={5}
-                value={camConfig.intervalo}
-                onChange={e=>{
-                  const v=parseInt(e.target.value);
-                  setCamConfig(p=>({...p,intervalo:v}));
-                }}
-                onMouseUp={async e=>{
-                  const v=parseInt(e.target.value);
-                  if(fb) await fb.set(fb.ref(fb.db,"cam_config"),{...camConfig,intervalo:v});
-                }}
-                onTouchEnd={async e=>{
-                  const v=parseInt(e.target.value);
-                  if(fb) await fb.set(fb.ref(fb.db,"cam_config"),{...camConfig,intervalo:v});
-                }}
-                style={{width:"100%",accentColor:CC_COLOR}}
-              />
-              <div style={{display:"flex",justifyContent:"space-between",marginTop:2}}>
-                <span style={{fontSize:8,color:"var(--muted)"}}>10 min</span>
-                <span style={{fontSize:8,color:"var(--muted)"}}>120 min</span>
-              </div>
-            </div>
-
-            {/* KPIs hoy */}
-            <div className="label-sec">📊 HOY · {hoy}</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
-              {[
-                {v:hoyRevs.length,l:"Revisiones",c:CC_COLOR},
-                {v:hoyOK,l:"OK",c:"#22c55e"},
-                {v:hoyInc,l:"Anomalías",c:hoyInc>0?"#ef4444":"#22c55e"},
-              ].map((k,i)=>(
-                <div key={i} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"12px",textAlign:"center"}}>
-                  <div style={{fontSize:22,fontWeight:900,color:k.c}}>{k.v}</div>
-                  <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>{k.l}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Última revisión */}
-            <div className="label-sec">🕒 ÚLTIMA REVISIÓN</div>
-            {camUltima?(
-              <div style={{background:camUltima.estado==="ok"?"#22c55e0a":"#ef44440a",border:`1px solid ${camUltima.estado==="ok"?"#22c55e30":"#ef444430"}`,borderRadius:12,padding:"14px",marginBottom:14}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:28}}>{camUltima.estado==="ok"?"✅":camUltima.estado==="no_atendida"?"🚨":"⚠️"}</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:13,fontWeight:900,color:camUltima.estado==="ok"?"#22c55e":"#ef4444"}}>
-                      {camUltima.estado==="ok"?"Todo en orden":camUltima.estado==="no_atendida"?"No atendida":"Anomalía detectada"}
-                    </div>
-                    <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>📅 {camUltima.fecha} · 🕒 {camUltima.hora}</div>
-                    {camUltima.notas&&<div style={{fontSize:10,color:"var(--muted)",marginTop:2,fontStyle:"italic"}}>{camUltima.notas}</div>}
-                  </div>
-                </div>
-              </div>
-            ):(
-              <div style={{color:"var(--muted)",fontSize:12,padding:"10px 0"}}>Sin revisiones registradas</div>
-            )}
-
-            {/* Total incidencias */}
-            <div style={{background:incidencias>0?"#ef44440a":"#22c55e0a",border:`1px solid ${incidencias>0?"#ef444430":"#22c55e30"}`,borderRadius:12,padding:"12px",display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-              <span style={{fontSize:24}}>{incidencias>0?"⚠️":"🛡"}</span>
-              <div>
-                <div style={{fontSize:13,fontWeight:900,color:incidencias>0?"#ef4444":"#22c55e"}}>{incidencias} incidencia{incidencias!==1?"s":""} totales</div>
-                <div style={{fontSize:10,color:"var(--muted)"}}>Anomalías y alertas no atendidas</div>
-              </div>
-            </div>
-
-            {/* Botón revisión manual */}
-            <button
-              onClick={()=>setCamAlertaVisible(true)}
-              style={{width:"100%",padding:"14px",background:`${CC_COLOR}18`,border:`1px solid ${CC_COLOR}50`,borderRadius:14,color:CC_COLOR,fontWeight:900,fontSize:13,cursor:"pointer",marginBottom:10}}
-            >
-              📹 INICIAR REVISIÓN MANUAL
-            </button>
-          </div>
-        )}
-
-        {/* ── HISTORIAL ── */}
-        {subTab==="historial"&&(
-          <div>
-            <div className="label-sec">📋 HISTORIAL DE REVISIONES · {camRevisiones.length}</div>
-            {camRevisiones.length===0&&<div style={{color:"var(--muted)",fontSize:12,padding:"20px 0",textAlign:"center"}}>Sin revisiones aún</div>}
-            {camRevisiones.map((r,i)=>(
-              <div key={r._fbKey||i} style={{background:r.estado==="ok"?"#22c55e08":r.estado==="no_atendida"?"#ef444408":"#f9731608",border:`1px solid ${r.estado==="ok"?"#22c55e25":r.estado==="no_atendida"?"#ef444425":"#f9731625"}`,borderRadius:10,padding:"10px 12px",marginBottom:7,display:"flex",gap:10,alignItems:"flex-start"}}>
-                <span style={{fontSize:20,flexShrink:0}}>{r.estado==="ok"?"✅":r.estado==="no_atendida"?"🚨":r.tipo==="ESCALAMIENTO"?"🔴":"⚠️"}</span>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:11,fontWeight:900,color:r.estado==="ok"?"#22c55e":r.estado==="no_atendida"?"#ef4444":"#f97316"}}>
-                    {r.estado==="ok"?"Revisión OK":r.estado==="no_atendida"?"No atendida - Escalamiento":r.tipo==="ESCALAMIENTO"?"Escalamiento automático":"Anomalía detectada"}
-                  </div>
-                  <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>📅 {r.fecha} · 🕒 {r.hora} · {r.usuario||"Sistema"}</div>
-                  {r.notas&&<div style={{fontSize:10,color:"var(--muted)",marginTop:2,fontStyle:"italic"}}>{r.notas}</div>}
-                </div>
-              </div>
+        {/* OTs de cámara abiertas — para cerrar */}
+        {camOTs.length>0&&(
+          <div style={{marginBottom:14}}>
+            <div className="label-sec" style={{color:"#ef4444"}}>🔴 OTs DE CÁMARA ABIERTAS</div>
+            {camOTs.map(o=>(
+              <MonitoreoCamOT key={o._fbKey} ot={o} usuario={usuario} clock={clock} fb={fb} openMod={openMod} hoy={hoy}/>
             ))}
           </div>
         )}
+
+        {/* Historial de revisiones */}
+        <div className="label-sec">📋 HISTORIAL DE REVISIONES</div>
+        {camRevisiones.length===0&&(
+          <div style={{color:"var(--muted)",fontSize:12,padding:"12px 0",textAlign:"center"}}>Sin revisiones registradas aún</div>
+        )}
+        {camRevisiones.slice(0,20).map((r,i)=>(
+          <div key={r._fbKey||i} style={{
+            background:r.estado==="ok"?"#22c55e08":r.estado==="anomalia"?"#ef444408":"#f9731608",
+            border:`1px solid ${r.estado==="ok"?"#22c55e25":r.estado==="anomalia"?"#ef444425":"#f9731625"}`,
+            borderRadius:10,padding:"10px 12px",marginBottom:7,display:"flex",gap:10,alignItems:"center"
+          }}>
+            <span style={{fontSize:20}}>{r.estado==="ok"?"✅":"⚠️"}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,fontWeight:900,color:r.estado==="ok"?"#22c55e":"#ef4444"}}>
+                {r.estado==="ok"?"Revisión OK — Sin novedad":r.estado==="anomalia"?"Anomalía detectada":"No atendida"}
+              </div>
+              <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>{r.fecha} · {r.hora} · {r.usuario||"Sistema"}</div>
+              {r.ot_id&&<div style={{fontSize:9,color:"var(--muted)"}}>OT: {r.ot_id}</div>}
+            </div>
+          </div>
+        ))}
 
       </div>
     </div>
   );
 }
+
+// ── Tarjeta de OT de cámara en home de Monitoreo ──
+function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
+  const[step,setStep]=useState(null); // null|"ok"|"falla"
+  const[saving,setSaving]=useState(false);
+  const CC="#06b6d4";
+
+  const cerrar=async(opcion)=>{
+    if(!fb)return;
+    setSaving(true);
+    const ahora=new Date();
+    const hora=ahora.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+    const fecha=ahora.toLocaleDateString("es");
+    await fb.push(fb.ref(fb.db,"registros"),{
+      USUARIO:usuario.nombre,ROL:usuario.rol,
+      FECHA:fecha,HORA:hora,
+      MODULO:"Cámaras Perimetrales",
+      ACCION:"CERRAR OT CÁMARA",
+      UBICACION:"Cámaras Perimetrales",
+      ORDEN_ID:ot.ot_id,
+      NOTAS:opcion==="ok"?"Revisión OK — Sin novedad":"Anomalía detectada — OT generada para técnicos",
+      _ts:Date.now()
+    });
+    await fb.push(fb.ref(fb.db,"cam_revisiones"),{
+      tipo:"REVISION_CAMARAS",estado:opcion==="ok"?"ok":"anomalia",
+      fecha,hora,usuario:usuario.nombre,ot_id:ot.ot_id,ts:Date.now()
+    });
+    await fb.remove(fb.ref(fb.db,`activeOTs/${ot._fbKey}`));
+    if(opcion==="falla"){
+      const nuevoId="CAM-"+Math.random().toString(36).substr(2,4).toUpperCase();
+      await fb.push(fb.ref(fb.db,"activeOTs"),{
+        ot_id:nuevoId,loc:"Cámaras Perimetrales",
+        det:"Anomalía detectada en revisión — requiere atención técnica",
+        usuario:usuario.nombre,fecha,hora,tipo:"normal",urgente:true,_ts:Date.now()
+      });
+      openMod(MODS.find(m=>m.id==="ot"));
+    }
+    if(window._camArrancar) window._camArrancar();
+    setSaving(false);
+  };
+
+  return(
+    <div style={{background:"#071a22",border:`2px solid ${CC}`,borderRadius:14,padding:"14px",marginBottom:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <div>
+          <div style={{fontSize:9,fontWeight:900,color:CC,marginBottom:2}}>{ot.ot_id}</div>
+          <div style={{fontSize:14,fontWeight:900,color:"#e2ecf8"}}>📹 Revisión de Cámaras</div>
+          <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>Generada: {ot.hora} · {ot.fecha}</div>
+        </div>
+        <span style={{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,background:"#ef444425",color:"#ef4444"}}>PENDIENTE</span>
+      </div>
+      {!step?(
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>setStep("ok")}
+            style={{flex:1,padding:"11px",background:"#22c55e20",border:"1px solid #22c55e",borderRadius:12,color:"#22c55e",fontWeight:900,fontSize:12,cursor:"pointer"}}>
+            ✅ Sin novedad
+          </button>
+          <button onClick={()=>setStep("falla")}
+            style={{flex:1,padding:"11px",background:"#ef444420",border:"1px solid #ef4444",borderRadius:12,color:"#ef4444",fontWeight:900,fontSize:12,cursor:"pointer"}}>
+            ⚠️ Anomalía
+          </button>
+        </div>
+      ):(
+        <div>
+          <div style={{background:`${step==="ok"?"#22c55e":"#ef4444"}15`,border:`1px solid ${step==="ok"?"#22c55e":"#ef4444"}40`,borderRadius:10,padding:"10px",marginBottom:8}}>
+            <div style={{fontSize:12,fontWeight:900,color:step==="ok"?"#22c55e":"#ef4444",marginBottom:2}}>
+              {step==="ok"?"✅ Todo en orden — Sin novedad":"⚠️ Anomalía detectada"}
+            </div>
+            <div style={{fontSize:10,color:"#94a3b8"}}>🕒 {clock} · 👤 {usuario.nombre}</div>
+            {step==="falla"&&<div style={{fontSize:10,color:"#f87171",marginTop:4}}>Se abrirá una OT para los técnicos.</div>}
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>setStep(null)}
+              style={{flex:1,padding:"10px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>
+              ← ATRÁS
+            </button>
+            <button onClick={()=>cerrar(step)} disabled={saving}
+              style={{flex:2,padding:"10px",background:step==="ok"?"#22c55e":"#ef4444",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:12,cursor:"pointer",opacity:saving?0.5:1}}>
+              {saving?"⏳...":"CONFIRMAR Y CERRAR"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 function App(){
   const[usuario,setUsuario]=useState(null);
@@ -2985,12 +2782,8 @@ function App(){
   const[diaTab,setDiaTab]=useState("hoy");
   const[permisosDB,setPermisosDB]=useState({});
   // ── Módulo Cámaras Monitoreo
-  const[camScreen,setCamScreen]=useState("dashboard"); // dashboard|alerta|form
   const[camConfig,setCamConfig]=useState({intervalo:40,escalamiento:10,horaInicio:9,horaFin:21.5});
   const[camSiguiente,setCamSiguiente]=useState(null);
-  const[camAlertaVisible,setCamAlertaVisible]=useState(false);
-  const[camEscalado,setCamEscalado]=useState(false);
-  const[camUltima,setCamUltima]=useState(null);
   const[camRevisiones,setCamRevisiones]=useState([]);
   const camTimerRef=useRef(null);
   const camEscRef=useRef(null);
@@ -3024,7 +2817,6 @@ function App(){
       if(d){
         const arr=Object.entries(d).map(([k,v])=>({...v,_fbKey:k})).sort((a,b)=>(b.ts||0)-(a.ts||0));
         setCamRevisiones(arr);
-        setCamUltima(arr[0]||null);
       } else {setCamRevisiones([]);setCamUltima(null);}
     });
     return()=>unsub();
@@ -3083,23 +2875,28 @@ function App(){
         if(h<cfg.horaInicio||h>cfg.horaFin){
           programarSiguiente(); return;
         }
-        setCamAlertaVisible(true);
-        setCamEscalado(false);
-        set(ref(db,"cam_estado"),{siguiente:tsSiguiente,pendiente:true,escalado:false,ts:Date.now()});
-        if(camEscRef.current)clearTimeout(camEscRef.current);
-        camEscRef.current=setTimeout(()=>{
-          setCamEscalado(true);
-          set(ref(db,"cam_estado/escalado"),true);
-        },cfg.escalamiento*60*1000);
+        // Crear OT de cámara en Firebase (como cualquier otra OT)
+        const ahora2=new Date();
+        const otId="CAM-"+Math.random().toString(36).substr(2,4).toUpperCase();
+        push(ref(db,"activeOTs"),{
+          ot_id:otId,
+          loc:"Cámaras Perimetrales",
+          det:"Revisión periódica de cámaras perimetrales programada",
+          usuario:"Sistema",
+          fecha:ahora2.toLocaleDateString("es"),
+          hora:ahora2.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"}),
+          tipo:"cam_revision",
+          urgente:false,
+          _ts:Date.now()
+        });
+        set(ref(db,"cam_estado"),{siguiente:tsSiguiente,pendiente:true,ot_id:otId,ts:Date.now()});
       },resta);
     };
 
     const programarSiguiente=()=>{
       const cfg=camConfigRef.current;
       const sig=Date.now()+cfg.intervalo*60*1000;
-      set(ref(db,"cam_estado"),{siguiente:sig,pendiente:false,escalado:false,ts:Date.now()});
-      setCamAlertaVisible(false);
-      setCamEscalado(false);
+      set(ref(db,"cam_estado"),{siguiente:sig,pendiente:false,ts:Date.now()});
       iniciarTimer(sig);
     };
 
@@ -3112,11 +2909,8 @@ function App(){
         programarSiguiente(); return;
       }
       if(d.pendiente){
-        // Había revisión pendiente → mostrar alerta inmediatamente
-        setCamAlertaVisible(true);
-        if(d.escalado) setCamEscalado(true);
-        // Restaurar el timestamp de cuando venció para la hora de alerta
-        setCamSiguiente(d.siguiente||null);
+        // Revisión pendiente — la OT ya fue creada en Firebase, solo retomar countdown nulo
+        setCamSiguiente(null);
       } else if(d.siguiente){
         if(d.siguiente<=ahora){
           // Venció mientras estaba fuera
@@ -3155,7 +2949,7 @@ function App(){
     if(prevIntervalRef.current===camConfig.intervalo) return;
     prevIntervalRef.current=camConfig.intervalo;
     // Solo reprogramar si no hay revisión pendiente
-    if(!camAlertaVisible&&window._camArrancar) window._camArrancar();
+    if(window._camArrancar) window._camArrancar();
   },[camConfig.intervalo]);
   const[passwords,setPasswords]=useState({});
   const[dynCajeros,setDynCajeros]=useState(null);
@@ -3307,7 +3101,11 @@ function App(){
   },[]);
 
   const setF=(k,v)=>setForm(f=>({...f,[k]:v}));
-  const openMod=m=>{setModulo(m);setForm({ot_tipo:"ABRIR ORDEN DE TRABAJO",ot_id:"OT-"+Math.random().toString(36).substr(2,4).toUpperCase()});setTimer(0);setTimerOn(false);if(tRef.current)clearInterval(tRef.current);setScreen("form");};
+  const openMod=m=>{
+    if(m.id==="camaras"){setScreen("camaras");return;}
+    setModulo(m);setForm({ot_tipo:"ABRIR ORDEN DE TRABAJO",ot_id:"OT-"+Math.random().toString(36).substr(2,4).toUpperCase()});
+    setTimer(0);setTimerOn(false);if(tRef.current)clearInterval(tRef.current);setScreen("form");
+  };
   const toggleTimer=()=>{if(timerOn){clearInterval(tRef.current);setF("timer_val",(timer/1000).toFixed(2));}else{const s=Date.now()-timer;tRef.current=setInterval(()=>setTimer(Date.now()-s),10);}setTimerOn(!timerOn);};
 
   // Función para marcar todos los checkboxes como SI o LIMPIAR
@@ -3499,42 +3297,7 @@ function App(){
         </div>
       )}
 
-      {screen==="home"&&usuario.rol==="Monitoreo"&&(
-        <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column"}}>
-          {/* Header básico para Monitoreo */}
-          <div className="hdr">
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{fontSize:15,fontWeight:900,color:"#06b6d4"}}>📹 MONITOREO</div>
-              <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                <span style={{fontSize:10,color:"var(--muted)",fontWeight:700}}>{usuario.nombre}</span>
-                <button onClick={()=>setScreen("cambiarPw")} style={{fontSize:9,fontWeight:900,background:"#0ea5e920",border:"1px solid #0ea5e940",color:"var(--accent)",padding:"2px 6px",borderRadius:4,cursor:"pointer"}}>🔑</button>
-                <button onClick={()=>{if(window._fb&&window._fb.presenceRef)window._fb.remove(window._fb.presenceRef);setUsuario(null);}} style={{fontSize:9,fontWeight:900,background:"#ef444420",border:"1px solid #ef444440",color:"#ef4444",padding:"2px 6px",borderRadius:4,cursor:"pointer"}}>SALIR</button>
-              </div>
-            </div>
-          </div>
-          {/* Módulo cámaras directo */}
-          <div style={{flex:1,overflow:"hidden"}}>
-            <CamarasScreen
-              usuario={usuario}
-              camScreen={camScreen} setCamScreen={setCamScreen}
-              camAlertaVisible={camAlertaVisible} setCamAlertaVisible={setCamAlertaVisible}
-              camEscalado={camEscalado} setCamEscalado={setCamEscalado}
-              camUltima={camUltima} camSiguiente={camSiguiente}
-              camRevisiones={camRevisiones} camConfig={camConfig} setCamConfig={setCamConfig}
-              history={history} openMod={openMod} fb={window._fb} hoy={hoy}
-            />
-          </div>
-          {/* Acceso a OT y Almuerzo */}
-          <div style={{padding:"10px 14px",borderTop:"1px solid var(--border)",display:"flex",gap:8,flexShrink:0}}>
-            {MODS.filter(m=>m.id==="ot"||m.id==="almuerzo").map(m=>(
-              <button key={m.id} onClick={()=>m.id==="almuerzo"?setScreen("almuerzo"):openMod(m)} style={{flex:1,padding:"10px",background:`${m.color}15`,border:`1px solid ${m.color}40`,borderRadius:10,color:m.color,fontWeight:800,fontSize:11,cursor:"pointer"}}>
-                {m.icon} {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {screen==="home"&&usuario.rol!=="Monitoreo"&&(
+      {screen==="home"&&(
         <div className="fi" style={{height:'100%',display:'flex',flexDirection:'column'}}>
           <div className="watermark">— VICENTE.S —</div>
           <div className="hdr">
@@ -3568,53 +3331,75 @@ function App(){
             )}
           </div>
           <div className="scrollable">
-            {usuario.nombre === "Monitoreo" && colaboradoresFuera.length > 0 && (
+            {/* ── FUERA AHORA: visible a todos con acceso a almuerzos ── */}
+            {ALM_VIS.includes(usuario.nombre) && colaboradoresFuera.length > 0 && (
               <div style={{marginBottom:16}}>
-                <div className="label-sec">⏰ COLABORADORES EN ALMUERZO/CAFÉ</div>
-                {colaboradoresFuera.map(vale => {
-                  const salidaTime = new Date(`${hoy} ${vale.salida}`);
-                  const ahoraTime = new Date();
-                  const minutosTranscurridos = Math.floor((ahoraTime - salidaTime) / 60000);
-                  const esAlmuerzo = vale.tipo === "almuerzo";
-                  const tiempoLimite = esAlmuerzo ? 65 : 15;
-                  const tiempoRestante = tiempoLimite - minutosTranscurridos;
-                  const estaTarde = minutosTranscurridos > tiempoLimite;
-                  
-                  return (
-                    <div key={vale._fbKey} className="recordatorio-card" style={{borderLeftColor: estaTarde ? '#ef4444' : '#f97316'}}>
-                      <div style={{flex:1}}>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
-                          <span style={{fontSize:16}}>{esAlmuerzo ? '🍽️' : '☕'}</span>
-                          <span style={{fontSize:14,fontWeight:900,color:estaTarde ? '#ef4444' : '#f97316'}}>{vale.persona}</span>
-                          {estaTarde && <span className="badge-no">⚠️ TARDE</span>}
+                <div className="label-sec">⏰ FUERA AHORA · {colaboradoresFuera.length}</div>
+                {colaboradoresFuera.map(vale=>{
+                  const p=(listaVP||VP).find(x=>x.nombre===vale.persona);
+                  const min=vale.tipo==="almuerzo"?(p?.minA||65):(p?.minC||15);
+                  const[sh,sm]=(vale.salida||"0:0").split(":").map(Number);
+                  const[ah,am]=clock.split(":").map(Number);
+                  const mins=(ah*60+am)-(sh*60+sm);
+                  const pct=Math.min(100,Math.round((mins/min)*100));
+                  const exc=mins>min;
+                  const TC=vale.tipo==="almuerzo"?"#f97316":"#06b6d4";
+                  const canOp=ALM_OPS.includes(usuario.nombre);
+                  return(
+                    <div key={vale._fbKey} style={{borderRadius:14,marginBottom:9,overflow:"hidden",
+                      border:`${exc?"2px":"1px"} solid ${exc?"#ef4444":TC}`,
+                      background:exc?"#ef444408":`${TC}0a`}}>
+                      <div style={{padding:"12px 14px"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <span style={{fontSize:18}}>{vale.tipo==="almuerzo"?"🍽":"☕"}</span>
+                            <div>
+                              <div style={{fontSize:14,fontWeight:900,color:exc?"#ef4444":TC}}>{vale.persona}</div>
+                              <div style={{fontSize:10,color:"var(--muted)"}}>Salió: {vale.salida} · máx {min} min</div>
+                            </div>
+                            {exc&&<span style={{fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:10,background:"#ef444420",color:"#ef4444"}}>⚠️ TARDE</span>}
+                          </div>
+                          {canOp&&(
+                            <button onClick={()=>marcarRegreso(vale)}
+                              style={{background:exc?"#ef4444":"#22c55e",color:"white",border:"none",
+                                padding:"10px 14px",borderRadius:12,fontWeight:900,fontSize:12,cursor:"pointer",flexShrink:0}}>
+                              ✅ VUELVE
+                            </button>
+                          )}
                         </div>
-                        <div style={{fontSize:11,color:'var(--muted)'}}>
-                          Salió: {vale.salida} • {esAlmuerzo ? 'Almuerzo (65min)' : 'Café (15min)'}
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                          <span style={{fontSize:9,fontWeight:700,color:exc?"#ef4444":TC}}>
+                            {exc?`⏰ Excedido ${mins-min} min`:`⏱ ${mins}/${min} min`}
+                          </span>
+                          <span style={{fontSize:9,fontWeight:700,color:exc?"#ef4444":TC}}>{pct}%</span>
                         </div>
-                        <div className="recordatorio-tiempo" style={{marginTop:4, color: estaTarde ? '#ef4444' : '#f97316'}}>
-                          {estaTarde 
-                            ? `⏰ Retraso: ${Math.abs(tiempoRestante)} minutos`
-                            : `⏳ Tiempo restante: ${tiempoRestante} minutos`
-                          }
+                        <div style={{height:5,background:"var(--border)",borderRadius:4,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${pct}%`,
+                            background:exc?"#ef4444":TC,borderRadius:4,transition:"width 1s"}}/>
                         </div>
                       </div>
-                      <button 
-                        className="recordatorio-boton" 
-                        onClick={() => marcarRegreso(vale)}
-                        style={{background: estaTarde ? '#ef4444' : '#22c55e'}}
-                      >
-                        ✅ REGRESAR
-                      </button>
                     </div>
                   );
                 })}
               </div>
             )}
 
-            {activeOTs.length>0&&usuario.nombre!=="Monitoreo"&&(
+            {/* ── Indicador de revisiones pendientes en home (va al módulo cámaras) ── */}
+            {usuario.rol==="Monitoreo"&&activeOTs.filter(o=>o.tipo==="cam_revision").length>0&&(
+              <div onClick={()=>setScreen("camaras")} style={{cursor:"pointer",background:"#06b6d415",border:"2px solid #06b6d4",borderRadius:14,padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:12}}>
+                <span style={{fontSize:28}}>📹</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:900,color:"#06b6d4"}}>REVISIÓN DE CÁMARAS PENDIENTE</div>
+                  <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>{activeOTs.filter(o=>o.tipo==="cam_revision").length} OT{activeOTs.filter(o=>o.tipo==="cam_revision").length>1?"s":""} pendiente{activeOTs.filter(o=>o.tipo==="cam_revision").length>1?"s":""} · Toca para atender</div>
+                </div>
+                <span style={{fontSize:20,color:"#06b6d4"}}>›</span>
+              </div>
+            )}
+
+            {activeOTs.filter(o=>o.tipo!=="cam_revision").length>0&&(
               <div>
-                <div className="label-sec">⚠️ ÓRDENES PENDIENTES ({activeOTs.length})</div>
-                {activeOTs.map(o=>{
+                <div className="label-sec">⚠️ ÓRDENES PENDIENTES ({activeOTs.filter(o=>o.tipo!=="cam_revision").length})</div>
+                {activeOTs.filter(o=>o.tipo!=="cam_revision").map(o=>{
                   const min=o._ts?Math.floor((Date.now()-o._ts)/60000):0;
                   const urg=min>=5;
                   const ct=min<5?'#22c55e':min<15?'#f59e0b':'#ef4444';
@@ -3627,7 +3412,9 @@ function App(){
                       </div>
                       <p style={{fontSize:12,color:'#94a3b8',marginBottom:6}}>{o.det}</p>
                       {urg&&<div style={{fontSize:10,color:'#ef4444',fontWeight:700,marginBottom:6}}>⚠️ Lleva más de {min} min sin cerrar</div>}
-                      <button className="btn-ot-close" onClick={()=>{setModulo(MODS.find(m=>m.id==='ot'));setForm({ot_tipo:'CERRAR ORDEN DE TRABAJO',ot_ubicacion:o.loc,ot_id:o.ot_id,original_det:o.det});setScreen("form");}}>CERRAR ✓</button>
+                      {usuario.rol!=="Monitoreo"&&(
+                        <button className="btn-ot-close" onClick={()=>{setModulo(MODS.find(m=>m.id==='ot'));setForm({ot_tipo:'CERRAR ORDEN DE TRABAJO',ot_ubicacion:o.loc,ot_id:o.ot_id,original_det:o.det});setScreen("form");}}>CERRAR ✓</button>
+                      )}
                     </div>
                   );
                 })}
@@ -3639,7 +3426,7 @@ function App(){
               {MODS.map(m=>{
                 const ok=canAccess(m,usuario);
                 return(
-                  <div key={m.id} className="mod-item" onClick={()=>{if(!ok)return;if(m.id==='almuerzo')setScreen("almuerzo");else openMod(m);}} style={{opacity:ok?1:0.35,cursor:ok?'pointer':'not-allowed'}}>
+                  <div key={m.id} className="mod-item" onClick={()=>{if(!ok)return;if(m.id==='almuerzo')setScreen("almuerzo");else if(m.id==='camaras')setScreen("camaras");else openMod(m);}} style={{opacity:ok?1:0.35,cursor:ok?'pointer':'not-allowed'}}>
                     <span className="mod-icon">{m.icon}</span>
                     <div className="mod-name" style={{color:m.color}}>{m.label}</div>
                     {!ok&&<div style={{position:'absolute',top:6,right:8,fontSize:11}}>🔒</div>}
@@ -3823,6 +3610,64 @@ function App(){
         </div>
       )}
 
+      {screen==="camaras"&&usuario.rol==="Monitoreo"&&(
+        <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column"}}>
+          <div style={{background:"var(--card)",borderBottom:"3px solid #06b6d4",flexShrink:0}}>
+            <div style={{background:"#06b6d418",borderBottom:"1px solid #06b6d430",padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <button onClick={()=>setScreen("home")} style={{background:"#ef4444",border:"none",color:"white",fontSize:13,fontWeight:900,padding:"10px 16px",borderRadius:12,cursor:"pointer"}}>← SALIR</button>
+              <div style={{fontWeight:900,fontSize:13,color:"#06b6d4"}}>📹 CÁMARAS PERIMETRALES</div>
+              <div style={{fontSize:12,fontWeight:900,color:"#06b6d4"}}>{clock}</div>
+            </div>
+          </div>
+          <div className="scrollable">
+            {/* OTs de cámara abiertas */}
+            {activeOTs.filter(o=>o.tipo==="cam_revision").length>0&&(
+              <div style={{marginBottom:14}}>
+                <div className="label-sec" style={{color:"#ef4444"}}>🔴 REVISIONES PENDIENTES</div>
+                {activeOTs.filter(o=>o.tipo==="cam_revision").map(o=>(
+                  <MonitoreoCamOT key={o._fbKey} ot={o} usuario={usuario} clock={clock} fb={window._fb} openMod={openMod} hoy={hoy}/>
+                ))}
+              </div>
+            )}
+            {activeOTs.filter(o=>o.tipo==="cam_revision").length===0&&(
+              <div style={{background:"#22c55e0a",border:"1px solid #22c55e30",borderRadius:14,padding:"20px",marginBottom:14,textAlign:"center"}}>
+                <div style={{fontSize:36,marginBottom:8}}>✅</div>
+                <div style={{fontSize:14,fontWeight:900,color:"#22c55e"}}>Sin revisiones pendientes</div>
+                <div style={{fontSize:11,color:"var(--muted)",marginTop:4}}>Próximo en <b style={{color:"#06b6d4"}}>{(()=>{if(!camSiguiente)return "--:--";const d=Math.max(0,Math.floor((camSiguiente-Date.now())/1000));return String(Math.floor(d/60)).padStart(2,"0")+":"+String(d%60).padStart(2,"0");})()}</b></div>
+              </div>
+            )}
+            {/* Countdown + config (solo lectura) */}
+            <div className="label-sec">⏱ ESTADO DEL TEMPORIZADOR</div>
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"16px",marginBottom:14,textAlign:"center"}}>
+              <div style={{fontSize:11,color:"var(--muted)",marginBottom:4,fontWeight:700}}>PRÓXIMA REVISIÓN EN</div>
+              <div style={{fontSize:44,fontWeight:900,color:"#06b6d4",letterSpacing:2}}>
+                {(()=>{if(!camSiguiente)return"--:--";const d=Math.max(0,Math.floor((camSiguiente-Date.now())/1000));return String(Math.floor(d/60)).padStart(2,"0")+":"+String(d%60).padStart(2,"0");})()}
+              </div>
+              <div style={{fontSize:10,color:"var(--muted)",marginTop:4}}>Intervalo configurado: {camConfig.intervalo} min</div>
+              {camSiguiente&&(()=>{
+                const total=camConfig.intervalo*60*1000;
+                const resta=Math.max(0,camSiguiente-Date.now());
+                const pct=Math.round(((total-resta)/total)*100);
+                return(<div style={{height:5,background:"var(--border)",borderRadius:4,marginTop:10,overflow:"hidden"}}><div style={{height:"100%",width:`${pct}%`,background:pct>80?"#f97316":"#06b6d4",borderRadius:4,transition:"width 1s"}}/></div>);
+              })()}
+            </div>
+            {/* Historial */}
+            <div className="label-sec">📋 HISTORIAL DE REVISIONES</div>
+            {camRevisiones.length===0&&<div style={{color:"var(--muted)",fontSize:12}}>Sin revisiones aún</div>}
+            {camRevisiones.slice(0,20).map((r,i)=>(
+              <div key={r._fbKey||i} style={{background:r.estado==="ok"?"#22c55e08":"#ef444408",border:`1px solid ${r.estado==="ok"?"#22c55e25":"#ef444425"}`,borderRadius:10,padding:"10px 12px",marginBottom:7,display:"flex",gap:10,alignItems:"center"}}>
+                <span style={{fontSize:18}}>{r.estado==="ok"?"✅":"⚠️"}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,fontWeight:900,color:r.estado==="ok"?"#22c55e":"#ef4444"}}>{r.estado==="ok"?"Revisión OK":"Anomalía detectada"}</div>
+                  <div style={{fontSize:9,color:"var(--muted)"}}>{r.fecha} · {r.hora} · {r.usuario}</div>
+                  {r.ot_id&&<div style={{fontSize:9,color:"var(--muted)"}}>OT: {r.ot_id}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {screen==="success"&&(
         <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:"24px"}}>
           {/* Icono animado */}
@@ -3903,6 +3748,20 @@ function App(){
         </div>
       )}
 
+      {screen==="camaras"&&usuario.rol==="Monitoreo"&&(
+        <CamarasModScreen
+          usuario={usuario}
+          activeOTs={activeOTs}
+          camRevisiones={camRevisiones}
+          camSiguiente={camSiguiente}
+          camConfig={camConfig}
+          clock={clock}
+          fb={window._fb}
+          openMod={openMod}
+          hoy={hoy}
+          onVolver={()=>setScreen("home")}
+        />
+      )}
       {screen==="almuerzo"&&<AlmuerzoScreen vales={vales} soloLec={!ALM_OPS.includes(usuario.nombre)} onVolver={()=>setScreen("home")} fb={window._fb} hoy={hoy} onRegreso={marcarRegreso} vpData={listaVP}/>}
       {screen==="cambiarPw"&&<CambiarPw usuario={usuario} passwords={passwords} onVolver={()=>setScreen("home")}/>}
       {screen==="admin"&&usuario.nombre==="Vicente"&&<AdminPanel history={history} activeOTs={activeOTs} passwords={passwords} permisosDB={permisosDB} onlineU={onlineU} vales={vales} onVolver={()=>setScreen("home")} fb={window._fb}/>}
