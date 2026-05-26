@@ -803,25 +803,29 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
     ws1["!cols"]=[{wch:12},{wch:10},{wch:14},{wch:20},{wch:20},{wch:28},{wch:30}];
     XLSX.utils.book_append_sheet(wb,ws1,"Detalle");
 
-    // ── Hoja Cámaras (si hay datos)
-    if(window._fb){
-      try{
-        const camSnap=await fb.get(fb.ref(fb.db,"cam_revisiones"));
+    // ── Hoja Cámaras Perimetrales
+    try{
+      const _fb2=fb||window._fb;
+      if(_fb2){
+        const camSnap=await _fb2.get(_fb2.ref(_fb2.db,"cam_revisiones"));
         const camData=camSnap.val();
         if(camData){
-          const camArr=Object.values(camData).filter(r=>r.fecha===fecha);
+          const camArr=Object.values(camData).filter(r=>r.fecha===fecha).sort((a,b)=>(a.ts||0)-(b.ts||0));
           if(camArr.length){
-            const wsC=XLSX.utils.json_to_sheet(camArr.map(r=>({
-              FECHA:r.fecha,HORA:r.hora,USUARIO:r.usuario||"Sistema",
+            const COLS_C=["FECHA","HORA","USUARIO","ESTADO","TIPO","OT_ID","NOTAS"];
+            const camRows=camArr.map(r=>({
+              FECHA:r.fecha||"-",HORA:r.hora||"-",USUARIO:r.usuario||"Sistema",
               ESTADO:r.estado==="ok"?"✅ OK":r.estado==="anomalia"?"⚠️ Anomalía":"🚨 No atendida",
-              TIPO:r.tipo||"REVISIÓN",NOTAS:r.notas||"-"
-            })));
-            wsC["!cols"]=[{wch:12},{wch:10},{wch:14},{wch:18},{wch:16},{wch:30}];
+              TIPO:r.tipo==="REVISION_MANUAL"?"Manual":"Automática",
+              OT_ID:r.ot_id||"-",NOTAS:r.notas||"-"
+            }));
+            const wsC=XLSX.utils.json_to_sheet(camRows,{header:COLS_C});
+            wsC["!cols"]=COLS_C.map(()=>({wch:18}));
             XLSX.utils.book_append_sheet(wb,wsC,"Cámaras");
           }
         }
-      }catch(e){}
-    }
+      }
+    }catch(e){}
     const wbOut2=XLSX.write(wb,{bookType:"xlsx",type:"array"});
     const blob2=new Blob([wbOut2],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
     const url2=URL.createObjectURL(blob2);
@@ -3403,6 +3407,34 @@ function App(){
     ws2['!cols']=COLS_A.map(c=>({wch:Math.max(c.length+4,18)}));
     applyS(ws2,XLSX.utils.decode_range(ws2['!ref']||"A1"),"0D6B30","D4EDDA");
     XLSX.utils.book_append_sheet(wb,ws2,"Almuerzos");
+
+    // ── Hoja Cámaras Perimetrales
+    try{
+      if(window._fb){
+        const camSnap=await window._fb.get(window._fb.ref(window._fb.db,"cam_revisiones"));
+        const camData=camSnap.val();
+        if(camData){
+          const camArr=Object.values(camData).sort((a,b)=>(b.ts||0)-(a.ts||0));
+          if(camArr.length){
+            const COLS_C=["FECHA","HORA","USUARIO","ESTADO","TIPO","OT_ID","NOTAS"];
+            const camRows=camArr.map(r=>({
+              FECHA:r.fecha||"-",
+              HORA:r.hora||"-",
+              USUARIO:r.usuario||"Sistema",
+              ESTADO:r.estado==="ok"?"✅ OK":r.estado==="anomalia"?"⚠️ Anomalía":"🚨 No atendida",
+              TIPO:r.tipo==="REVISION_MANUAL"?"Manual":"Automática",
+              OT_ID:r.ot_id||"-",
+              NOTAS:r.notas||"-"
+            }));
+            const ws3=XLSX.utils.json_to_sheet(camRows,{header:COLS_C});
+            ws3["!cols"]=COLS_C.map(()=>({wch:18}));
+            applyS(ws3,XLSX.utils.decode_range(ws3["!ref"]||"A1"),"0E7490","D0F4FF");
+            XLSX.utils.book_append_sheet(wb,ws3,"Cámaras");
+          }
+        }
+      }
+    }catch(e){}
+
     // Descarga sin recargar la app y SIN borrar datos
     const wbOut=XLSX.write(wb,{bookType:"xlsx",type:"array",cellStyles:true});
     const blob=new Blob([wbOut],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
@@ -3487,31 +3519,41 @@ function App(){
         </div>
       )}
 
-      {/* ── NOTIFICACIÓN CÁMARAS (solo Monitoreo y admin) ── */}
-      {camPendiente&&usuario&&(usuario.rol==="Monitoreo"||usuario.nombre==="Vicente")&&screen!=="camaras"&&(
-        <div style={{
-          background:"linear-gradient(135deg,#06b6d4,#0891b2)",
-          borderBottom:"3px solid #06b6d4",
-          padding:"12px 16px",
-          display:"flex",alignItems:"center",gap:12,
-          flexShrink:0,
-          boxShadow:"0 4px 20px #06b6d460",
-          animation:"slideDown .3s ease",
-          cursor:"pointer",
-          zIndex:100,
-          position:"relative"
-        }}
+      {/* ── NOTIFICACIÓN CÁMARAS — persiste hasta que se hace la revisión ── */}
+      {camPendiente&&usuario&&(usuario.rol==="Monitoreo"||usuario.nombre==="Vicente")&&(
+        <div
           onClick={()=>setScreen("camaras")}
-        >
-          <div style={{fontSize:28,animation:"blink 1s infinite"}}>📹</div>
+          style={{
+            background:"linear-gradient(135deg,#0e7490,#06b6d4)",
+            borderBottom:"3px solid #06b6d4",
+            padding:"12px 16px",
+            display:"flex",alignItems:"center",gap:12,
+            flexShrink:0,
+            boxShadow:"0 4px 24px #06b6d460",
+            animation:"slideDown .3s ease",
+            cursor:"pointer",
+            position:"relative",
+            zIndex:500
+          }}>
+          <div style={{fontSize:28,animation:"blink .8s infinite"}}>📹</div>
           <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:900,color:"white",letterSpacing:.5}}>REVISIÓN DE CÁMARAS PENDIENTE</div>
-            <div style={{fontSize:11,color:"#cffafe",marginTop:2}}>Toca para abrir el módulo y registrar la revisión</div>
+            <div style={{fontSize:13,fontWeight:900,color:"white",letterSpacing:.5}}>⚠️ REVISIÓN DE CÁMARAS PENDIENTE</div>
+            <div style={{fontSize:11,color:"#cffafe",marginTop:2,fontWeight:700}}>
+              {screen==="camaras"?"Realiza la revisión para cerrar esta alerta":"Toca aquí para atender la revisión"}
+            </div>
           </div>
-          <div style={{background:"#ffffff30",borderRadius:12,padding:"8px 12px",textAlign:"center",flexShrink:0}}>
-            <div style={{fontSize:9,color:"white",fontWeight:800}}>ATENDER</div>
-            <div style={{fontSize:18}}>›</div>
-          </div>
+          {screen!=="camaras"&&(
+            <div style={{background:"#ffffff30",borderRadius:12,padding:"8px 12px",textAlign:"center",flexShrink:0}}>
+              <div style={{fontSize:9,color:"white",fontWeight:800}}>ATENDER</div>
+              <div style={{fontSize:20,color:"white"}}>›</div>
+            </div>
+          )}
+          {screen==="camaras"&&(
+            <div style={{background:"#ffffff20",borderRadius:12,padding:"8px 12px",textAlign:"center",flexShrink:0}}>
+              <div style={{fontSize:9,color:"white",fontWeight:800}}>EN MÓDULO</div>
+              <div style={{fontSize:16,color:"white"}}>✓</div>
+            </div>
+          )}
         </div>
       )}
 
