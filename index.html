@@ -2660,19 +2660,17 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
         NOTAS:opcion==="ok"?"Revisión manual completada — Sin novedad":"Anomalía detectada — se generará OT",
         _ts:Date.now()
       });
-      if(opcion!=="ok"){
-        // Crear OT en Firebase sin navegar al form
-        const nuevoId="CAM-"+Math.random().toString(36).substr(2,4).toUpperCase();
-        await push(ref(db,"activeOTs"),{
-          ot_id:nuevoId,
-          loc:"Cámaras Perimetrales",
-          det:"Anomalía detectada en revisión manual de cámaras",
-          usuario:usuario.nombre,fecha,hora,
-          tipo:"normal",urgente:true,_ts:Date.now()
-        });
-      }
       // Reiniciar el marcador
       if(window._camArrancar) window._camArrancar();
+      if(opcion!=="ok"){
+        // Ir directo al módulo de OT
+        setSaving(false);
+        setRevManual(false);
+        setStep(null);
+        const otMod=MODS.find(m=>m.id==="ot");
+        if(otMod&&openMod) setTimeout(()=>openMod(otMod),50);
+        return;
+      }
     }catch(e){alert("Error al guardar. Intente de nuevo.");}
     setSaving(false);
     setRevManual(false);
@@ -2874,19 +2872,14 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
         ot_id:ot.ot_id,ts:Date.now()
       });
       await remove(ref(db,`activeOTs/${ot._fbKey}`));
-      if(opcion!=="ok"){
-        // Solo crear la OT en Firebase, NO navegar al form (evita pantalla negra)
-        const nuevoId="CAM-"+Math.random().toString(36).substr(2,4).toUpperCase();
-        await push(ref(db,"activeOTs"),{
-          ot_id:nuevoId,
-          loc:"Cámaras Perimetrales",
-          det:"Anomalía detectada en revisión de cámaras — requiere atención técnica",
-          usuario:usuario.nombre,fecha,hora,
-          tipo:"normal",urgente:true,_ts:Date.now()
-        });
-      }
       if(window._camArrancar) window._camArrancar();
-      setDone(opcion==="ok"?"ok":"anomalia");
+      if(opcion!=="ok"){
+        // Ir directo al módulo de OT — sin crear nada automáticamente
+        const otMod=MODS.find(m=>m.id==="ot");
+        if(otMod&&openMod) setTimeout(()=>openMod(otMod),50);
+      } else {
+        setDone("ok");
+      }
     }catch(err){
       console.error("Error cerrando OT cámara:",err);
       alert("Error al guardar. Intente de nuevo.");
@@ -2895,17 +2888,12 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
   };
 
   // Mostrar éxito en lugar de navegar a otro lugar
-  if(done) return(
-    <div style={{background:done==="ok"?"#071f12":"#1a0a0a",border:`2px solid ${done==="ok"?"#22c55e":"#f97316"}`,borderRadius:14,padding:"16px",marginBottom:10,textAlign:"center"}}>
-      <div style={{fontSize:28,marginBottom:6}}>{done==="ok"?"✅":"⚠️"}</div>
-      <div style={{fontSize:13,fontWeight:900,color:done==="ok"?"#22c55e":"#f97316",marginBottom:4}}>
-        {done==="ok"?"Revisión completada — Sin novedad":"Anomalía registrada"}
-      </div>
-      {done==="anomalia"&&(
-        <div style={{fontSize:10,color:"#94a3b8",marginBottom:8,lineHeight:1.6}}>
-          Se generó una OT urgente para los técnicos.<br/>Visible en el panel de OTs.
-        </div>
-      )}
+
+
+  if(done==="ok") return(
+    <div style={{background:"#071f12",border:"2px solid #22c55e",borderRadius:14,padding:"16px",marginBottom:10,textAlign:"center"}}>
+      <div style={{fontSize:28,marginBottom:6}}>✅</div>
+      <div style={{fontSize:13,fontWeight:900,color:"#22c55e",marginBottom:4}}>Revisión completada — Sin novedad</div>
       <div style={{fontSize:9,color:"var(--muted)"}}>🕒 {clock} · El marcador se reiniciará pronto</div>
     </div>
   );
@@ -3309,7 +3297,8 @@ function App(){
       return;
     }
     setModulo(m);
-    setForm({ot_tipo:"ABRIR ORDEN DE TRABAJO",ot_id:"OT-"+Math.random().toString(36).substr(2,4).toUpperCase()});
+    const otId="OT-"+Math.random().toString(36).substr(2,4).toUpperCase();
+    setForm({ot_tipo:"ABRIR ORDEN DE TRABAJO",ot_id:otId});
     setTimer(0);setTimerOn(false);
     if(tRef.current)clearInterval(tRef.current);
     setScreen("form");
