@@ -2661,13 +2661,15 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
         _ts:Date.now()
       });
       if(opcion!=="ok"){
+        // Crear OT en Firebase sin navegar al form
         const nuevoId="CAM-"+Math.random().toString(36).substr(2,4).toUpperCase();
         await push(ref(db,"activeOTs"),{
-          ot_id:nuevoId,loc:"Cámaras Perimetrales",
+          ot_id:nuevoId,
+          loc:"Cámaras Perimetrales",
           det:"Anomalía detectada en revisión manual de cámaras",
-          usuario:usuario.nombre,fecha,hora,tipo:"normal",urgente:true,_ts:Date.now()
+          usuario:usuario.nombre,fecha,hora,
+          tipo:"normal",urgente:true,_ts:Date.now()
         });
-        openMod(MODS.find(m=>m.id==="ot"));
       }
       // Reiniciar el marcador
       if(window._camArrancar) window._camArrancar();
@@ -2841,8 +2843,9 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
 
 // ── Tarjeta de OT de cámara en home de Monitoreo ──
 function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
-  const[step,setStep]=useState(null); // null|"ok"|"falla"
+  const[step,setStep]=useState(null);
   const[saving,setSaving]=useState(false);
+  const[done,setDone]=useState(null); // null | "ok" | "anomalia"
   const CC="#06b6d4";
 
   const cerrar=async(opcion)=>{
@@ -2872,22 +2875,40 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
       });
       await remove(ref(db,`activeOTs/${ot._fbKey}`));
       if(opcion!=="ok"){
+        // Solo crear la OT en Firebase, NO navegar al form (evita pantalla negra)
         const nuevoId="CAM-"+Math.random().toString(36).substr(2,4).toUpperCase();
         await push(ref(db,"activeOTs"),{
-          ot_id:nuevoId,loc:"Cámaras Perimetrales",
+          ot_id:nuevoId,
+          loc:"Cámaras Perimetrales",
           det:"Anomalía detectada en revisión de cámaras — requiere atención técnica",
-          usuario:usuario.nombre,fecha,hora,tipo:"normal",urgente:true,_ts:Date.now()
+          usuario:usuario.nombre,fecha,hora,
+          tipo:"normal",urgente:true,_ts:Date.now()
         });
-        const otMod=MODS.find(m=>m.id==="ot");
-        if(otMod) openMod(otMod);
       }
       if(window._camArrancar) window._camArrancar();
+      setDone(opcion==="ok"?"ok":"anomalia");
     }catch(err){
       console.error("Error cerrando OT cámara:",err);
       alert("Error al guardar. Intente de nuevo.");
     }
     setSaving(false);
   };
+
+  // Mostrar éxito en lugar de navegar a otro lugar
+  if(done) return(
+    <div style={{background:done==="ok"?"#071f12":"#1a0a0a",border:`2px solid ${done==="ok"?"#22c55e":"#f97316"}`,borderRadius:14,padding:"16px",marginBottom:10,textAlign:"center"}}>
+      <div style={{fontSize:28,marginBottom:6}}>{done==="ok"?"✅":"⚠️"}</div>
+      <div style={{fontSize:13,fontWeight:900,color:done==="ok"?"#22c55e":"#f97316",marginBottom:4}}>
+        {done==="ok"?"Revisión completada — Sin novedad":"Anomalía registrada"}
+      </div>
+      {done==="anomalia"&&(
+        <div style={{fontSize:10,color:"#94a3b8",marginBottom:8,lineHeight:1.6}}>
+          Se generó una OT urgente para los técnicos.<br/>Visible en el panel de OTs.
+        </div>
+      )}
+      <div style={{fontSize:9,color:"var(--muted)"}}>🕒 {clock} · El marcador se reiniciará pronto</div>
+    </div>
+  );
 
   return(
     <div style={{background:"#071a22",border:`2px solid ${CC}`,borderRadius:14,padding:"14px",marginBottom:10}}>
@@ -2914,10 +2935,14 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
         <div>
           <div style={{background:`${step==="ok"?"#22c55e":"#ef4444"}15`,border:`1px solid ${step==="ok"?"#22c55e":"#ef4444"}40`,borderRadius:10,padding:"10px",marginBottom:8}}>
             <div style={{fontSize:12,fontWeight:900,color:step==="ok"?"#22c55e":"#ef4444",marginBottom:2}}>
-              {step==="ok"?"✅ Todo en orden — Sin novedad":"⚠️ Anomalía detectada"}
+              {step==="ok"?"✅ Todo en orden":"⚠️ Anomalía detectada"}
             </div>
             <div style={{fontSize:10,color:"#94a3b8"}}>🕒 {clock} · 👤 {usuario.nombre}</div>
-            {step==="falla"&&<div style={{fontSize:10,color:"#f87171",marginTop:4}}>Se abrirá una OT para los técnicos.</div>}
+            {step==="falla"&&(
+              <div style={{fontSize:10,color:"#fca5a5",marginTop:4}}>
+                Se creará 1 OT urgente para los técnicos. Permanecerás en esta pantalla.
+              </div>
+            )}
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>setStep(null)}
@@ -2926,7 +2951,7 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
             </button>
             <button onClick={()=>cerrar(step)} disabled={saving}
               style={{flex:2,padding:"10px",background:step==="ok"?"#22c55e":"#ef4444",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:12,cursor:"pointer",opacity:saving?0.5:1}}>
-              {saving?"⏳...":"CONFIRMAR Y CERRAR"}
+              {saving?"⏳ GUARDANDO...":"CONFIRMAR Y CERRAR"}
             </button>
           </div>
         </div>
@@ -3278,12 +3303,16 @@ function App(){
 
   const setF=(k,v)=>setForm(f=>({...f,[k]:v}));
   const openMod=m=>{
+    if(!m){console.error("openMod called with null module");return;}
     if(m.id==="camaras"){
       setScreen("camaras");
       return;
     }
-    setModulo(m);setForm({ot_tipo:"ABRIR ORDEN DE TRABAJO",ot_id:"OT-"+Math.random().toString(36).substr(2,4).toUpperCase()});
-    setTimer(0);setTimerOn(false);if(tRef.current)clearInterval(tRef.current);setScreen("form");
+    setModulo(m);
+    setForm({ot_tipo:"ABRIR ORDEN DE TRABAJO",ot_id:"OT-"+Math.random().toString(36).substr(2,4).toUpperCase()});
+    setTimer(0);setTimerOn(false);
+    if(tRef.current)clearInterval(tRef.current);
+    setScreen("form");
   };
   const toggleTimer=()=>{if(timerOn){clearInterval(tRef.current);setF("timer_val",(timer/1000).toFixed(2));}else{const s=Date.now()-timer;tRef.current=setInterval(()=>setTimer(Date.now()-s),10);}setTimerOn(!timerOn);};
 
@@ -3682,7 +3711,15 @@ function App(){
                       <p style={{fontSize:12,color:'#94a3b8',marginBottom:6}}>{o.det}</p>
                       {urg&&<div style={{fontSize:10,color:'#ef4444',fontWeight:700,marginBottom:6}}>⚠️ Lleva más de {min} min sin cerrar</div>}
                       {usuario.rol!=="Monitoreo"&&(
-                        <button className="btn-ot-close" onClick={()=>{setModulo(MODS.find(m=>m.id==='ot'));setForm({ot_tipo:'CERRAR ORDEN DE TRABAJO',ot_ubicacion:o.loc,ot_id:o.ot_id,original_det:o.det});setScreen("form");}}>CERRAR ✓</button>
+                        <button className="btn-ot-close" onClick={()=>{
+  const otMod=MODS.find(m=>m.id==='ot');
+  if(!otMod){console.error("OT mod not found");return;}
+  setModulo(otMod);
+  setForm({ot_tipo:'CERRAR ORDEN DE TRABAJO',ot_ubicacion:o.loc,ot_id:o.ot_id,original_det:o.det});
+  setTimer(0);setTimerOn(false);
+  if(tRef.current)clearInterval(tRef.current);
+  setScreen("form");
+}}>CERRAR ✓</button>
                       )}
                     </div>
                   );
@@ -3735,7 +3772,14 @@ function App(){
         </div>
       )}
 
-      {screen==="form"&&(
+      {screen==="form"&&(!modulo)&&(
+        <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",gap:16,background:"var(--bg)"}}>
+          <div style={{fontSize:40}}>⚠️</div>
+          <div style={{fontSize:14,fontWeight:900,color:"var(--muted)"}}>Error cargando formulario</div>
+          <button onClick={()=>setScreen("home")} style={{padding:"12px 24px",background:"var(--accent)",border:"none",borderRadius:12,color:"white",fontWeight:900,fontSize:13,cursor:"pointer"}}>← Volver al menú</button>
+        </div>
+      )}
+      {screen==="form"&&modulo&&(
         <div className="fi" style={{height:'100%',display:'flex',flexDirection:'column'}}>
           <div style={{background:'var(--card)',borderBottom:`3px solid ${modulo?.color}`,flexShrink:0}}>
             <div style={{background:'#ef444418',borderBottom:'1px solid #ef444430',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
@@ -3876,6 +3920,52 @@ function App(){
                'GUARDAR REGISTRO ✓'}
             </button>
             <button onClick={()=>setScreen("home")} style={{width:'100%',marginTop:10,padding:'12px',background:'transparent',border:'2px solid #ef444460',color:'#ef4444',borderRadius:14,fontWeight:900,fontSize:13,cursor:'pointer'}}>← VOLVER SIN GUARDAR</button>
+          </div>
+        </div>
+      )}
+
+      {screen==="success"&&(
+        <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:"24px",background:"var(--bg)"}}>
+          <div style={{fontSize:72,marginBottom:8,animation:"pop .4s ease"}}>✅</div>
+          <div style={{fontSize:22,fontWeight:900,color:"#22c55e",marginBottom:4}}>REGISTRADO</div>
+          <div style={{fontSize:11,color:"var(--muted)",fontWeight:700,marginBottom:20}}>🟢 SINCRONIZADO · Todos lo ven ahora</div>
+
+          {lastRecord&&(
+            <div style={{width:"100%",maxWidth:340,background:"var(--card)",border:"1px solid #22c55e40",borderRadius:16,padding:"16px",marginBottom:24,borderLeft:"4px solid #22c55e"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <span style={{fontSize:28}}>{lastRecord.modulo?.icon||"📋"}</span>
+                <div>
+                  <div style={{fontSize:14,fontWeight:900,color:"#22c55e"}}>{lastRecord.modulo?.label}</div>
+                  <div style={{fontSize:10,color:"var(--muted)",fontWeight:700}}>📅 {lastRecord.fecha} · 🕒 {lastRecord.hora}</div>
+                </div>
+              </div>
+              {lastRecord.loc&&(
+                <div style={{display:"flex",gap:8,alignItems:"center",background:"var(--bg)",borderRadius:10,padding:"8px 12px"}}>
+                  <span style={{fontSize:14}}>📍</span>
+                  <span style={{fontSize:12,fontWeight:800,color:"var(--text)"}}>{lastRecord.loc}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:10}}>
+            {lastRecord?.modulo&&(
+              <button
+                onClick={()=>{if(lastRecord.modulo.id==="camaras"){setScreen("camaras");}else{openMod(lastRecord.modulo);}}}
+                style={{width:"100%",padding:"16px",background:"var(--accent)",border:"none",borderRadius:14,color:"white",fontWeight:900,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+                <span style={{fontSize:20}}>{lastRecord.modulo.icon}</span>
+                NUEVO REGISTRO · {lastRecord.modulo.label.toUpperCase()}
+              </button>
+            )}
+            <button
+              onClick={()=>{
+                const dest=lastRecord?.modulo?.id==="camaras"?"camaras":"home";
+                setLastRecord(null);
+                setScreen(dest==="camaras"?"camaras":"home");
+              }}
+              style={{width:"100%",padding:"14px",background:"transparent",border:"2px solid var(--border)",borderRadius:14,color:"var(--muted)",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+              ← MENÚ PRINCIPAL
+            </button>
           </div>
         </div>
       )}
