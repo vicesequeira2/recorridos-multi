@@ -98,6 +98,41 @@ body{background:var(--bg);color:var(--text);overflow:hidden;}
 .dbsy{background:#f59e0b;}
 .derr{background:var(--red);}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+/* ── NOTIFICATION CENTER ── */
+.notif-btn{position:relative;background:var(--card2);border:1px solid var(--border);border-radius:var(--r-md);padding:7px 10px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background .15s;}
+.notif-btn:hover{background:var(--card);}
+.notif-badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:var(--r-full);background:var(--red2);color:white;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--bg);animation:pop .3s ease;}
+.notif-panel{position:absolute;top:52px;right:0;width:min(360px,calc(100vw - 32px));background:var(--card);border:1px solid var(--border2);border-radius:var(--r-xl);box-shadow:var(--shadow-md);z-index:9000;overflow:hidden;}
+.notif-panel-hdr{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;display:flex;gap:12px;align-items:flex-start;}
+.notif-item:hover{background:var(--card2);}
+.notif-item.unread{background:#38bdf808;}
+.notif-item:last-child{border-bottom:none;}
+.notif-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+/* ── ALERT TOAST ── */
+.toast-stack{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:8000;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:min(380px,calc(100vw - 32px));}
+.toast{background:var(--card2);border:1px solid var(--border2);border-radius:var(--r-lg);padding:12px 14px;display:flex;align-items:center;gap:10px;pointer-events:all;box-shadow:var(--shadow-md);animation:slideDown .25s ease;}
+.toast-close{margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;padding:2px 4px;border-radius:4px;}
+.toast-close:hover{color:var(--text);background:var(--border);}
+/* ── IMPROVED CARDS & COMPONENTS ── */
+.card-pro{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;transition:border-color .2s;}
+.card-pro:hover{border-color:var(--border2);}
+.stat-pill{background:var(--card2);border:1px solid var(--border);border-radius:var(--r-full);padding:5px 12px;font-size:var(--font-sm);font-weight:700;display:inline-flex;align-items:center;gap:5px;}
+/* ── IMPROVED BUTTONS ── */
+.btn-primary{background:var(--accent2);color:white;border:none;border-radius:var(--r-md);font-weight:800;cursor:pointer;transition:opacity .15s,transform .1s;}
+.btn-primary:hover{opacity:.9;}
+.btn-primary:active{transform:scale(.98);}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:var(--r-md);font-weight:700;cursor:pointer;transition:all .15s;}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text);background:var(--card2);}
+/* ── IMPROVED MODULE GRID ── */
+.mod-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;}
+@media(min-width:480px){.mod-grid{grid-template-columns:repeat(3,1fr);}}
+.mod-item{padding:18px 10px 14px;border-radius:var(--r-lg);border:1px solid var(--border);text-align:center;cursor:pointer;background:var(--card);position:relative;transition:all .2s;}
+.mod-item:hover{border-color:var(--border2);background:var(--card2);transform:translateY(-1px);}
+.mod-item:active{transform:scale(.97);}
+/* ── IMPROVED SECTION LABELS ── */
+.label-sec{font-size:var(--font-xs);font-weight:800;color:var(--text3);margin:18px 0 10px;letter-spacing:1.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.label-sec::after{content:"";flex:1;height:1px;background:var(--border);}
 @keyframes pop{0%{transform:scale(.5);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
 @keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
 .tab-btn{flex:1;padding:11px;border:none;background:transparent;font-weight:900;font-size:12px;cursor:pointer;border-bottom:3px solid transparent;}
@@ -430,7 +465,7 @@ function AlmuerzoScreen({vales,soloLec,onVolver,fb,hoy,onRegreso,vpData}){
 // ============================================================
 // ADMIN PANEL — VICENTE
 // ============================================================
-function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolver,fb}){
+function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolver,fb,onNotif}){
   const hoy=getFechaActual();
   const AA="#f59e0b";
   const ROLES=["Técnico","Ciclo","Coordinador","Recorridos","Monitoreo","Administrador"];
@@ -2949,6 +2984,92 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
 }
 
 
+// ══════════════════════════════════════════════════════
+// NOTIFICATION CENTER COMPONENT
+// ══════════════════════════════════════════════════════
+function NotifCenter({notifs,notifOpen,setNotifOpen,markRead,markAllRead,clearNotif,setScreen,usuario}){
+  const unread=notifs.filter(n=>!n.leido).length;
+  const handleClick=(n)=>{
+    markRead(n.id);
+    setNotifOpen(false);
+    if(n.screen) setScreen(n.screen);
+  };
+  const fmt=(ts)=>{
+    const diff=Math.floor((Date.now()-ts)/1000);
+    if(diff<60) return "ahora";
+    if(diff<3600) return Math.floor(diff/60)+"m";
+    if(diff<86400) return Math.floor(diff/3600)+"h";
+    return Math.floor(diff/86400)+"d";
+  };
+  return(
+    <div style={{position:"relative"}}>
+      <button className="notif-btn" onClick={()=>setNotifOpen(o=>!o)} aria-label="Notificaciones">
+        <span style={{fontSize:16}}>🔔</span>
+        {unread>0&&<span className="notif-badge">{unread>9?"9+":unread}</span>}
+      </button>
+      {notifOpen&&(
+        <>
+          <div style={{position:"fixed",inset:0,zIndex:8999}} onClick={()=>setNotifOpen(false)}/>
+          <div className="notif-panel">
+            <div className="notif-panel-hdr">
+              <div>
+                <div style={{fontSize:13,fontWeight:800,color:"var(--text)"}}>Notificaciones</div>
+                {unread>0&&<div style={{fontSize:10,color:"var(--accent)",fontWeight:700,marginTop:2}}>{unread} sin leer</div>}
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                {unread>0&&<button onClick={markAllRead} style={{fontSize:10,fontWeight:700,background:"var(--info)",color:"var(--accent)",border:"1px solid var(--info-border)",padding:"4px 8px",borderRadius:"var(--r-sm)",cursor:"pointer"}}>Marcar todo</button>}
+                <button onClick={()=>setNotifOpen(false)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:18,lineHeight:1}}>×</button>
+              </div>
+            </div>
+            <div style={{maxHeight:320,overflowY:"auto"}}>
+              {notifs.length===0&&(
+                <div style={{padding:"28px 16px",textAlign:"center",color:"var(--text3)"}}>
+                  <div style={{fontSize:28,marginBottom:8}}>🔕</div>
+                  <div style={{fontSize:12,fontWeight:700}}>Sin notificaciones</div>
+                </div>
+              )}
+              {notifs.map(n=>(
+                <div key={n.id} className={`notif-item${n.leido?"":" unread"}`} onClick={()=>handleClick(n)}>
+                  <div className="notif-dot" style={{background:n.color||"var(--accent)"}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                      <div style={{fontSize:12,fontWeight:800,color:n.leido?"var(--text2)":"var(--text)"}}>{n.titulo}</div>
+                      <div style={{fontSize:10,color:"var(--text3)",flexShrink:0}}>{fmt(n.ts)}</div>
+                    </div>
+                    <div style={{fontSize:11,color:"var(--text3)",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.msg}</div>
+                  </div>
+                  <button onClick={e=>{e.stopPropagation();clearNotif(n.id);}} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:14,padding:"0 2px",opacity:.6,flexShrink:0}}>×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════
+// SMART ALERT TOASTS
+// ══════════════════════════════════════════════════════
+function ToastStack({toasts,onClose}){
+  if(!toasts||toasts.length===0) return null;
+  return(
+    <div className="toast-stack">
+      {toasts.map(t=>(
+        <div key={t.id} className="toast" style={{borderLeft:`3px solid ${t.color||"var(--accent)"}`}}>
+          <span style={{fontSize:20,flexShrink:0}}>{t.icon||"🔔"}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:800,color:"var(--text)"}}>{t.titulo}</div>
+            <div style={{fontSize:11,color:"var(--text2)",marginTop:1}}>{t.msg}</div>
+          </div>
+          <button className="toast-close" onClick={()=>onClose(t.id)}>×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function App(){
   const[usuario,setUsuario]=useState(null);
   const[firebaseReady,setFirebaseReady]=useState(false);
@@ -2962,6 +3083,27 @@ function App(){
   const[timerOn,setTimerOn]=useState(false);
   const[sync,setSync]=useState("ok");
   const[otAlert,setOtAlert]=useState(null);
+  // ── Notification Center
+  const[notifOpen,setNotifOpen]=useState(false);
+  const[notifs,setNotifs]=useState([]);
+  const[toasts,setToasts]=useState([]);
+  const toastIdRef=useRef(0);
+  const showToast=useCallback((toast)=>{
+    const id=++toastIdRef.current;
+    setToasts(prev=>[{id,...toast},...prev].slice(0,3));
+    setTimeout(()=>setToasts(prev=>prev.filter(t=>t.id!==id)),5000);
+    return id;
+  },[]);
+  const closeToast=(id)=>setToasts(prev=>prev.filter(t=>t.id!==id)); // [{id,tipo,titulo,msg,ts,leido,screen,color,icon}]
+  const notifIdRef=useRef(0);
+  const addNotif=useCallback((notif)=>{
+    const id=++notifIdRef.current;
+    setNotifs(prev=>[{id,...notif,ts:Date.now(),leido:false},...prev].slice(0,50));
+    return id;
+  },[]);
+  const markRead=(id)=>setNotifs(prev=>prev.map(n=>n.id===id?{...n,leido:true}:n));
+  const markAllRead=()=>setNotifs(prev=>prev.map(n=>({...n,leido:true})));
+  const clearNotif=(id)=>setNotifs(prev=>prev.filter(n=>n.id!==id));
   const[onlineU,setOnlineU]=useState([]);
   const[selMod,setSelMod]=useState(null);
   const[lastRecord,setLastRecord]=useState(null);
@@ -3303,7 +3445,18 @@ function App(){
     if(tRef.current)clearInterval(tRef.current);
     setScreen("form");
   };
-  const toggleTimer=()=>{if(timerOn){clearInterval(tRef.current);setF("timer_val",(timer/1000).toFixed(2));}else{const s=Date.now()-timer;tRef.current=setInterval(()=>setTimer(Date.now()-s),10);}setTimerOn(!timerOn);};
+  const startTimer=()=>{
+    if(timerOn||form.timer_val) return; // no restart once stopped
+    const s=Date.now();
+    tRef.current=setInterval(()=>setTimer(Date.now()-s),10);
+    setTimerOn(true);
+  };
+  const stopTimer=()=>{
+    if(!timerOn) return;
+    clearInterval(tRef.current);
+    setTimerOn(false);
+    setF("timer_val",(timer/1000).toFixed(2));
+  };
 
   // Función para marcar todos los checkboxes como SI o LIMPIAR
   const marcarTodosOK = () => {
@@ -3537,6 +3690,9 @@ function App(){
         </div>
       )}
 
+      {/* ── TOAST STACK ── */}
+      <ToastStack toasts={toasts} onClose={closeToast}/>
+
       {/* ── NOTIFICACIÓN CÁMARAS — persiste hasta que se hace la revisión ── */}
       {camPendiente&&usuario&&(usuario.rol==="Monitoreo"||usuario.nombre==="Vicente")&&(
         <div
@@ -3577,7 +3733,10 @@ function App(){
 
       {screen==="home"&&(
         <div className="fi" style={{height:'100%',display:'flex',flexDirection:'column'}}>
-          <div className="watermark">— VICENTE.S —</div>
+          <div className="watermark" style={{display:"flex",alignItems:"center",justifyContent:"space-between",paddingLeft:12,paddingRight:12}}>
+            <span style={{fontSize:10,letterSpacing:2}}>— VICENTE.S —</span>
+            <NotifCenter notifs={notifs} notifOpen={notifOpen} setNotifOpen={setNotifOpen} markRead={markRead} markAllRead={markAllRead} clearNotif={clearNotif} setScreen={setScreen} usuario={usuario}/>
+          </div>
           <div className="hdr">
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div style={{fontSize:17,fontWeight:900}}>RECORRIDO <span style={{color:'var(--accent)'}}>MULTI</span> <span style={{fontSize:9,color:'var(--muted)',fontWeight:600}}>v8.1</span></div>
@@ -3721,8 +3880,9 @@ function App(){
               {MODS.map(m=>{
                 const ok=canAccess(m,usuario);
                 return(
-                  <div key={m.id} className="mod-item" onClick={()=>{if(!ok)return;if(m.id==='almuerzo')setScreen("almuerzo");else if(m.id==='camaras')setScreen("camaras");else openMod(m);}} style={{opacity:ok?1:0.35,cursor:ok?'pointer':'not-allowed',position:"relative"}}>
+                  <div key={m.id} className="mod-item" onClick={()=>{if(!ok)return;if(m.id==='almuerzo')setScreen("almuerzo");else if(m.id==='camaras')setScreen("camaras");else openMod(m);}} style={{opacity:ok?1:0.3,cursor:ok?'pointer':'not-allowed',position:"relative",borderColor:ok?"var(--border)":"var(--border)"}} onMouseEnter={e=>{if(ok)e.currentTarget.style.borderColor=m.color}} onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'}}>
                   {m.id==="camaras"&&camPendiente&&<div style={{position:"absolute",top:-4,right:-4,width:14,height:14,borderRadius:"50%",background:"#ef4444",border:"2px solid var(--bg)",zIndex:10,animation:"blink 1s infinite"}}/>}
+                  {notifs.filter(n=>!n.leido&&n.screen===m.id).length>0&&m.id!=="camaras"&&<div style={{position:"absolute",top:-4,right:-4,width:14,height:14,borderRadius:"50%",background:"#f97316",border:"2px solid var(--bg)",zIndex:10,fontSize:8,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900}}>{notifs.filter(n=>!n.leido&&n.screen===m.id).length}</div>}
                     <span className="mod-icon">{m.icon}</span>
                     <div className="mod-name" style={{color:m.color}}>{m.label}</div>
                     {!ok&&<div style={{position:'absolute',top:6,right:8,fontSize:11}}>🔒</div>}
@@ -3808,10 +3968,84 @@ function App(){
 
             {modulo?.id==='indicador'&&form.ot_tipo!=="CERRAR ORDEN DE TRABAJO"&&(
               <>
+                {/* PASO 1: Categoría */}
                 <Sel label="Categoría" items={["Cajeros","Entradas","Salidas"]} active={form.ind_cat} onSelect={v=>{setF('ind_cat',v);setF('ind_loc',null);}}/>
-                {form.ind_cat&&<SelEst label="Equipo" items={form.ind_cat==="Cajeros"?listaCajeros:form.ind_cat==="Entradas"?listaEntradas:listaSalidas} active={form.ind_loc} onSelect={v=>setF('ind_loc',v)} done={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO==="Indicador"&&h.FECHA===hoy).map(h=>h.UBICACION)}/>}
-                <div className="t-val">{(timer/1000).toFixed(2)}s</div>
-                <button className={`t-btn ${timerOn?'tstop':'tstart'}`} onClick={toggleTimer}>{timerOn?'DETENER':'INICIAR'}</button>
+
+                {/* PASO 2: Equipo (solo si hay categoría) */}
+                {form.ind_cat&&(
+                  <SelEst label="Equipo" items={form.ind_cat==="Cajeros"?listaCajeros:form.ind_cat==="Entradas"?listaEntradas:listaSalidas} active={form.ind_loc} onSelect={v=>setF('ind_loc',v)} done={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO==="Indicador"&&h.FECHA===hoy).map(h=>h.UBICACION)}/>
+                )}
+
+                {/* PASO 3: Cronómetro (solo si hay equipo seleccionado) */}
+                {form.ind_cat&&form.ind_loc&&(
+                  <div style={{marginTop:8}}>
+                    {/* Display del tiempo */}
+                    <div style={{
+                      background:"var(--bg2,#0c1018)",
+                      border:`2px solid ${timerOn?"#22c55e":form.timer_val?"#0ea5e9":"var(--border,#1e2d45)"}`,
+                      borderRadius:16,padding:"20px 0",textAlign:"center",marginBottom:12,
+                      transition:"border-color .3s"
+                    }}>
+                      <div style={{fontSize:9,fontWeight:800,color:"var(--text3,#5a7a9a)",letterSpacing:2,marginBottom:6}}>
+                        {timerOn?"⏱ MIDIENDO...":form.timer_val?"✅ TIEMPO REGISTRADO":"CRONÓMETRO"}
+                      </div>
+                      <div className="t-val" style={{
+                        color:timerOn?"#22c55e":form.timer_val?"#0ea5e9":"var(--text,#e8f0fe)",
+                        fontSize:42,fontWeight:900,fontVariantNumeric:"tabular-nums",letterSpacing:2,lineHeight:1
+                      }}>
+                        {(timer/1000).toFixed(2)}s
+                      </div>
+                      {form.timer_val&&(
+                        <div style={{fontSize:11,color:"#22c55e",marginTop:6,fontWeight:700}}>
+                          Tiempo guardado: {form.timer_val}s
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Botones del cronómetro */}
+                    {!form.timer_val&&!timerOn&&(
+                      /* Estado inicial — solo INICIAR */
+                      <button onClick={startTimer} style={{
+                        width:"100%",padding:"16px",
+                        background:"#22c55e",border:"none",borderRadius:14,
+                        color:"white",fontWeight:900,fontSize:15,cursor:"pointer",
+                        display:"flex",alignItems:"center",justifyContent:"center",gap:10
+                      }}>
+                        <span style={{fontSize:20}}>▶</span> INICIAR CRONÓMETRO
+                      </button>
+                    )}
+
+                    {timerOn&&!form.timer_val&&(
+                      /* Midiendo — solo DETENER */
+                      <button onClick={stopTimer} style={{
+                        width:"100%",padding:"16px",
+                        background:"#ef4444",border:"none",borderRadius:14,
+                        color:"white",fontWeight:900,fontSize:15,cursor:"pointer",
+                        animation:"blink 1s infinite",
+                        display:"flex",alignItems:"center",justifyContent:"center",gap:10
+                      }}>
+                        <span style={{fontSize:20}}>⏹</span> DETENER Y GUARDAR TIEMPO
+                      </button>
+                    )}
+
+                    {form.timer_val&&!timerOn&&(
+                      /* Detenido — solo GUARDAR REGISTRO (no se puede reiniciar) */
+                      <div style={{
+                        background:"#0ea5e915",border:"1px solid #0ea5e940",
+                        borderRadius:12,padding:"12px 16px",
+                        display:"flex",alignItems:"center",gap:10
+                      }}>
+                        <span style={{fontSize:20}}>✅</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:12,fontWeight:800,color:"#0ea5e9"}}>Tiempo listo para guardar</div>
+                          <div style={{fontSize:10,color:"var(--text3,#5a7a9a)",marginTop:2}}>
+                            {form.ind_loc} · {form.timer_val}s
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
@@ -3897,16 +4131,18 @@ function App(){
             {modulo?.id!=='ot'&&<textarea className="inp" rows="3" placeholder="Observaciones..." onChange={e=>setF('obs',e.target.value)}></textarea>}
           </div>
           <div className="footer-fixed">
+            {/* Para indicador: solo mostrar botón guardar cuando el tiempo está listo */}
+            {modulo?.id==='indicador'&&!form.timer_val&&(
+              <div style={{color:"var(--text3,#5a7a9a)",textAlign:"center",fontSize:12,fontWeight:700,padding:"14px",background:"var(--card2,#1a2235)",borderRadius:14,marginBottom:8}}>
+                {!form.ind_cat?"Selecciona la categoría":!form.ind_loc?"Selecciona el equipo":timerOn?"⏱ Detén el cronómetro para guardar":"▶ Inicia el cronómetro para registrar el tiempo"}
+              </div>
+            )}
             <button className="btn-save" disabled={
-              (modulo?.id==='indicador'&&timerOn) || 
+              (modulo?.id==='indicador'&&(timerOn||!form.timer_val||!form.ind_cat||!form.ind_loc)) ||
               (modulo?.id==='ot' && !otValid) ||
               (isStrict && modulo?.id!=='ot' ? prog<100 : (modulo?.id!=='ot' && prog<40))
             } onClick={save}>
-              {sync==='busy'?'⏳ GUARDANDO...':
-               modulo?.id==='indicador'&&timerOn?'⏱ DETÉN EL CRONÓMETRO':
-               modulo?.id==='ot' && !otValid ? (form.ot_tipo==="ABRIR ORDEN DE TRABAJO"?'📝 REQUIERE RESPUESTA RÁPIDA O DETALLE TÉCNICO':'📝 REQUIERE SOLUCIÓN APLICADA'):
-               (isStrict && modulo?.id!=='ot' && prog<100)?'📝 COMPLETA TODOS LOS CAMPOS':
-               'GUARDAR REGISTRO ✓'}
+              {sync==='busy'?'⏳ GUARDANDO...':               modulo?.id==='indicador'&&!form.timer_val?'⏱ COMPLETA EL CRONÓMETRO':               modulo?.id==='indicador'&&form.timer_val?`GUARDAR · ${form.timer_val}s ✓`:               modulo?.id==='ot' && !otValid ? (form.ot_tipo==="ABRIR ORDEN DE TRABAJO"?'📝 REQUIERE RESPUESTA RÁPIDA O DETALLE TÉCNICO':'📝 REQUIERE SOLUCIÓN APLICADA'):               (isStrict && modulo?.id!=='ot' && prog<100)?'📝 COMPLETA TODOS LOS CAMPOS':               'GUARDAR REGISTRO ✓'}
             </button>
             <button onClick={()=>setScreen("home")} style={{width:'100%',marginTop:10,padding:'12px',background:'transparent',border:'2px solid #ef444460',color:'#ef4444',borderRadius:14,fontWeight:900,fontSize:13,cursor:'pointer'}}>← VOLVER SIN GUARDAR</button>
           </div>
@@ -3976,7 +4212,7 @@ function App(){
       )}
       {screen==="almuerzo"&&<AlmuerzoScreen vales={vales} soloLec={!ALM_OPS.includes(usuario.nombre)} onVolver={()=>setScreen("home")} fb={window._fb} hoy={hoy} onRegreso={marcarRegreso} vpData={listaVP}/>}
       {screen==="cambiarPw"&&<CambiarPw usuario={usuario} passwords={passwords} onVolver={()=>setScreen("home")}/>}
-      {screen==="admin"&&usuario.nombre==="Vicente"&&<AdminPanel history={history} activeOTs={activeOTs} passwords={passwords} permisosDB={permisosDB} onlineU={onlineU} vales={vales} onVolver={()=>setScreen("home")} fb={window._fb}/>}
+      {screen==="admin"&&usuario.nombre==="Vicente"&&<AdminPanel history={history} activeOTs={activeOTs} passwords={passwords} permisosDB={permisosDB} onlineU={onlineU} vales={vales} onVolver={()=>setScreen("home")} fb={window._fb} onNotif={addNotif}/>}
     </div>
   );
 }
