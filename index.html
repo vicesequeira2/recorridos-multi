@@ -847,12 +847,14 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
         if(camData){
           const camArr=Object.values(camData).filter(r=>r.fecha===fecha).sort((a,b)=>(a.ts||0)-(b.ts||0));
           if(camArr.length){
-            const COLS_C=["FECHA","HORA","USUARIO","ESTADO","TIPO","OT_ID","NOTAS"];
+            const COLS_C=["FECHA","HORA ALERTA","HORA ATENDIDA","USUARIO","ESTADO","NOTAS"];
             const camRows=camArr.map(r=>({
-              FECHA:r.fecha||"-",HORA:r.hora||"-",USUARIO:r.usuario||"Sistema",
-              ESTADO:r.estado==="ok"?"✅ OK":r.estado==="anomalia"?"⚠️ Anomalía":"🚨 No atendida",
-              TIPO:r.tipo==="REVISION_MANUAL"?"Manual":"Automática",
-              OT_ID:r.ot_id||"-",NOTAS:r.notas||"-"
+              FECHA:r.fecha||"-",
+              "HORA ALERTA":r.horaAlerta||r.hora||"-",
+              "HORA ATENDIDA":r.horaAtencion||"-",
+              USUARIO:r.usuario||"Sistema",
+              ESTADO:r.estado==="ok"?"✅ OK":"⚠️ Anomalía",
+              NOTAS:r.notas||"-"
             }));
             const wsC=XLSX.utils.json_to_sheet(camRows,{header:COLS_C});
             wsC["!cols"]=COLS_C.map(()=>({wch:18}));
@@ -2678,21 +2680,31 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
       const ahora=new Date();
       const hora=ahora.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
       const fecha=ahora.toLocaleDateString("es");
-      const{db,ref,push}=_fb;
-      // Guardar en cam_revisiones
+      const{db,ref,push,get}=_fb;
+      // Leer hora en que se generó la alerta (cuando venció el timer)
+      let horaAlerta=hora;
+      try{
+        const snap=await get(ref(db,"cam_estado"));
+        const d=snap.val();
+        if(d&&d.horaAlerta) horaAlerta=d.horaAlerta;
+      }catch(e){}
+      // Guardar registro único — sin tipo manual/automático
       await push(ref(db,"cam_revisiones"),{
-        tipo:"REVISION_MANUAL",
         estado:opcion==="ok"?"ok":"anomalia",
-        fecha,hora,usuario:usuario.nombre,ts:Date.now()
+        horaAlerta,        // hora en que se generó la alerta
+        horaAtencion:hora, // hora en que el usuario la atendió
+        fecha,usuario:usuario.nombre,ts:Date.now()
       });
       // Guardar en registros generales
       await push(ref(db,"registros"),{
         USUARIO:usuario.nombre,ROL:usuario.rol||"Monitoreo",
         FECHA:fecha,HORA:hora,
         MODULO:"Cámaras Perimetrales",
-        ACCION:opcion==="ok"?"REVISIÓN MANUAL OK":"ANOMALÍA DETECTADA",
+        ACCION:opcion==="ok"?"REVISIÓN OK":"ANOMALÍA DETECTADA",
         UBICACION:"Cámaras Perimetrales",
-        NOTAS:opcion==="ok"?"Revisión manual completada — Sin novedad":"Anomalía detectada — se generará OT",
+        NOTAS:opcion==="ok"
+          ?`Revisión OK — Alerta: ${horaAlerta} · Atendida: ${hora}`
+          :`Anomalía — Alerta: ${horaAlerta} · Atendida: ${hora}`,
         _ts:Date.now()
       });
       // Reiniciar el marcador
@@ -2855,16 +2867,58 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
         <div className="label-sec">📋 HISTORIAL</div>
         {camRevisiones.length===0&&<div style={{color:"var(--muted)",fontSize:12,padding:"12px 0",textAlign:"center"}}>Sin revisiones registradas</div>}
         {camRevisiones.slice(0,30).map((r,i)=>(
-          <div key={r._fbKey||i} style={{background:r.estado==="ok"?"#22c55e08":"#ef444408",border:`1px solid ${r.estado==="ok"?"#22c55e25":"#ef444425"}`,borderRadius:10,padding:"10px 12px",marginBottom:6,display:"flex",gap:10,alignItems:"center"}}>
-            <span style={{fontSize:18,flexShrink:0}}>{r.estado==="ok"?"✅":"⚠️"}</span>
-            <div style={{flex:1}}>
-              <div style={{fontSize:11,fontWeight:900,color:r.estado==="ok"?"#22c55e":"#ef4444"}}>
-                {r.estado==="ok"?"Revisión OK — Sin novedad":"Anomalía detectada"}
-                {r.tipo==="REVISION_MANUAL"&&<span style={{fontSize:9,color:"var(--muted)",fontWeight:700}}> · Manual</span>}
+          <div key={r._fbKey||i} style={{
+            background:r.estado==="ok"?"#22c55e08":"#ef444408",
+            border:`1px solid ${r.estado==="ok"?"#22c55e25":"#ef444425"}`,
+            borderRadius:12,padding:"12px 14px",marginBottom:8
+          }}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:r.horaAlerta?6:0}}>
+              <span style={{fontSize:20,flexShrink:0}}>{r.estado==="ok"?"✅":"⚠️"}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:900,color:r.estado==="ok"?"#22c55e":"#ef4444"}}>
+                  {r.estado==="ok"?"Sin novedad":"Anomalía detectada"}
+                </div>
+                <div style={{fontSize:10,color:"var(--text3,#5a7a9a)",marginTop:1}}>
+                  📅 {r.fecha} · 👤 {r.usuario||"Sistema"}
+                </div>
               </div>
-              <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>{r.fecha} · {r.hora} · {r.usuario||"Sistema"}</div>
-              {r.ot_id&&<div style={{fontSize:9,color:"var(--muted)"}}>OT: {r.ot_id}</div>}
+              {r.ot_id&&(
+                <span style={{fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:20,background:"#0ea5e920",color:"#0ea5e9"}}>
+                  {r.ot_id}
+                </span>
+              )}
             </div>
+            {r.horaAlerta&&r.horaAtencion&&(
+              <div style={{
+                background:"var(--bg2,#0c1018)",borderRadius:8,
+                padding:"7px 10px",display:"flex",gap:16
+              }}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:8,fontWeight:800,color:"var(--text3,#5a7a9a)",marginBottom:2}}>ALERTA</div>
+                  <div style={{fontSize:11,fontWeight:900,color:"#f97316"}}>{r.horaAlerta}</div>
+                </div>
+                <div style={{width:1,background:"var(--border,#1e2d45)"}}/>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:8,fontWeight:800,color:"var(--text3,#5a7a9a)",marginBottom:2}}>ATENDIDA</div>
+                  <div style={{fontSize:11,fontWeight:900,color:"#22c55e"}}>{r.horaAtencion}</div>
+                </div>
+                {(()=>{
+                  const [ah,am,as2]=(r.horaAlerta||"0:0:0").split(":").map(Number);
+                  const [bh,bm,bs2]=(r.horaAtencion||"0:0:0").split(":").map(Number);
+                  const mins=Math.round(((bh*3600+bm*60+bs2)-(ah*3600+am*60+as2))/60);
+                  if(mins<0||mins>999) return null;
+                  return(
+                    <div style={{flex:1,textAlign:"right"}}>
+                      <div style={{fontSize:8,fontWeight:800,color:"var(--text3,#5a7a9a)",marginBottom:2}}>TIEMPO</div>
+                      <div style={{fontSize:11,fontWeight:900,color:mins>10?"#f97316":"#22c55e"}}>{mins} min</div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+            {!r.horaAlerta&&r.hora&&(
+              <div style={{fontSize:9,color:"var(--text3,#5a7a9a)",marginTop:4}}>🕒 {r.hora}</div>
+            )}
           </div>
         ))}
 
@@ -2900,11 +2954,12 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
         NOTAS:opcion==="ok"?"Revisión completada — Sin novedad":"Anomalía detectada — OT generada para técnicos",
         _ts:Date.now()
       });
+      // Registro unificado — mismo esquema que guardarRevision
       await push(ref(db,"cam_revisiones"),{
-        tipo:"REVISION_CAMARAS",
         estado:opcion==="ok"?"ok":"anomalia",
-        fecha,hora,usuario:usuario.nombre,
-        ot_id:ot.ot_id,ts:Date.now()
+        horaAlerta:ot.hora||hora,
+        horaAtencion:hora,
+        fecha,usuario:usuario.nombre,ts:Date.now()
       });
       await remove(ref(db,`activeOTs/${ot._fbKey}`));
       if(window._camArrancar) window._camArrancar();
@@ -3240,8 +3295,10 @@ function App(){
             hora:ahora2.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"}),
             tipo:"cam_revision",urgente:false,_ts:Date.now()
           });
+          const horaAlerta2=ahora2.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
           await set(ref(db,"cam_estado"),{
-            siguiente:d.siguiente,pendiente:true,ot_id:otId,ts:Date.now()
+            siguiente:d.siguiente,pendiente:true,ot_id:otId,
+            horaAlerta:horaAlerta2,ts:Date.now()
           });
         } else if(!d.pendiente && d.siguiente<=ahora && !enHorario){
           // Venció fuera de horario → reprogramar
@@ -3587,14 +3644,13 @@ function App(){
         if(camData){
           const camArr=Object.values(camData).sort((a,b)=>(b.ts||0)-(a.ts||0));
           if(camArr.length){
-            const COLS_C=["FECHA","HORA","USUARIO","ESTADO","TIPO","OT_ID","NOTAS"];
+            const COLS_C=["FECHA","HORA ALERTA","HORA ATENDIDA","USUARIO","ESTADO","NOTAS"];
             const camRows=camArr.map(r=>({
               FECHA:r.fecha||"-",
-              HORA:r.hora||"-",
+              "HORA ALERTA":r.horaAlerta||r.hora||"-",
+              "HORA ATENDIDA":r.horaAtencion||"-",
               USUARIO:r.usuario||"Sistema",
-              ESTADO:r.estado==="ok"?"✅ OK":r.estado==="anomalia"?"⚠️ Anomalía":"🚨 No atendida",
-              TIPO:r.tipo==="REVISION_MANUAL"?"Manual":"Automática",
-              OT_ID:r.ot_id||"-",
+              ESTADO:r.estado==="ok"?"✅ OK":"⚠️ Anomalía",
               NOTAS:r.notas||"-"
             }));
             const ws3=XLSX.utils.json_to_sheet(camRows,{header:COLS_C});
