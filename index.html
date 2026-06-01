@@ -4084,8 +4084,14 @@ function App(){
     }catch(e){console.error(e);setSync("err");alert("Error: "+e.message);}
   };
 
+  const[xlsLimpiarModal,setXlsLimpiarModal]=useState(false);
+  const[xlsCleaning,setXlsCleaning]=useState(false);
+
   const downloadXLS=async()=>{
-    const pw=prompt("Ingrese la clave de acceso:");if(pw!=="2026"){if(pw!==null)alert("Clave incorrecta.");return;}
+    const pw=prompt("Ingrese la clave de acceso:");
+    if(pw!=="2026"){if(pw!==null)alert("Clave incorrecta.");return;}
+    if(!window._fb){alert("Sin conexión a Firebase");return;}
+    const{db,ref,get}=window._fb;
     const wb=XLSX.utils.book_new();
     const applyS=(ws,rng,hc,ec)=>{
       for(let C=rng.s.c;C<=rng.e.c;C++){const cell=XLSX.utils.encode_cell({r:0,c:C});if(!ws[cell])continue;
@@ -4093,63 +4099,109 @@ function App(){
       for(let R=1;R<=rng.e.r;R++)for(let C=rng.s.c;C<=rng.e.c;C++){const cell=XLSX.utils.encode_cell({r:R,c:C});if(!ws[cell])ws[cell]={t:"s",v:"-"};
         ws[cell].s={font:{sz:10},alignment:{vertical:"center"},fill:{fgColor:{rgb:R%2===0?ec:"FFFFFF"}},border:{top:{style:"thin",color:{rgb:"CCCCCC"}},bottom:{style:"thin",color:{rgb:"CCCCCC"}},left:{style:"thin",color:{rgb:"CCCCCC"}},right:{style:"thin",color:{rgb:"CCCCCC"}}}};}
     };
-    const recOrdenados = [...history].sort((a,b)=>b._ts - a._ts);
+
+    // ── Hoja 1: Recorridos
+    const recOrdenados=[...history].sort((a,b)=>b._ts-a._ts);
     const recRows=recOrdenados.map(({_fbKey,_ts,...r})=>{const o={};COLS_R.forEach(c=>{o[c]=(r[c]!==undefined&&r[c]!==null&&r[c]!=="")?String(r[c]):"-";});return o;});
     const ws1=XLSX.utils.json_to_sheet(recRows,{header:COLS_R});
-    ws1['!cols']=COLS_R.map(c=>({wch:Math.max(c.length+4,16)}));
-    applyS(ws1,XLSX.utils.decode_range(ws1['!ref']||"A1"),"0D4F9E","DCE9FF");
+    ws1["!cols"]=COLS_R.map(c=>({wch:Math.max(c.length+4,16)}));
+    applyS(ws1,XLSX.utils.decode_range(ws1["!ref"]||"A1"),"0D4F9E","DCE9FF");
     XLSX.utils.book_append_sheet(wb,ws1,"Recorridos");
-    const cerr=vales.filter(v=>v.regreso).sort((a,b)=>b._ts - a._ts);
-    const almR=cerr.map(({_fbKey,_ts,...v})=>({PERSONA:v.persona||"-",TIPO:v.tipo?v.tipo.toUpperCase():"-",FECHA:v.fecha||"-",HORA_SALIDA:v.salida||"-",HORA_REGRESO:v.regreso||"-",A_TIEMPO:v.aTiempo!==undefined?(v.aTiempo?"SÍ":"NO"):"-"}));
+
+    // ── Hoja 2: Almuerzos (todos — con y sin regreso)
+    const todosVales=[...vales].sort((a,b)=>(b._ts||0)-(a._ts||0));
+    const almR=todosVales.map(({_fbKey,_ts,...v})=>({
+      PERSONA:v.persona||"-",TIPO:v.tipo?v.tipo.toUpperCase():"-",
+      FECHA:v.fecha||"-",HORA_SALIDA:v.salida||"-",
+      HORA_REGRESO:v.regreso||"(fuera)",
+      A_TIEMPO:v.regreso?(v.aTiempo!==undefined?(v.aTiempo?"SÍ":"NO"):"-"):"—"
+    }));
     const ws2=XLSX.utils.json_to_sheet(almR,{header:COLS_A});
-    ws2['!cols']=COLS_A.map(c=>({wch:Math.max(c.length+4,18)}));
-    applyS(ws2,XLSX.utils.decode_range(ws2['!ref']||"A1"),"0D6B30","D4EDDA");
+    ws2["!cols"]=COLS_A.map(c=>({wch:Math.max(c.length+4,18)}));
+    applyS(ws2,XLSX.utils.decode_range(ws2["!ref"]||"A1"),"0D6B30","D4EDDA");
     XLSX.utils.book_append_sheet(wb,ws2,"Almuerzos");
 
-    // ── Hoja Cámaras Perimetrales
+    // ── Hoja 3: Cámaras
     try{
-      if(window._fb){
-        const camSnap=await window._fb.get(window._fb.ref(window._fb.db,"cam_revisiones"));
-        const camData=camSnap.val();
-        if(camData){
-          const camArr=Object.values(camData).sort((a,b)=>(b.ts||0)-(a.ts||0));
-          if(camArr.length){
-            const COLS_C=["FECHA","HORA ALERTA","HORA ATENDIDA","USUARIO","ESTADO","NOTAS"];
-            const camRows=camArr.map(r=>({
-              FECHA:r.fecha||"-",
-              "HORA ALERTA":r.horaAlerta||r.hora||"-",
-              "HORA ATENDIDA":r.horaAtencion||"-",
-              USUARIO:r.usuario||"Sistema",
-              ESTADO:r.estado==="ok"?"✅ OK":"⚠️ Anomalía",
-              NOTAS:r.notas||"-"
-            }));
-            const ws3=XLSX.utils.json_to_sheet(camRows,{header:COLS_C});
-            ws3["!cols"]=COLS_C.map(()=>({wch:18}));
-            applyS(ws3,XLSX.utils.decode_range(ws3["!ref"]||"A1"),"0E7490","D0F4FF");
-            XLSX.utils.book_append_sheet(wb,ws3,"Cámaras");
-          }
+      const camSnap=await get(ref(db,"cam_revisiones"));
+      const camData=camSnap.val();
+      if(camData){
+        const camArr=Object.values(camData).sort((a,b)=>(b.ts||0)-(a.ts||0));
+        if(camArr.length){
+          const COLS_C=["FECHA","HORA ALERTA","HORA ATENDIDA","USUARIO","ESTADO","NOTAS"];
+          const camRows=camArr.map(r=>({
+            FECHA:r.fecha||"-","HORA ALERTA":r.horaAlerta||r.hora||"-",
+            "HORA ATENDIDA":r.horaAtencion||"-",USUARIO:r.usuario||"Sistema",
+            ESTADO:r.estado==="ok"?"✅ OK":"⚠️ Anomalía",NOTAS:r.notas||"-"
+          }));
+          const ws3=XLSX.utils.json_to_sheet(camRows,{header:COLS_C});
+          ws3["!cols"]=COLS_C.map(()=>({wch:18}));
+          applyS(ws3,XLSX.utils.decode_range(ws3["!ref"]||"A1"),"0E7490","D0F4FF");
+          XLSX.utils.book_append_sheet(wb,ws3,"Cámaras");
         }
       }
     }catch(e){}
 
-    // Descarga sin recargar la app y SIN borrar datos
+    // ── Hoja 4: Sesiones
+    try{
+      const sesSnap=await get(ref(db,"sesiones"));
+      const sesData=sesSnap.val();
+      if(sesData){
+        const sesArr=Object.values(sesData).sort((a,b)=>(b.ts||0)-(a.ts||0));
+        if(sesArr.length){
+          const COLS_S=["FECHA","HORA","NOMBRE","ROL"];
+          const sesRows=sesArr.map(s=>({FECHA:s.fecha||"-",HORA:s.hora||"-",NOMBRE:s.nombre||"-",ROL:s.rol||"-"}));
+          const ws4=XLSX.utils.json_to_sheet(sesRows,{header:COLS_S});
+          ws4["!cols"]=COLS_S.map(()=>({wch:18}));
+          applyS(ws4,XLSX.utils.decode_range(ws4["!ref"]||"A1"),"5B21B6","EDE9FE");
+          XLSX.utils.book_append_sheet(wb,ws4,"Sesiones");
+        }
+      }
+    }catch(e){}
+
+    // ── Descargar
     const wbOut=XLSX.write(wb,{bookType:"xlsx",type:"array",cellStyles:true});
     const blob=new Blob([wbOut],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
     const url=URL.createObjectURL(blob);
     const fname=`recorridos_${new Date().toLocaleDateString("es").replace(/\//g,"-")}.xlsx`;
-    const a=document.createElement("a");
-    a.href=url;a.download=fname;
+    const a=document.createElement("a");a.href=url;a.download=fname;
     document.body.appendChild(a);a.click();
     setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},1500);
-    // Limpiar registros después de confirmar la descarga
-    setTimeout(async()=>{
-      const ok=window.confirm("✅ Excel descargado correctamente.\n\n¿Deseas limpiar los registros del historial?\n(Las OTs activas y vales de almuerzo NO se borrarán)");
-      if(ok&&window._fb){
-        const{db,ref,set}=window._fb;
-        await set(ref(db,"registros"),null);
-        alert("🗑 Registros limpiados correctamente.");
+
+    // Mostrar modal de confirmación de limpieza
+    setXlsLimpiarModal(true);
+  };
+
+  const ejecutarLimpieza=async()=>{
+    if(!window._fb){setXlsLimpiarModal(false);return;}
+    setXlsCleaning(true);
+    const{db,ref,set,get,remove}=window._fb;
+    try{
+      // 1. Borrar registros de actividad
+      await set(ref(db,"registros"),null);
+      // 2. Borrar vales de almuerzo completados (los que ya tienen regreso)
+      const valesSnap=await get(ref(db,"vales"));
+      const valesData=valesSnap.val();
+      if(valesData){
+        const aEliminar=Object.entries(valesData).filter(([,v])=>v.regreso);
+        await Promise.all(aEliminar.map(([k])=>remove(ref(db,`vales/${k}`))));
       }
-    },1000);
+      // 3. Borrar historial de revisiones de cámaras
+      await set(ref(db,"cam_revisiones"),null);
+      // 4. Borrar bitácora admin
+      await set(ref(db,"admin_bitacora"),null);
+      // 5. Borrar sesiones antiguas (>7 días)
+      const cutoff=Date.now()-7*24*60*60*1000;
+      const sesSnap=await get(ref(db,"sesiones"));
+      const sesData=sesSnap.val();
+      if(sesData){
+        const sesViejas=Object.entries(sesData).filter(([,v])=>v.ts&&v.ts<cutoff);
+        await Promise.all(sesViejas.map(([k])=>remove(ref(db,`sesiones/${k}`))));
+      }
+      // NO se borran: activeOTs, passwords, usuarios, config_listas, cam_config, permisos, anuncio
+    }catch(e){alert("Error al limpiar: "+e.message);}
+    setXlsCleaning(false);
+    setXlsLimpiarModal(false);
   };
 
   const prog=calcProg();
@@ -4315,6 +4367,41 @@ function App(){
     )}
 
     <div className="shell">
+
+      {/* ── MODAL LIMPIAR DATOS POST-EXCEL ── */}
+      {xlsLimpiarModal&&(
+        <div style={{position:"absolute",inset:0,background:"#000000d8",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div style={{background:"var(--card)",border:"1px solid #22c55e60",borderRadius:20,padding:24,width:"100%",maxWidth:320}}>
+            <div style={{fontSize:36,textAlign:"center",marginBottom:8}}>✅</div>
+            <div style={{fontSize:15,fontWeight:900,color:"#22c55e",textAlign:"center",marginBottom:6}}>Excel descargado</div>
+            <div style={{fontSize:11,color:"var(--muted)",marginBottom:16,lineHeight:1.6,textAlign:"center"}}>
+              ¿Limpiar los datos del sistema?
+            </div>
+            <div style={{background:"#0c1018",borderRadius:12,padding:"12px 14px",marginBottom:18,fontSize:10,color:"var(--muted)",lineHeight:1.8}}>
+              <div>🗑 Registros de actividad</div>
+              <div>🗑 Historial de almuerzos completados</div>
+              <div>🗑 Revisiones de cámaras</div>
+              <div>🗑 Bitácora de administrador</div>
+              <div>🗑 Sesiones antiguas (+7 días)</div>
+              <div style={{marginTop:6,color:"#22c55e",fontWeight:700}}>✅ Se mantienen: OTs activas · Personal fuera · Configuración</div>
+            </div>
+            {xlsCleaning?(
+              <div style={{textAlign:"center",padding:"16px",color:"#f97316",fontWeight:800}}>⏳ Limpiando datos...</div>
+            ):(
+              <div style={{display:"flex",gap:10}}>
+                <button onClick={()=>setXlsLimpiarModal(false)}
+                  style={{flex:1,padding:"12px",background:"var(--border)",border:"none",borderRadius:12,color:"var(--text)",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+                  NO LIMPIAR
+                </button>
+                <button onClick={ejecutarLimpieza}
+                  style={{flex:1,padding:"12px",background:"#22c55e",border:"none",borderRadius:12,color:"white",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+                  🗑 LIMPIAR
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL CONFIRMAR SALIDA ── */}
       {confirmLogout&&(
