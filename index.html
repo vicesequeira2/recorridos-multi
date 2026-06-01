@@ -369,21 +369,114 @@ function LoginScreen({passwords,onLogin}){
 // ============================================================
 // SELECTORES
 // ============================================================
+/* ── Selector simple (sin conteo) ── */
 function Sel({label,items,active,onSelect}){
-  return(<div><div className="label-sec">{label}</div><div className="pill-grid">{items.map(i=><button key={i} className={`pill${active===i?' active':''}`} onClick={()=>onSelect(i)}>{i}</button>)}</div></div>);
+  const sorted=[...items].sort((a,b)=>a.localeCompare(b,"es"));
+  return(<div><div className="label-sec">{label}</div><div className="pill-grid">{sorted.map(i=><button key={i} className={`pill${active===i?' active':''}`} onClick={()=>onSelect(i)}>{i}</button>)}</div></div>);
 }
-function SelEst({label,items,active,onSelect,done=[]}){
-  return(<div>
-    <div className="label-sec" style={{display:'flex',alignItems:'center',gap:8}}>{label}<span style={{fontSize:9,color:'var(--green)',fontWeight:700}}>✓ {done.length} realizados</span></div>
-    <div className="pill-grid">{items.map(i=>{const h=done.includes(i),s=active===i;return(<button key={i} onClick={()=>onSelect(i)} style={{padding:'9px 12px',borderRadius:20,fontSize:11,fontWeight:700,cursor:'pointer',position:'relative',border:s?'2px solid var(--accent)':h?'1px solid #22c55e80':'1px solid var(--border)',background:s?'var(--accent)':h?'#22c55e18':'var(--card)',color:s?'white':h?'var(--green)':'var(--muted)'}}>{h&&!s&&<span style={{marginRight:3}}>✓</span>}{i}</button>);})}</div>
-  </div>);
+
+/* ── Selector con conteo del equipo + marca del usuario propio ──
+   done     = array de ubicaciones ya visitadas por ESTE usuario hoy
+   counts   = { ubicacion: N } visitas TOTALES del equipo hoy (todos los técnicos)
+*/
+function SelEst({label,items,active,onSelect,done=[],counts={}}){
+  const sorted=[...items].sort((a,b)=>a.localeCompare(b,"es"));
+  const totalHecho=done.length;
+  // Paleta de intensidad para el conteo del equipo
+  const HEAT=[
+    {bg:'var(--card)',   b:'var(--border)',   t:'var(--muted)'},   // 0 visitas
+    {bg:'#22c55e15',     b:'#22c55e70',       t:'#22c55e'},        // 1
+    {bg:'#0ea5e915',     b:'#0ea5e970',       t:'#0ea5e9'},        // 2
+    {bg:'#f9731615',     b:'#f9731670',       t:'#f97316'},        // 3+
+  ];
+  return(
+    <div>
+      <div className="label-sec" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+        {label}
+        <span style={{fontSize:9,color:'var(--green)',fontWeight:700,background:'#22c55e15',padding:'2px 7px',borderRadius:10}}>✓ {totalHecho} míos</span>
+        {Object.keys(counts).length>0&&<span style={{fontSize:9,color:'var(--accent)',fontWeight:700,background:'#0ea5e915',padding:'2px 7px',borderRadius:10}}>👥 {Object.values(counts).reduce((s,n)=>s+n,0)} equipo</span>}
+      </div>
+      <div className="pill-grid">
+        {sorted.map(i=>{
+          const yoLo=done.includes(i);
+          const n=counts[i]||0;
+          const s=active===i;
+          const heat=HEAT[Math.min(n,HEAT.length-1)];
+          return(
+            <button key={i} onClick={()=>onSelect(i)} style={{
+              padding:'9px 12px',borderRadius:20,fontSize:11,fontWeight:700,cursor:'pointer',
+              position:'relative',
+              border:s?'2px solid var(--accent)':yoLo?'2px solid #22c55e80':`1px solid ${n>0?heat.b:'var(--border)'}`,
+              background:s?'var(--accent)':yoLo?'#22c55e18':n>0?heat.bg:'var(--card)',
+              color:s?'white':yoLo?'var(--green)':n>0?heat.t:'var(--muted)',
+            }}>
+              {/* Marca de propio (✓) visible solo si no está seleccionado */}
+              {yoLo&&!s&&<span style={{marginRight:3,fontSize:10}}>✓</span>}
+              {i}
+              {/* Badge de conteo del equipo */}
+              {n>0&&!s&&(
+                <span style={{
+                  position:'absolute',top:-6,right:-6,
+                  background:yoLo?'#22c55e':heat.t,color:'white',
+                  borderRadius:'50%',minWidth:16,height:16,fontSize:9,fontWeight:900,
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  border:'2px solid var(--bg)',lineHeight:1,padding:'0 2px',
+                }}>{n}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
+
+/* ── Selector de limpieza con conteo de veces ── */
 function SelCnt({label,items,active,onSelect,counts={}}){
-  const C=[{bg:'var(--card)',b:'var(--border)',t:'var(--muted)'},{bg:'#22c55e18',b:'#22c55e80',t:'#22c55e'},{bg:'#0ea5e918',b:'#0ea5e980',t:'#0ea5e9'},{bg:'#f9731618',b:'#f9731680',t:'#f97316'},{bg:'#a855f718',b:'#a855f780',t:'#a855f7'}];
-  return(<div>
-    <div className="label-sec">{label} <span style={{fontSize:9,color:'var(--muted)',fontWeight:700}}>🧹=veces</span></div>
-    <div className="pill-grid">{items.map(i=>{const n=counts[i]||0,c=C[Math.min(n,C.length-1)],s=active===i;return(<button key={i} onClick={()=>onSelect(i)} style={{padding:'9px 12px',borderRadius:20,fontSize:11,fontWeight:700,cursor:'pointer',position:'relative',border:s?'2px solid var(--accent)':`1px solid ${c.b}`,background:s?'var(--accent)':c.bg,color:s?'white':c.t}}>{i}{n>0&&!s&&<span style={{position:'absolute',top:-5,right:-5,background:c.t,color:'white',borderRadius:'50%',width:15,height:15,fontSize:9,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{n}</span>}</button>);})}</div>
-  </div>);
+  const sorted=[...items].sort((a,b)=>a.localeCompare(b,"es"));
+  const HEAT=[
+    {bg:'var(--card)',   b:'var(--border)',   t:'var(--muted)'},
+    {bg:'#22c55e15',     b:'#22c55e70',       t:'#22c55e'},
+    {bg:'#0ea5e915',     b:'#0ea5e970',       t:'#0ea5e9'},
+    {bg:'#f9731615',     b:'#f9731670',       t:'#f97316'},
+    {bg:'#a855f715',     b:'#a855f770',       t:'#a855f7'},
+  ];
+  const total=Object.values(counts).reduce((s,n)=>s+n,0);
+  return(
+    <div>
+      <div className="label-sec" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+        {label}
+        {total>0&&<span style={{fontSize:9,color:'#fbbf24',fontWeight:700,background:'#fbbf2415',padding:'2px 7px',borderRadius:10}}>🧹 {total} limpiezas hoy</span>}
+      </div>
+      <div className="pill-grid">
+        {sorted.map(i=>{
+          const n=counts[i]||0;
+          const c=HEAT[Math.min(n,HEAT.length-1)];
+          const s=active===i;
+          return(
+            <button key={i} onClick={()=>onSelect(i)} style={{
+              padding:'9px 12px',borderRadius:20,fontSize:11,fontWeight:700,cursor:'pointer',
+              position:'relative',
+              border:s?'2px solid var(--accent)':`1px solid ${c.b}`,
+              background:s?'var(--accent)':c.bg,
+              color:s?'white':c.t,
+            }}>
+              {i}
+              {n>0&&!s&&(
+                <span style={{
+                  position:'absolute',top:-6,right:-6,
+                  background:c.t,color:'white',
+                  borderRadius:'50%',minWidth:16,height:16,fontSize:9,fontWeight:900,
+                  display:'flex',alignItems:'center',justifyContent:'center',
+                  border:'2px solid var(--bg)',lineHeight:1,padding:'0 2px',
+                }}>{n}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ============================================================
@@ -703,11 +796,6 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
   };
 
   // Generar reporte Excel para una fecha
-  const estiloEncabezado=(ws,cols)=>{
-    // Aplicar ancho de columnas y negritas al encabezado
-    ws["!cols"]=cols.map(c=>({wch:c.w||18}));
-  };
-
   const generarReporteExcel=async(fecha)=>{
     const datos=history.filter(r=>r.FECHA===fecha);
     if(!datos.length){showMsg("err","Sin registros para esa fecha");return;}
@@ -942,6 +1030,11 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
     if(u.nombre==="Vicente"){showMsg("err","No puedes eliminar al administrador");return;}
     await fb.remove(fb.ref(fb.db,`usuarios/${u.nombre}`));
     await fb.remove(fb.ref(fb.db,`passwords/${u.nombre}`));
+    // Limpiar permisos custom y presencia del usuario eliminado
+    await fb.remove(fb.ref(fb.db,`permisos/${u.nombre}`));
+    const nuevosP={...(window._permisos||{})};
+    delete nuevosP[u.nombre];
+    window._permisos=nuevosP;
     logBitacora("USUARIO ELIMINADO",u.nombre+" ("+u.rol+")");
     showMsg("ok",`🗑 "${u.nombre}" eliminado`);
     setConfirm(null);
@@ -950,6 +1043,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
   // ── Anular OT
   const anularOT=async(o)=>{
     await fb.remove(fb.ref(fb.db,`activeOTs/${o._fbKey}`));
+    logBitacora("OT ANULADA",`${o.ot_id} — ${o.loc||o.UBICACION||"-"}`);
     showMsg("ok",`✅ Orden ${o.ot_id} anulada`);
     setConfirm(null);
   };
@@ -957,6 +1051,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
   // ── Eliminar registro
   const eliminarReg=async(r)=>{
     await fb.remove(fb.ref(fb.db,`registros/${r._fbKey}`));
+    logBitacora("REGISTRO ELIMINADO",`${r.MODULO} — ${r.USUARIO} — ${r.FECHA} ${r.HORA}`);
     showMsg("ok","✅ Registro eliminado");
     setConfirm(null);
   };
@@ -977,10 +1072,16 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
 
   // ── Limpiar sesiones antiguas
   const limpiarSesiones=async()=>{
+    if(!fb)return;
     const cutoff=Date.now()-30*24*60*60*1000;
-    const old=sesiones.filter(s=>s.ts&&s.ts<cutoff);
-    for(const s of old) await fb.remove(fb.ref(fb.db,`sesiones/${s._fbKey}`));
-    showMsg("ok",`🗑 ${old.length} sesiones antiguas eliminadas`);
+    // Leer todas las sesiones desde Firebase (no solo las 120 en memoria)
+    const snap=await fb.get(fb.ref(fb.db,"sesiones"));
+    const data=snap.val();
+    if(!data){showMsg("ok","No hay sesiones para limpiar");setConfirm(null);return;}
+    const toDelete=Object.entries(data).filter(([,v])=>v.ts&&v.ts<cutoff);
+    for(const[k] of toDelete) await fb.remove(fb.ref(fb.db,`sesiones/${k}`));
+    logBitacora("SESIONES LIMPIADAS",`${toDelete.length} sesiones eliminadas (>30 días)`);
+    showMsg("ok",`🗑 ${toDelete.length} sesiones antiguas eliminadas`);
     setConfirm(null);
   };
 
@@ -1293,8 +1394,6 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
           const vpList=cfgListas.vp||VP;
           const TC_A="#f97316"; const TC_C="#06b6d4";
           const TC=valetTab==="cafe"?TC_C:TC_A;
-          const personasActuales=valetTab==="cafe"?vpList.filter(p=>p.cafe):valetTab==="almuerzo"?vpList:vpList;
-
           // Funciones de registro desde admin
           const regSalAdmin=async(nombre,tipo)=>{
             if(!fb)return;
@@ -1382,12 +1481,14 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                     const min=tipo==="almuerzo"?p.minA:p.minC;
                     // Calcular tiempo que lleva fuera
                     let tiempoFuera="";
-                    if(fuera&&v.salida){
+                    if(fuera&&v.salida&&valetClock){
                       const[sh,sm]=v.salida.split(":").map(Number);
-                      const[ah,am]=valetClock.split(":").map(Number);
-                      const mins=(ah*60+am)-(sh*60+sm);
-                      const pct=Math.min(100,Math.round((mins/min)*100));
-                      tiempoFuera={mins,pct,excedido:mins>min};
+                      const[ah,am,as_]=valetClock.split(":").map(Number);
+                      if(!isNaN(ah)&&!isNaN(am)&&!isNaN(sh)&&!isNaN(sm)){
+                        const mins=(ah*60+am)-(sh*60+sm);
+                        const pct=Math.min(100,Math.round((mins/min)*100));
+                        tiempoFuera={mins,pct,excedido:mins>min};
+                      }
                     }
                     return(
                       <div key={p.nombre} style={{background:fuera?`${TC}10`:comp?"#22c55e0a":"var(--card)",border:`${fuera?2:1}px solid ${fuera?TC:comp?"#22c55e30":"var(--border)"}`,borderRadius:14,padding:"14px",marginBottom:8}}>
@@ -1526,6 +1627,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                 {id:"limpieza",l:"🧹 Limpieza"},
                 {id:"vp",l:"🍽 Valet"},
                 {id:"anuncio",l:"📢 Anuncio"},
+                {id:"camaras",l:"📹 Cámaras"},
               ].map(s=>(
                 <button key={s.id} onClick={()=>{setCfgSec(s.id);setNuevoItem("");}} style={{padding:"7px 12px",borderRadius:20,border:`1px solid ${cfgSec===s.id?AA:"var(--border)"}`,background:cfgSec===s.id?`${AA}20`:"var(--card)",color:cfgSec===s.id?AA:"var(--muted)",fontWeight:800,fontSize:11,cursor:"pointer"}}>
                   {s.l}
@@ -1697,7 +1799,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                     if(!fb)return;
                     await fb.set(fb.ref(fb.db,"cam_config"),camConfig);
                     logBitacora("CAM CONFIG",`Intervalo:${camConfig.intervalo}min, Horario:${camConfig.horaInicio}-${camConfig.horaFin}`);
-                    showMsg("ok","✅ Configuración guardada · Se aplica en la próxima sesión de Monitoreo");
+                    showMsg("ok","✅ Configuración guardada · Cambios activos inmediatamente");
                   }}
                   style={{width:"100%",padding:"13px",background:"#06b6d4",border:"none",borderRadius:12,color:"#000",fontWeight:900,fontSize:13,cursor:"pointer"}}
                 >
@@ -1774,7 +1876,15 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                   {nomMs.map(m=><option key={m}>{m}</option>)}
                 </select>
               </div>
-              <input type="date" style={{width:"100%",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px",color:"var(--text)",fontSize:12,outline:"none"}} value={filtroFecha} onChange={e=>setFiltroFecha(e.target.value)}/>
+              <input type="date" style={{width:"100%",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px",color:"var(--text)",fontSize:12,outline:"none"}} value={filtroFecha} onChange={e=>{
+                // Convertir YYYY-MM-DD a formato local DD/M/YYYY para comparar con r.FECHA
+                if(e.target.value){
+                  const[y,m,d]=e.target.value.split("-").map(Number);
+                  setFiltroFecha(new Date(y,m-1,d).toLocaleDateString("es"));
+                } else {
+                  setFiltroFecha("");
+                }
+              }}/>
             </div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
               <span style={{fontSize:11,fontWeight:800,color:"var(--muted)"}}>{regFiltrados.length} registros</span>
@@ -2203,7 +2313,23 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
             <div className="label-sec">📄 GENERADOR DE REPORTES</div>
             <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"16px",marginBottom:14}}>
               <div style={{fontSize:11,fontWeight:800,color:"var(--muted)",marginBottom:10}}>📅 SELECCIONA LA FECHA</div>
-              <input type="date" style={{width:"100%",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:10,padding:"12px",color:"var(--text)",fontSize:13,outline:"none",marginBottom:12}} value={reporteFecha} onChange={e=>setReporteFecha(e.target.value)}/>
+              <input type="date" style={{width:"100%",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:10,padding:"12px",color:"var(--text)",fontSize:13,outline:"none",marginBottom:12}}
+                value={(()=>{
+                  // Convertir D/M/YYYY a YYYY-MM-DD para el input
+                  if(!reporteFecha) return "";
+                  const parts=reporteFecha.split("/");
+                  if(parts.length===3) return `${parts[2].padStart(4,"0")}-${parts[1].padStart(2,"0")}-${parts[0].padStart(2,"0")}`;
+                  return reporteFecha;
+                })()}
+                onChange={e=>{
+                  // Convertir YYYY-MM-DD a formato local para comparar con r.FECHA
+                  if(e.target.value){
+                    const[y,m,d]=e.target.value.split("-").map(Number);
+                    setReporteFecha(new Date(y,m-1,d).toLocaleDateString("es"));
+                  } else {
+                    setReporteFecha("");
+                  }
+                }}/>
               {reporteFecha&&(()=>{
                 const d=history.filter(r=>r.FECHA===reporteFecha);
                 const nos=d.reduce((a,h)=>{ALLCHK.forEach(c=>{if(h[fk(c.label)]==="NO")a++;});return a;},0);
@@ -2616,7 +2742,7 @@ function DashboardEjecutivo({history, hoyH, ayerH, hoy, ayer, diaTab, setDiaTab,
 // ══════════════════════════════════════════════════════
 // PANTALLA MÓDULO CÁMARAS PERIMETRALES
 // ══════════════════════════════════════════════════════
-function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camConfig, clock, fb, openMod, hoy, onVolver}){
+function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camConfig, clock, fb, openMod, hoy, onVolver, camPendienteGlobal}){
   const CC="#06b6d4";
   const esAdmin = usuario?.nombre==="Vicente";
 
@@ -2624,33 +2750,18 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
   const[countdown,setCountdown]=useState("--:--");
   const[pct,setPct]=useState(0);
   const[sigTs,setSigTs]=useState(null);
-  const[pendiente,setPendiente]=useState(false);  // revisión pendiente sin atender
   const[segsRestantes,setSegsRestantes]=useState(9999);
   const[saving,setSaving]=useState(false);
-  const[step,setStep]=useState(null);
+  const[step,setStep]=useState(null);          // null | "ok" | "falla"
   const[revManual,setRevManual]=useState(false);
+  const[notaAnomalia,setNotaAnomalia]=useState(""); // descripción de la anomalía
+  const[filtroHist,setFiltroHist]=useState("hoy");  // "hoy" | "semana" | "todo"
 
-  // OTs de cámara pendientes
-  const camOTs = activeOTs.filter(o=>o.tipo==="cam_revision");
-
-  // Suscribirse a cam_estado en tiempo real
-  useEffect(()=>{
-    const _fb=fb||window._fb;
-    if(!_fb)return;
-    const unsub=_fb.onValue(_fb.ref(_fb.db,"cam_estado"),snap=>{
-      const d=snap.val();
-      if(d&&d.siguiente){
-        setSigTs(d.siguiente);
-        setPendiente(!!d.pendiente);
-      }
-    });
-    return()=>unsub();
-  },[]);
-
-  // Sync prop changes
+  const pendiente = !!camPendienteGlobal;
+  // Sync sigTs desde prop del padre
   useEffect(()=>{ if(camSiguiente) setSigTs(camSiguiente); },[camSiguiente]);
 
-  // Actualizar countdown cada segundo
+  // Countdown cada segundo
   useEffect(()=>{
     if(!sigTs)return;
     const tick=()=>{
@@ -2666,12 +2777,60 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
     return()=>clearInterval(id);
   },[sigTs,camConfig]);
 
-  // KPIs
+  // ── KPIs
   const histHoy=camRevisiones.filter(r=>r.fecha===hoy);
   const totalOK=histHoy.filter(r=>r.estado==="ok").length;
   const totalAnom=histHoy.filter(r=>r.estado==="anomalia").length;
 
-  // Guardar revisión manual
+  // Racha: días consecutivos sin anomalías (hacia atrás desde hoy)
+  const rachaOK=(()=>{
+    if(histHoy.some(r=>r.estado==="anomalia")) return 0;
+    const fechasUnicas=[...new Set(camRevisiones.map(r=>r.fecha))].sort((a,b)=>{
+      const pa=a.split("/").reverse().join("-"), pb=b.split("/").reverse().join("-");
+      return pb.localeCompare(pa);
+    });
+    let dias=0;
+    for(const f of fechasUnicas){
+      if(f===hoy){if(histHoy.length>0&&!histHoy.some(r=>r.estado==="anomalia")) dias++;continue;}
+      const del=camRevisiones.filter(r=>r.fecha===f);
+      if(del.length===0) break;
+      if(del.some(r=>r.estado==="anomalia")) break;
+      dias++;
+    }
+    return dias;
+  })();
+
+  // Tiempo promedio de respuesta del día (minutos)
+  const tiempoPromResp=(()=>{
+    const conTiempos=histHoy.filter(r=>r.horaAlerta&&r.horaAtencion);
+    if(!conTiempos.length) return null;
+    const total=conTiempos.reduce((s,r)=>{
+      const[ah,am,as2]=(r.horaAlerta||"0:0:0").split(":").map(Number);
+      const[bh,bm,bs2]=(r.horaAtencion||"0:0:0").split(":").map(Number);
+      return s+Math.max(0,(bh*3600+bm*60+bs2)-(ah*3600+am*60+as2));
+    },0);
+    return Math.round(total/conTiempos.length/60);
+  })();
+
+  // ── Historial filtrado
+  const histFiltrado=(()=>{
+    if(filtroHist==="hoy") return histHoy;
+    if(filtroHist==="semana"){
+      const hace7=Date.now()-7*24*60*60*1000;
+      return camRevisiones.filter(r=>r.ts&&r.ts>=hace7);
+    }
+    return camRevisiones.slice(0,60);
+  })();
+
+  // Semáforo de tiempo de respuesta
+  const colorTiempo=(mins)=>{
+    const esc=camConfig?.escalamiento||10;
+    if(mins<=Math.floor(esc/3)) return "#22c55e";
+    if(mins<=Math.floor(esc*2/3)) return "#f97316";
+    return "#ef4444";
+  };
+
+  // ── Guardar revisión
   const guardarRevision=async(opcion)=>{
     const _fb=fb||window._fb;
     if(!_fb)return;
@@ -2681,94 +2840,129 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
       const hora=ahora.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
       const fecha=ahora.toLocaleDateString("es");
       const{db,ref,push,get}=_fb;
-      // Leer hora en que se generó la alerta (cuando venció el timer)
       let horaAlerta=hora;
       try{
         const snap=await get(ref(db,"cam_estado"));
         const d=snap.val();
         if(d&&d.horaAlerta) horaAlerta=d.horaAlerta;
       }catch(e){}
-      // Guardar registro único — sin tipo manual/automático
+      const nota=opcion==="ok"
+        ?`Revisión OK — Alerta: ${horaAlerta} · Atendida: ${hora}`
+        :`Anomalía — Alerta: ${horaAlerta} · Atendida: ${hora}${notaAnomalia.trim()?` — Detalle: ${notaAnomalia.trim()}`:""}`;
       await push(ref(db,"cam_revisiones"),{
         estado:opcion==="ok"?"ok":"anomalia",
-        horaAlerta,        // hora en que se generó la alerta
-        horaAtencion:hora, // hora en que el usuario la atendió
+        horaAlerta,horaAtencion:hora,
+        notas:opcion==="ok"?"":notaAnomalia.trim(),
         fecha,usuario:usuario.nombre,ts:Date.now()
       });
-      // Guardar en registros generales
       await push(ref(db,"registros"),{
         USUARIO:usuario.nombre,ROL:usuario.rol||"Monitoreo",
         FECHA:fecha,HORA:hora,
         MODULO:"Cámaras Perimetrales",
         ACCION:opcion==="ok"?"REVISIÓN OK":"ANOMALÍA DETECTADA",
         UBICACION:"Cámaras Perimetrales",
-        NOTAS:opcion==="ok"
-          ?`Revisión OK — Alerta: ${horaAlerta} · Atendida: ${hora}`
-          :`Anomalía — Alerta: ${horaAlerta} · Atendida: ${hora}`,
-        _ts:Date.now()
+        NOTAS:nota,_ts:Date.now()
       });
-      // Reiniciar el marcador
+      try{
+        const otsSnap=await get(ref(db,"activeOTs"));
+        const otsData=otsSnap.val();
+        if(otsData){
+          const{remove}=_fb;
+          const keys=Object.entries(otsData)
+            .filter(([,v])=>v.tipo==="cam_revision"||v.tipo==="cam_escalamiento")
+            .map(([k])=>k);
+          await Promise.all(keys.map(k=>remove(ref(db,`activeOTs/${k}`))));
+        }
+      }catch(e){}
       if(window._camArrancar) window._camArrancar();
       if(opcion!=="ok"){
-        // Ir directo al módulo de OT
-        setSaving(false);
-        setRevManual(false);
-        setStep(null);
+        setSaving(false);setRevManual(false);setStep(null);setNotaAnomalia("");
         const otMod=MODS.find(m=>m.id==="ot");
         if(otMod&&openMod) setTimeout(()=>openMod(otMod),50);
         return;
       }
     }catch(e){alert("Error al guardar. Intente de nuevo.");}
-    setSaving(false);
-    setRevManual(false);
-    setStep(null);
+    setSaving(false);setRevManual(false);setStep(null);setNotaAnomalia("");
   };
 
   return(
     <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column",position:"relative"}}>
 
-      {/* ── MODAL REVISIÓN MANUAL ── */}
+      {/* ══ MODAL REVISIÓN ══ */}
       {revManual&&(
-        <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"#000000e0",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div style={{width:"100%",maxWidth:340,background:"#0d1520",border:`2px solid ${CC}`,borderRadius:20,padding:24}}>
+        <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"#000000e8",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20,overflowY:"auto"}}>
+          <div style={{width:"100%",maxWidth:360,background:"#0d1520",border:`2px solid ${step==="falla"?"#ef4444":step==="ok"?"#22c55e":CC}`,borderRadius:20,padding:22}}>
             <div style={{textAlign:"center",marginBottom:16}}>
-              <div style={{fontSize:36,marginBottom:6}}>📹</div>
+              <div style={{fontSize:32,marginBottom:4}}>📹</div>
               <div style={{fontSize:15,fontWeight:900,color:CC}}>REVISIÓN DE CÁMARAS</div>
-              <div style={{fontSize:10,color:"#5a7a9a",marginTop:4}}>{new Date().toLocaleDateString("es")} · {clock} · {usuario.nombre}</div>
+              <div style={{fontSize:10,color:"#5a7a9a",marginTop:3}}>{hoy} · {clock} · {usuario.nombre}</div>
             </div>
-            {!step?(
+
+            {/* Paso 1 — elegir estado */}
+            {!step&&(
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 <button onClick={()=>setStep("ok")}
-                  style={{padding:"14px",background:"#22c55e20",border:"2px solid #22c55e",borderRadius:14,color:"#22c55e",fontWeight:900,fontSize:13,cursor:"pointer"}}>
-                  ✅ Todo en orden — Sin novedad
+                  style={{padding:"16px",background:"#22c55e20",border:"2px solid #22c55e",borderRadius:14,color:"#22c55e",fontWeight:900,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+                  <span style={{fontSize:22}}>✅</span> Todo en orden — Sin novedad
                 </button>
                 <button onClick={()=>setStep("falla")}
-                  style={{padding:"14px",background:"#ef444420",border:"2px solid #ef4444",borderRadius:14,color:"#ef4444",fontWeight:900,fontSize:13,cursor:"pointer"}}>
-                  ⚠️ Se detectó una anomalía
+                  style={{padding:"16px",background:"#ef444420",border:"2px solid #ef4444",borderRadius:14,color:"#ef4444",fontWeight:900,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+                  <span style={{fontSize:22}}>⚠️</span> Se detectó una anomalía
                 </button>
-                <button onClick={()=>setRevManual(false)}
+                <button onClick={()=>{setRevManual(false);setStep(null);setNotaAnomalia("");}}
                   style={{padding:"10px",background:"transparent",border:"1px solid #2a4060",borderRadius:12,color:"#5a7a9a",fontWeight:700,fontSize:11,cursor:"pointer"}}>
                   CANCELAR
                 </button>
               </div>
-            ):(
+            )}
+
+            {/* Paso 2 — OK: confirmar */}
+            {step==="ok"&&(
               <div>
-                <div style={{background:step==="ok"?"#22c55e15":"#ef444415",border:`1px solid ${step==="ok"?"#22c55e40":"#ef444440"}`,borderRadius:12,padding:"12px",marginBottom:14}}>
-                  <div style={{fontSize:13,fontWeight:900,color:step==="ok"?"#22c55e":"#ef4444",marginBottom:4}}>
-                    {step==="ok"?"✅ Sin novedad":"⚠️ Anomalía detectada"}
-                  </div>
-                  <div style={{fontSize:10,color:"#94a3b8",lineHeight:1.6}}>
-                    {step==="ok"?"Se guardará el registro de revisión.":"Se guardará el registro y se abrirá una OT para los técnicos."}
-                  </div>
+                <div style={{background:"#22c55e12",border:"1px solid #22c55e40",borderRadius:12,padding:"14px",marginBottom:14,textAlign:"center"}}>
+                  <div style={{fontSize:28,marginBottom:4}}>✅</div>
+                  <div style={{fontSize:13,fontWeight:900,color:"#22c55e"}}>Sin novedad</div>
+                  <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>Se registrará la revisión en el historial.</div>
                 </div>
                 <div style={{display:"flex",gap:8}}>
-                  <button onClick={()=>setStep(null)}
-                    style={{flex:1,padding:"11px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>
-                    ← ATRÁS
+                  <button onClick={()=>setStep(null)} style={{flex:1,padding:"12px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>← ATRÁS</button>
+                  <button onClick={()=>guardarRevision("ok")} disabled={saving}
+                    style={{flex:2,padding:"12px",background:"#22c55e",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:13,cursor:"pointer",opacity:saving?0.5:1}}>
+                    {saving?"⏳ GUARDANDO...":"✅ CONFIRMAR"}
                   </button>
-                  <button onClick={()=>guardarRevision(step)} disabled={saving}
-                    style={{flex:2,padding:"11px",background:step==="ok"?"#22c55e":"#ef4444",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:12,cursor:"pointer",opacity:saving?0.5:1}}>
-                    {saving?"⏳ GUARDANDO...":"CONFIRMAR Y GUARDAR"}
+                </div>
+              </div>
+            )}
+
+            {/* Paso 2 — ANOMALÍA: campo de descripción + confirmación */}
+            {step==="falla"&&(
+              <div>
+                <div style={{background:"#ef444412",border:"1px solid #ef444440",borderRadius:12,padding:"12px",marginBottom:12}}>
+                  <div style={{fontSize:12,fontWeight:900,color:"#ef4444",marginBottom:8}}>⚠️ DESCRIBE LA ANOMALÍA</div>
+                  <textarea
+                    rows={3}
+                    placeholder="¿Qué se observó? (cámara sin imagen, imagen borrosa, movimiento sospechoso, etc.)"
+                    value={notaAnomalia}
+                    onChange={e=>setNotaAnomalia(e.target.value)}
+                    style={{width:"100%",background:"#0c1018",border:"1px solid #ef444440",borderRadius:8,padding:"10px",color:"white",fontSize:12,outline:"none",resize:"none",fontFamily:"inherit",lineHeight:1.5}}
+                  />
+                  <div style={{fontSize:9,color:"#ef4444aa",marginTop:4}}>Opcional pero recomendado — ayuda a los técnicos a priorizar.</div>
+                </div>
+                {/* Anomalías recientes como referencia */}
+                {camRevisiones.filter(r=>r.estado==="anomalia"&&r.notas).slice(0,2).map((r,i)=>(
+                  <div key={i} style={{background:"#1a0d0d",border:"1px solid #ef444425",borderRadius:8,padding:"7px 10px",marginBottom:6,cursor:"pointer"}} onClick={()=>setNotaAnomalia(r.notas)}>
+                    <div style={{fontSize:8,color:"#ef4444aa",fontWeight:700,marginBottom:2}}>ANOMALÍA RECIENTE — toca para copiar</div>
+                    <div style={{fontSize:10,color:"#fca5a5"}}>{r.notas}</div>
+                  </div>
+                ))}
+                <div style={{background:"#1a0e00",border:"1px solid #f9731430",borderRadius:10,padding:"9px 12px",marginBottom:12,fontSize:10,color:"#fca5a5",lineHeight:1.5}}>
+                  🔧 Se abrirá una OT urgente para los técnicos.
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>setStep(null)} style={{flex:1,padding:"12px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>← ATRÁS</button>
+                  <button onClick={()=>guardarRevision("falla")} disabled={saving}
+                    style={{flex:2,padding:"12px",background:"#ef4444",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:13,cursor:"pointer",opacity:saving?0.5:1}}>
+                    {saving?"⏳ GUARDANDO...":"⚠️ CONFIRMAR ANOMALÍA"}
                   </button>
                 </div>
               </div>
@@ -2777,7 +2971,7 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
         </div>
       )}
 
-      {/* ── HEADER ── */}
+      {/* ══ HEADER ══ */}
       <div style={{background:"var(--card)",borderBottom:`3px solid ${CC}`,flexShrink:0}}>
         <div style={{background:`${CC}10`,borderBottom:`1px solid ${CC}25`,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <button onClick={onVolver} style={{background:"#ef4444",border:"none",color:"white",fontSize:13,fontWeight:900,padding:"10px 16px",borderRadius:12,cursor:"pointer"}}>← SALIR</button>
@@ -2791,136 +2985,160 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
 
       <div className="scrollable">
 
-        {/* OTs pendientes de cámara */}
-        {camOTs.length>0&&(
-          <div style={{marginBottom:14}}>
-            <div className="label-sec" style={{color:"#ef4444"}}>🔴 REVISIÓN PENDIENTE — ATENDER</div>
-            {camOTs.map(o=>(
-              <MonitoreoCamOT key={o._fbKey} ot={o} usuario={usuario} clock={clock} fb={fb||window._fb} openMod={openMod} hoy={hoy}/>
-            ))}
+        {/* ══ TIMER CARD ══ */}
+        <div style={{background:pendiente?"#1a0808":`${CC}08`,border:`2px solid ${pendiente?"#ef4444":`${CC}30`}`,borderRadius:16,padding:"18px 20px",marginBottom:14,textAlign:"center"}}>
+          {/* Vicente puede ver el countdown Y atender revisiones pendientes */}
+          <div style={{fontSize:11,fontWeight:800,color:pendiente?"#ef4444":"var(--muted)",marginBottom:6,letterSpacing:1}}>
+            {pendiente?"🔴 REVISIÓN PENDIENTE":esAdmin?"📹 SISTEMA DE MONITOREO":"PRÓXIMA REVISIÓN EN"}
           </div>
-        )}
 
-        {/* Timer countdown */}
-        <div style={{background:camOTs.length>0?"#ef444408":`${CC}08`,border:`2px solid ${camOTs.length>0?"#ef444430":`${CC}30`}`,borderRadius:16,padding:"20px",marginBottom:14,textAlign:"center"}}>
-          {esAdmin?(
+          {/* Countdown grande — visible para todos */}
+          {!pendiente&&(
             <>
-              <div style={{fontSize:24,marginBottom:6}}>📹</div>
-              <div style={{fontSize:13,fontWeight:900,color:CC}}>SISTEMA DE MONITOREO ACTIVO</div>
-              <div style={{fontSize:10,color:"var(--muted)",marginTop:8}}>Intervalo configurado: <b style={{color:CC}}>{camConfig?.intervalo||40} min</b></div>
-              <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>
-                Horario: {String(Math.floor(camConfig?.horaInicio||9)).padStart(2,"0")}:{(camConfig?.horaInicio||9)%1===0.5?"30":"00"} – {String(Math.floor(camConfig?.horaFin||21.5)).padStart(2,"0")}:{(camConfig?.horaFin||21.5)%1===0.5?"30":"00"}
+              <div style={{fontSize:50,fontWeight:900,color:pct>80?"#f97316":CC,letterSpacing:3,fontVariantNumeric:"tabular-nums",lineHeight:1}}>{countdown}</div>
+              <div style={{fontSize:10,color:"var(--muted)",marginTop:8}}>
+                Cada {camConfig?.intervalo||40} min · {String(Math.floor(camConfig?.horaInicio||9)).padStart(2,"0")}:{(camConfig?.horaInicio||9)%1===0.5?"30":"00"} – {String(Math.floor(camConfig?.horaFin||21.5)).padStart(2,"0")}:{(camConfig?.horaFin||21.5)%1===0.5?"30":"00"}
               </div>
-              <div style={{marginTop:10,height:4,background:"var(--border)",borderRadius:4,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${pct}%`,background:pct>80?"#f97316":CC,borderRadius:4,transition:"width 1s"}}/>
-              </div>
-              <div style={{fontSize:9,color:"var(--muted)",marginTop:4}}>Próxima revisión en: {countdown}</div>
             </>
-          ):(
-            <>
-              <div style={{fontSize:11,fontWeight:800,color:"var(--muted)",marginBottom:6,letterSpacing:1}}>PRÓXIMA REVISIÓN EN</div>
-              <div style={{fontSize:52,fontWeight:900,color:pct>80?"#f97316":CC,letterSpacing:3,fontVariantNumeric:"tabular-nums",lineHeight:1}}>{countdown}</div>
-              <div style={{fontSize:10,color:"var(--muted)",marginTop:8}}>Cada {camConfig?.intervalo||40} min · {String(Math.floor(camConfig?.horaInicio||9)).padStart(2,"0")}:{(camConfig?.horaInicio||9)%1===0.5?"30":"00"} – {String(Math.floor(camConfig?.horaFin||21.5)).padStart(2,"0")}:{(camConfig?.horaFin||21.5)%1===0.5?"30":"00"}</div>
-              <div style={{marginTop:10,height:5,background:"var(--border)",borderRadius:4,overflow:"hidden"}}>
-                <div style={{height:"100%",width:`${pct}%`,background:pct>80?"#f97316":CC,borderRadius:4,transition:"width 1s"}}/>
-              </div>
-              {sigTs&&<div style={{fontSize:9,color:"var(--muted)",marginTop:4}}>{pct}% del intervalo transcurrido</div>}
-            </>
+          )}
+          {pendiente&&(
+            <div style={{fontSize:13,fontWeight:800,color:"#fca5a5",margin:"8px 0"}}>Es hora de realizar la revisión perimetral</div>
+          )}
+
+          {/* Barra de progreso */}
+          <div style={{marginTop:10,height:5,background:"var(--border)",borderRadius:4,overflow:"hidden"}}>
+            <div style={{height:"100%",width:`${pct}%`,background:pendiente?"#ef4444":pct>80?"#f97316":CC,borderRadius:4,transition:"width 1s"}}/>
+          </div>
+          {!pendiente&&sigTs&&<div style={{fontSize:9,color:"var(--muted)",marginTop:4}}>{pct}% del intervalo transcurrido</div>}
+
+          {/* Botón de revisión — Vicente también puede atender */}
+          {(pendiente||segsRestantes===0)&&(
+            <button onClick={()=>{setRevManual(true);setStep(null);setNotaAnomalia("");}}
+              style={{width:"100%",padding:"14px",background:"#ef444418",border:"2px solid #ef4444",borderRadius:12,color:"#ef4444",fontWeight:900,fontSize:13,cursor:"pointer",marginTop:14,display:"flex",alignItems:"center",justifyContent:"center",gap:10,animation:"blink 1.5s infinite"}}>
+              <span style={{fontSize:20}}>🔴</span> ATENDER REVISIÓN PENDIENTE
+            </button>
           )}
         </div>
 
-        {/* KPIs del día */}
-        <div className="label-sec">📊 HOY · {hoy}</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
-          {[
-            {v:histHoy.length,l:"Revisiones",c:CC},
-            {v:totalOK,l:"OK",c:"#22c55e"},
-            {v:totalAnom,l:"Anomalías",c:totalAnom>0?"#ef4444":"#22c55e"},
-          ].map((k,i)=>(
-            <div key={i} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 8px",textAlign:"center"}}>
-              <div style={{fontSize:22,fontWeight:900,color:k.c}}>{k.v}</div>
-              <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>{k.l}</div>
+        {/* Botón manual para Monitoreo cuando no hay alerta activa */}
+        {!esAdmin&&!pendiente&&segsRestantes>0&&(
+          <div style={{marginBottom:14,opacity:0.45,pointerEvents:"none"}}>
+            <div style={{width:"100%",padding:"14px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,textAlign:"center"}}>
+              <div style={{fontSize:11,fontWeight:900,color:"var(--muted)"}}>🔒 REVISIÓN BLOQUEADA HASTA</div>
+              <div style={{fontSize:26,fontWeight:900,color:"var(--muted)",marginTop:4,fontVariantNumeric:"tabular-nums"}}>{countdown}</div>
             </div>
-          ))}
-        </div>
-
-        {/* Botón revisión — solo habilitado cuando marcador llega a 0 o hay pendiente */}
-        {!esAdmin&&(
-          <div style={{marginBottom:14}}>
-            {(segsRestantes===0||pendiente)?(
-              <button onClick={()=>{setRevManual(true);setStep(null);}}
-                style={{width:"100%",padding:"16px",background:pendiente?"#ef444420":`${CC}18`,border:`2px solid ${pendiente?"#ef4444":CC}`,borderRadius:14,color:pendiente?"#ef4444":CC,fontWeight:900,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,animation:pendiente?"blink 1.5s infinite":"none"}}>
-                <span style={{fontSize:22}}>{pendiente?"🔴":"📋"}</span>
-                {pendiente?"REVISIÓN PENDIENTE — ATENDER AHORA":"REALIZAR REVISIÓN AHORA"}
-              </button>
-            ):(
-              <div style={{width:"100%",padding:"16px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,textAlign:"center",opacity:0.5}}>
-                <div style={{fontSize:12,fontWeight:900,color:"var(--muted)"}}>🔒 REVISIÓN DISPONIBLE EN</div>
-                <div style={{fontSize:28,fontWeight:900,color:"var(--muted)",marginTop:4,fontVariantNumeric:"tabular-nums"}}>{countdown}</div>
-                <div style={{fontSize:10,color:"var(--muted)",marginTop:4}}>El botón se habilitará al llegar a 00:00</div>
-              </div>
-            )}
           </div>
         )}
 
-        {/* Historial */}
-        <div className="label-sec">📋 HISTORIAL</div>
-        {camRevisiones.length===0&&<div style={{color:"var(--muted)",fontSize:12,padding:"12px 0",textAlign:"center"}}>Sin revisiones registradas</div>}
-        {camRevisiones.slice(0,30).map((r,i)=>(
-          <div key={r._fbKey||i} style={{
-            background:r.estado==="ok"?"#22c55e08":"#ef444408",
-            border:`1px solid ${r.estado==="ok"?"#22c55e25":"#ef444425"}`,
-            borderRadius:12,padding:"12px 14px",marginBottom:8
-          }}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:r.horaAlerta?6:0}}>
-              <span style={{fontSize:20,flexShrink:0}}>{r.estado==="ok"?"✅":"⚠️"}</span>
-              <div style={{flex:1}}>
-                <div style={{fontSize:12,fontWeight:900,color:r.estado==="ok"?"#22c55e":"#ef4444"}}>
-                  {r.estado==="ok"?"Sin novedad":"Anomalía detectada"}
+        {/* ══ KPIs DEL DÍA ══ */}
+        <div className="label-sec">📊 HOY · {hoy}</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:8}}>
+          <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"14px 10px",textAlign:"center"}}>
+            <div style={{fontSize:28,fontWeight:900,color:CC}}>{histHoy.length}</div>
+            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>REVISIONES</div>
+          </div>
+          <div style={{background:totalAnom>0?"#ef444410":"#22c55e10",border:`1px solid ${totalAnom>0?"#ef444430":"#22c55e30"}`,borderRadius:12,padding:"14px 10px",textAlign:"center"}}>
+            <div style={{fontSize:28,fontWeight:900,color:totalAnom>0?"#ef4444":"#22c55e"}}>{totalAnom>0?totalAnom:totalOK}</div>
+            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>{totalAnom>0?`ANOMALÍA${totalAnom>1?"S":""}`:histHoy.length>0?"TODO OK":"SIN DATOS"}</div>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:14}}>
+          <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
+            <div style={{fontSize:22,fontWeight:900,color:rachaOK>0?"#22c55e":"var(--muted)"}}>{rachaOK}</div>
+            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>DÍAS SIN ANOMALÍA</div>
+          </div>
+          <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
+            <div style={{fontSize:22,fontWeight:900,color:tiempoPromResp!=null?colorTiempo(tiempoPromResp):"var(--muted)"}}>
+              {tiempoPromResp!=null?`${tiempoPromResp}m`:"—"}
+            </div>
+            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>T. RESP. PROM.</div>
+          </div>
+        </div>
+
+        {/* ══ HISTORIAL ══ */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <div className="label-sec" style={{margin:0}}>📋 HISTORIAL</div>
+          <div style={{display:"flex",gap:5}}>
+            {[{k:"hoy",l:"Hoy"},{k:"semana",l:"7 días"},{k:"todo",l:"Todo"}].map(f=>(
+              <button key={f.k} onClick={()=>setFiltroHist(f.k)} style={{padding:"4px 10px",borderRadius:10,border:`1px solid ${filtroHist===f.k?CC:"var(--border)"}`,background:filtroHist===f.k?`${CC}20`:"var(--card)",color:filtroHist===f.k?CC:"var(--muted)",fontWeight:800,fontSize:10,cursor:"pointer"}}>
+                {f.l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {histFiltrado.length===0&&(
+          <div style={{color:"var(--muted)",fontSize:12,padding:"20px 0",textAlign:"center",background:"var(--card)",borderRadius:12,border:"1px solid var(--border)"}}>
+            {filtroHist==="hoy"?"Sin revisiones hoy":"Sin registros en este período"}
+          </div>
+        )}
+
+        {histFiltrado.map((r,i)=>{
+          const[ah,am,as2]=(r.horaAlerta||"0:0:0").split(":").map(Number);
+          const[bh,bm,bs2]=(r.horaAtencion||"0:0:0").split(":").map(Number);
+          const mins=r.horaAlerta&&r.horaAtencion?Math.round(((bh*3600+bm*60+bs2)-(ah*3600+am*60+as2))/60):null;
+          const esOK=r.estado==="ok";
+          return(
+            <div key={r._fbKey||i} style={{
+              background:esOK?"#22c55e08":"#ef444408",
+              border:`1px solid ${esOK?"#22c55e25":"#ef444425"}`,
+              borderLeft:`3px solid ${esOK?"#22c55e":"#ef4444"}`,
+              borderRadius:12,padding:"12px 14px",marginBottom:8
+            }}>
+              {/* Fila principal */}
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:18,flexShrink:0}}>{esOK?"✅":"⚠️"}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:900,color:esOK?"#22c55e":"#ef4444"}}>
+                    {esOK?"Sin novedad":"Anomalía detectada"}
+                  </div>
+                  <div style={{fontSize:10,color:"var(--text3,#5a7a9a)",marginTop:1}}>
+                    📅 {r.fecha} · 👤 {r.usuario||"Sistema"}
+                  </div>
                 </div>
-                <div style={{fontSize:10,color:"var(--text3,#5a7a9a)",marginTop:1}}>
-                  📅 {r.fecha} · 👤 {r.usuario||"Sistema"}
-                </div>
+                {/* Badge de tiempo de respuesta con semáforo */}
+                {mins!=null&&mins>=0&&mins<999&&(
+                  <div style={{textAlign:"center",flexShrink:0}}>
+                    <div style={{fontSize:13,fontWeight:900,color:colorTiempo(mins)}}>{mins}m</div>
+                    <div style={{fontSize:8,color:"var(--text3,#5a7a9a)",fontWeight:700}}>RESP.</div>
+                  </div>
+                )}
               </div>
-              {r.ot_id&&(
-                <span style={{fontSize:9,fontWeight:800,padding:"2px 7px",borderRadius:20,background:"#0ea5e920",color:"#0ea5e9"}}>
-                  {r.ot_id}
-                </span>
+
+              {/* Tiempos alerta/atención */}
+              {r.horaAlerta&&r.horaAtencion&&(
+                <div style={{background:"#0c1018",borderRadius:8,padding:"7px 10px",marginTop:8,display:"flex",gap:12,alignItems:"center"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:8,fontWeight:800,color:"var(--text3,#5a7a9a)",marginBottom:1}}>ALERTA</div>
+                    <div style={{fontSize:11,fontWeight:900,color:"#f97316"}}>{r.horaAlerta}</div>
+                  </div>
+                  <div style={{fontSize:14,color:"var(--border)"}}>→</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:8,fontWeight:800,color:"var(--text3,#5a7a9a)",marginBottom:1}}>ATENDIDA</div>
+                    <div style={{fontSize:11,fontWeight:900,color:"#22c55e"}}>{r.horaAtencion}</div>
+                  </div>
+                  {mins!=null&&mins>=0&&mins<999&&(
+                    <div style={{background:colorTiempo(mins)+"20",border:`1px solid ${colorTiempo(mins)}50`,borderRadius:8,padding:"4px 10px",textAlign:"center"}}>
+                      <div style={{fontSize:13,fontWeight:900,color:colorTiempo(mins)}}>{mins}m</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Descripción de anomalía */}
+              {!esOK&&r.notas&&r.notas.trim()&&(
+                <div style={{background:"#1a0808",border:"1px solid #ef444425",borderRadius:8,padding:"8px 10px",marginTop:8,display:"flex",gap:8,alignItems:"flex-start"}}>
+                  <span style={{fontSize:14,flexShrink:0}}>📝</span>
+                  <div style={{fontSize:11,color:"#fca5a5",lineHeight:1.5}}>{r.notas}</div>
+                </div>
+              )}
+
+              {!r.horaAlerta&&r.hora&&(
+                <div style={{fontSize:9,color:"var(--text3,#5a7a9a)",marginTop:4}}>🕒 {r.hora}</div>
               )}
             </div>
-            {r.horaAlerta&&r.horaAtencion&&(
-              <div style={{
-                background:"var(--bg2,#0c1018)",borderRadius:8,
-                padding:"7px 10px",display:"flex",gap:16
-              }}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:8,fontWeight:800,color:"var(--text3,#5a7a9a)",marginBottom:2}}>ALERTA</div>
-                  <div style={{fontSize:11,fontWeight:900,color:"#f97316"}}>{r.horaAlerta}</div>
-                </div>
-                <div style={{width:1,background:"var(--border,#1e2d45)"}}/>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:8,fontWeight:800,color:"var(--text3,#5a7a9a)",marginBottom:2}}>ATENDIDA</div>
-                  <div style={{fontSize:11,fontWeight:900,color:"#22c55e"}}>{r.horaAtencion}</div>
-                </div>
-                {(()=>{
-                  const [ah,am,as2]=(r.horaAlerta||"0:0:0").split(":").map(Number);
-                  const [bh,bm,bs2]=(r.horaAtencion||"0:0:0").split(":").map(Number);
-                  const mins=Math.round(((bh*3600+bm*60+bs2)-(ah*3600+am*60+as2))/60);
-                  if(mins<0||mins>999) return null;
-                  return(
-                    <div style={{flex:1,textAlign:"right"}}>
-                      <div style={{fontSize:8,fontWeight:800,color:"var(--text3,#5a7a9a)",marginBottom:2}}>TIEMPO</div>
-                      <div style={{fontSize:11,fontWeight:900,color:mins>10?"#f97316":"#22c55e"}}>{mins} min</div>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-            {!r.horaAlerta&&r.hora&&(
-              <div style={{fontSize:9,color:"var(--text3,#5a7a9a)",marginTop:4}}>🕒 {r.hora}</div>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
       </div>
     </div>
@@ -2932,7 +3150,8 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
 function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
   const[step,setStep]=useState(null);
   const[saving,setSaving]=useState(false);
-  const[done,setDone]=useState(null); // null | "ok" | "anomalia"
+  const[done,setDone]=useState(null);
+  const[notaAnomalia,setNotaAnomalia]=useState("");
   const CC="#06b6d4";
 
   const cerrar=async(opcion)=>{
@@ -2944,6 +3163,9 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
       const hora=ahora.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
       const fecha=ahora.toLocaleDateString("es");
       const {db,ref,push,remove}=_fb;
+      const nota=opcion==="ok"
+        ?"Revisión completada — Sin novedad"
+        :`Anomalía detectada — OT generada para técnicos${notaAnomalia.trim()?` — Detalle: ${notaAnomalia.trim()}`:""}`;
       await push(ref(db,"registros"),{
         USUARIO:usuario.nombre,ROL:usuario.rol||"Monitoreo",
         FECHA:fecha,HORA:hora,
@@ -2951,20 +3173,18 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
         ACCION:opcion==="ok"?"REVISIÓN OK":"ANOMALÍA DETECTADA",
         UBICACION:"Cámaras Perimetrales",
         ORDEN_ID:ot.ot_id,
-        NOTAS:opcion==="ok"?"Revisión completada — Sin novedad":"Anomalía detectada — OT generada para técnicos",
-        _ts:Date.now()
+        NOTAS:nota,_ts:Date.now()
       });
-      // Registro unificado — mismo esquema que guardarRevision
       await push(ref(db,"cam_revisiones"),{
         estado:opcion==="ok"?"ok":"anomalia",
         horaAlerta:ot.hora||hora,
         horaAtencion:hora,
+        notas:opcion==="ok"?"":notaAnomalia.trim(),
         fecha,usuario:usuario.nombre,ts:Date.now()
       });
       await remove(ref(db,`activeOTs/${ot._fbKey}`));
       if(window._camArrancar) window._camArrancar();
       if(opcion!=="ok"){
-        // Ir directo al módulo de OT — sin crear nada automáticamente
         const otMod=MODS.find(m=>m.id==="ot");
         if(otMod&&openMod) setTimeout(()=>openMod(otMod),50);
       } else {
@@ -2976,9 +3196,6 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
     }
     setSaving(false);
   };
-
-  // Mostrar éxito en lugar de navegar a otro lugar
-
 
   if(done==="ok") return(
     <div style={{background:"#071f12",border:"2px solid #22c55e",borderRadius:14,padding:"16px",marginBottom:10,textAlign:"center"}}>
@@ -2996,40 +3213,49 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
           <div style={{fontSize:14,fontWeight:900,color:"#e2ecf8"}}>📹 Revisión de Cámaras</div>
           <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>Generada: {ot.hora} · {ot.fecha}</div>
         </div>
-        <span style={{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,background:"#ef444425",color:"#ef4444"}}>PENDIENTE</span>
+        <span style={{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,background:"#ef444425",color:"#ef4444",animation:"blink 1.5s infinite"}}>PENDIENTE</span>
       </div>
-      {!step?(
+      {!step&&(
         <div style={{display:"flex",gap:8}}>
           <button onClick={()=>setStep("ok")}
-            style={{flex:1,padding:"11px",background:"#22c55e20",border:"1px solid #22c55e",borderRadius:12,color:"#22c55e",fontWeight:900,fontSize:12,cursor:"pointer"}}>
-            ✅ Sin novedad
+            style={{flex:1,padding:"12px",background:"#22c55e20",border:"2px solid #22c55e",borderRadius:12,color:"#22c55e",fontWeight:900,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <span>✅</span> Sin novedad
           </button>
           <button onClick={()=>setStep("falla")}
-            style={{flex:1,padding:"11px",background:"#ef444420",border:"1px solid #ef4444",borderRadius:12,color:"#ef4444",fontWeight:900,fontSize:12,cursor:"pointer"}}>
-            ⚠️ Anomalía
+            style={{flex:1,padding:"12px",background:"#ef444420",border:"2px solid #ef4444",borderRadius:12,color:"#ef4444",fontWeight:900,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <span>⚠️</span> Anomalía
           </button>
         </div>
-      ):(
+      )}
+      {step==="ok"&&(
         <div>
-          <div style={{background:`${step==="ok"?"#22c55e":"#ef4444"}15`,border:`1px solid ${step==="ok"?"#22c55e":"#ef4444"}40`,borderRadius:10,padding:"10px",marginBottom:8}}>
-            <div style={{fontSize:12,fontWeight:900,color:step==="ok"?"#22c55e":"#ef4444",marginBottom:2}}>
-              {step==="ok"?"✅ Todo en orden":"⚠️ Anomalía detectada"}
-            </div>
-            <div style={{fontSize:10,color:"#94a3b8"}}>🕒 {clock} · 👤 {usuario.nombre}</div>
-            {step==="falla"&&(
-              <div style={{fontSize:10,color:"#fca5a5",marginTop:4}}>
-                Se creará 1 OT urgente para los técnicos. Permanecerás en esta pantalla.
-              </div>
-            )}
+          <div style={{background:"#22c55e12",border:"1px solid #22c55e40",borderRadius:10,padding:"10px",marginBottom:8,textAlign:"center"}}>
+            <div style={{fontSize:13,fontWeight:900,color:"#22c55e"}}>✅ Sin novedad · {clock}</div>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>setStep(null)}
-              style={{flex:1,padding:"10px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>
-              ← ATRÁS
+            <button onClick={()=>setStep(null)} style={{flex:1,padding:"10px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>← ATRÁS</button>
+            <button onClick={()=>cerrar("ok")} disabled={saving}
+              style={{flex:2,padding:"10px",background:"#22c55e",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:12,cursor:"pointer",opacity:saving?0.5:1}}>
+              {saving?"⏳...":"✅ CONFIRMAR"}
             </button>
-            <button onClick={()=>cerrar(step)} disabled={saving}
-              style={{flex:2,padding:"10px",background:step==="ok"?"#22c55e":"#ef4444",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:12,cursor:"pointer",opacity:saving?0.5:1}}>
-              {saving?"⏳ GUARDANDO...":"CONFIRMAR Y CERRAR"}
+          </div>
+        </div>
+      )}
+      {step==="falla"&&(
+        <div>
+          <div style={{fontSize:11,fontWeight:800,color:"#ef4444",marginBottom:6}}>⚠️ DESCRIBE LA ANOMALÍA</div>
+          <textarea
+            rows={2}
+            placeholder="¿Qué se observó? (opcional pero útil para los técnicos)"
+            value={notaAnomalia}
+            onChange={e=>setNotaAnomalia(e.target.value)}
+            style={{width:"100%",background:"#0c1018",border:"1px solid #ef444440",borderRadius:8,padding:"9px",color:"white",fontSize:12,outline:"none",resize:"none",fontFamily:"inherit",marginBottom:8,lineHeight:1.5}}
+          />
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>setStep(null)} style={{flex:1,padding:"10px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>← ATRÁS</button>
+            <button onClick={()=>cerrar("falla")} disabled={saving}
+              style={{flex:2,padding:"10px",background:"#ef4444",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:12,cursor:"pointer",opacity:saving?0.5:1}}>
+              {saving?"⏳...":"⚠️ CONFIRMAR ANOMALÍA"}
             </button>
           </div>
         </div>
@@ -3202,7 +3428,7 @@ function App(){
       if(d){
         const arr=Object.entries(d).map(([k,v])=>({...v,_fbKey:k})).sort((a,b)=>(b.ts||0)-(a.ts||0));
         setCamRevisiones(arr);
-      } else {setCamRevisiones([]);setCamUltima(null);}
+      } else {setCamRevisiones([]);}
     });
     return()=>unsub();
   },[]);
@@ -3279,11 +3505,15 @@ function App(){
         if(!d||!d.siguiente)return;
         const cfg=camConfigRef.current;
         const ahora=Date.now();
-        const h=new Date().getHours()+(new Date().getMinutes()/60);
-        const enHorario=h>=cfg.horaInicio&&h<=cfg.horaFin;
+        const _now=new Date();
+        // Comparar en minutos totales para evitar problemas con fracciones decimales (ej: 21.5 = 21:30)
+        const hMinActual=_now.getHours()*60+_now.getMinutes();
+        const hMinInicio=Math.floor(cfg.horaInicio)*60+(cfg.horaInicio%1===0.5?30:0);
+        const hMinFin=Math.floor(cfg.horaFin)*60+(cfg.horaFin%1===0.5?30:0);
+        const enHorario=hMinActual>=hMinInicio&&hMinActual<=hMinFin;
 
         if(!d.pendiente && d.siguiente<=ahora && enHorario){
-          // Venció → crear OT y marcar pendiente
+          // Venció en horario → crear OT y marcar pendiente
           const ahora2=new Date();
           const otId="CAM-"+Math.random().toString(36).substr(2,4).toUpperCase();
           await push(ref(db,"activeOTs"),{
@@ -3301,9 +3531,32 @@ function App(){
             horaAlerta:horaAlerta2,ts:Date.now()
           });
         } else if(!d.pendiente && d.siguiente<=ahora && !enHorario){
-          // Venció fuera de horario → reprogramar
-          const sig=Date.now()+cfg.intervalo*60*1000;
-          await set(ref(db,"cam_estado"),{siguiente:sig,pendiente:false,ts:Date.now()});
+          // Venció fuera de horario y no hay pendiente → reprogramar al inicio del próximo día
+          const ahora3=new Date();
+          const mañana=new Date(ahora3);
+          mañana.setDate(mañana.getDate()+1);
+          mañana.setHours(Math.floor(cfg.horaInicio),cfg.horaInicio%1===0.5?30:0,0,0);
+          await set(ref(db,"cam_estado"),{siguiente:mañana.getTime(),pendiente:false,ts:Date.now()});
+        } else if(d.pendiente && d.horaAlerta){
+          // Revisión pendiente → verificar si supera el tiempo de escalamiento
+          const escMs=(cfg.escalamiento||10)*60*1000;
+          const tsAlerta=d.ts||0; // ts se guarda cuando se marcó pendiente
+          if(ahora-tsAlerta>=escMs && !d.escalado){
+            // Escalar: crear OT urgente para técnicos
+            const ahora4=new Date();
+            const otIdEsc="CAM-ESC-"+Math.random().toString(36).substr(2,4).toUpperCase();
+            await push(ref(db,"activeOTs"),{
+              ot_id:otIdEsc,
+              loc:"Cámaras Perimetrales",
+              det:"⚠️ ESCALAMIENTO: Revisión de cámaras sin atender por más de "+cfg.escalamiento+" min",
+              usuario:"Sistema",
+              fecha:ahora4.toLocaleDateString("es"),
+              hora:ahora4.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"}),
+              tipo:"cam_escalamiento",urgente:true,_ts:Date.now()
+            });
+            // Marcar como escalado para no repetir
+            await set(ref(db,"cam_estado"),{...d,escalado:true,ts_escalado:Date.now()});
+          }
         }
       }catch(e){}
     };
@@ -3318,8 +3571,19 @@ function App(){
     if(!window._fb)return;
     const{db,ref,set}=window._fb;
     const cfg=camConfigRef.current;
-    const sig=Date.now()+cfg.intervalo*60*1000;
-    set(ref(db,"cam_estado"),{siguiente:sig,pendiente:false,ts:Date.now()});
+    const ahora=new Date();
+    const hActual=ahora.getHours()+(ahora.getMinutes()/60);
+    let sig=Date.now()+cfg.intervalo*60*1000;
+    // Si la siguiente revisión cae fuera del horario, programar para mañana al inicio
+    const hSig=new Date(sig);
+    const hSigDecimal=hSig.getHours()+(hSig.getMinutes()/60);
+    if(hSigDecimal>cfg.horaFin || hActual>=cfg.horaFin){
+      const mañana=new Date(ahora);
+      mañana.setDate(mañana.getDate()+1);
+      mañana.setHours(Math.floor(cfg.horaInicio),cfg.horaInicio%1===0.5?30:0,0,0);
+      sig=mañana.getTime();
+    }
+    set(ref(db,"cam_estado"),{siguiente:sig,pendiente:false,escalado:false,ts:Date.now()});
   };
 
 
@@ -4029,7 +4293,14 @@ function App(){
 
                 {/* PASO 2: Equipo (solo si hay categoría) */}
                 {form.ind_cat&&(
-                  <SelEst label="Equipo" items={form.ind_cat==="Cajeros"?listaCajeros:form.ind_cat==="Entradas"?listaEntradas:listaSalidas} active={form.ind_loc} onSelect={v=>setF('ind_loc',v)} done={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO==="Indicador"&&h.FECHA===hoy).map(h=>h.UBICACION)}/>
+                  <SelEst
+                    label="Equipo"
+                    items={form.ind_cat==="Cajeros"?listaCajeros:form.ind_cat==="Entradas"?listaEntradas:listaSalidas}
+                    active={form.ind_loc}
+                    onSelect={v=>setF('ind_loc',v)}
+                    done={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO==="Indicador"&&h.FECHA===hoy).map(h=>h.UBICACION)}
+                    counts={history.filter(h=>h.MODULO==="Indicador"&&h.FECHA===hoy).reduce((acc,h)=>{if(h.UBICACION)acc[h.UBICACION]=(acc[h.UBICACION]||0)+1;return acc;},{})}
+                  />
                 )}
 
                 {/* PASO 3: Cronómetro (solo si hay equipo seleccionado) */}
@@ -4150,7 +4421,13 @@ function App(){
             {modulo?.id==='limpieza'&&(
               <>
                 <Sel label="Categoría" items={["Cajeros","Salidas"]} active={form.lim_cat} onSelect={v=>{setF('lim_cat',v);setF('lim_loc',null);}}/>
-                {form.lim_cat&&<SelCnt label="Equipo" items={form.lim_cat==="Cajeros"?listaLimCajeros:listaLimSalidas} active={form.lim_loc} onSelect={v=>setF('lim_loc',v)} counts={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO==="Limpieza"&&h.FECHA===hoy).reduce((a,h)=>{a[h.UBICACION]=(a[h.UBICACION]||0)+1;return a;},{})}/>}
+                {form.lim_cat&&<SelCnt
+                  label="Equipo"
+                  items={form.lim_cat==="Cajeros"?listaLimCajeros:listaLimSalidas}
+                  active={form.lim_loc}
+                  onSelect={v=>setF('lim_loc',v)}
+                  counts={history.filter(h=>h.MODULO==="Limpieza"&&h.FECHA===hoy&&h.UBICACION&&(form.lim_cat==="Cajeros"?listaLimCajeros:listaLimSalidas).includes(h.UBICACION)).reduce((a,h)=>{a[h.UBICACION]=(a[h.UBICACION]||0)+1;return a;},{})}
+                />}
                 <Sel label="Estado" items={["LIMPIO"]} active={form.lim_estado} onSelect={v=>setF('lim_estado',v)}/>
               </>
             )}
@@ -4158,7 +4435,14 @@ function App(){
             {["cajero","entrada","salida"].includes(modulo?.id)&&(
               <>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-                  <SelEst label="Ubicación" items={modulo.id==='cajero'?listaCajeros:modulo.id==='entrada'?listaEntradas:listaSalidas} active={form[modulo.id]} onSelect={v=>setF(modulo.id,v)} done={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO===modulo.label&&h.FECHA===hoy).map(h=>h.UBICACION)}/>
+                  <SelEst
+                  label="Ubicación"
+                  items={modulo.id==='cajero'?listaCajeros:modulo.id==='entrada'?listaEntradas:listaSalidas}
+                  active={form[modulo.id]}
+                  onSelect={v=>setF(modulo.id,v)}
+                  done={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO===modulo.label&&h.FECHA===hoy).map(h=>h.UBICACION)}
+                  counts={history.filter(h=>h.MODULO===modulo.label&&h.FECHA===hoy).reduce((acc,h)=>{if(h.UBICACION)acc[h.UBICACION]=(acc[h.UBICACION]||0)+1;return acc;},{})}
+                />
                 </div>
                 
                 {form[modulo.id] && (
