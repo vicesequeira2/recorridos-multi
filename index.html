@@ -3390,6 +3390,12 @@ function App(){
   const[lastRecord,setLastRecord]=useState(null);
   const[clock,setClock]=useState("");
   const[diaTab,setDiaTab]=useState("hoy");
+  // Tick cada 60s para actualizar tiempos en tarjetas OT
+  const[otTick,setOtTick]=useState(0);
+  useEffect(()=>{
+    const id=setInterval(()=>setOtTick(t=>t+1),60000);
+    return()=>clearInterval(id);
+  },[]);
   const[permisosDB,setPermisosDB]=useState({});
   // ── Módulo Cámaras Monitoreo
   const[camConfig,setCamConfig]=useState({intervalo:40,escalamiento:10,horaInicio:9,horaFin:21.5});
@@ -3704,7 +3710,27 @@ function App(){
     const s2=onValue(ref(db,"activeOTs"),snap=>{
       const d=snap.val();if(!d){setActiveOTs([]);pOTLen.current=0;return;}
       const arr=Object.entries(d).map(([k,v])=>({...v,_fbKey:k}));
-      if(arr.length>pOTLen.current&&pOTLen.current>0){playSound();const n=arr[arr.length-1];setOtAlert({loc:n?.loc,det:n?.det});setTimeout(()=>setOtAlert(null),6000);}
+      // Detectar OTs nuevas (no de cámara) y notificar
+      if(pOTLen.current>0){
+        const nuevas=arr.filter(o=>o.tipo!=="cam_revision"&&o.tipo!=="cam_escalamiento"&&!notifiedOTsRef.current.has(o.ot_id||o._fbKey));
+        nuevas.forEach(n=>{
+          notifiedOTsRef.current.add(n.ot_id||n._fbKey);
+          playSound("ot_nueva");
+          setOtAlert({loc:n?.loc,det:n?.det,id:n?.ot_id});
+          setTimeout(()=>setOtAlert(null),8000);
+          // Notificación persistente en el centro
+          addNotif({
+            icon:"🔧",
+            titulo:`Nueva OT · ${n.ot_id||""}`,
+            msg:`📍 ${n.loc||"Sin ubicación"}${n.det&&n.det!==n.loc?" — "+n.det.slice(0,60):""}`,
+            color:"#ef4444",
+            screen:"home",
+          });
+        });
+      } else {
+        // Primera carga: registrar OTs ya existentes como "ya notificadas" para no disparar al login
+        arr.forEach(o=>notifiedOTsRef.current.add(o.ot_id||o._fbKey));
+      }
       pOTLen.current=arr.length;setActiveOTs(arr);
     });
     const s3=onValue(ref(db,"presencia"),snap=>{
@@ -3737,20 +3763,59 @@ function App(){
     return()=>{s1();s2();s3();s4();s5();s6();s7();};
   },[firebaseReady, recargarVales]);
 
-  const playSound=useCallback(()=>{
+  // ── Recordatorio periódico para OTs que llevan mucho tiempo abiertas ──
+  useEffect(()=>{
+    if(!usuario) return;
+    // Cada 3 minutos: si hay OTs normales con >10 min sin cerrar, sonar recordatorio
+    otReminderRef.current=setInterval(()=>{
+      const otsNormales=activeOTs.filter(o=>o.tipo!=="cam_revision"&&o.tipo!=="cam_escalamiento");
+      const urgentes=otsNormales.filter(o=>o._ts&&(Date.now()-o._ts)>10*60*1000);
+      if(urgentes.length>0){
+        playSound("ot_urgente");
+        showToast({
+          icon:"🚨",
+          titulo:`${urgentes.length} OT${urgentes.length>1?"s":""} sin cerrar`,
+          msg:`La${urgentes.length>1?"s":""} más antigua lleva ${Math.floor((Date.now()-Math.min(...urgentes.map(o=>o._ts||Date.now())))/60000)} min abierta`,
+          color:"#ef4444",
+        });
+      }
+    },3*60*1000);
+    return()=>{if(otReminderRef.current)clearInterval(otReminderRef.current);};
+  },[usuario, activeOTs, playSound, showToast]);
+
+  // tipo: "ot_nueva" | "ot_urgente" | "camara"
+  const playSound=useCallback((tipo="ot_nueva")=>{
     try{
       const ctx=actx.current||new(window.AudioContext||window.webkitAudioContext)();
-      actx.current=ctx;if(ctx.state==='suspended')ctx.resume();
-      [523,659,784,1047].forEach((f,i)=>{
-        const o=ctx.createOscillator(),g=ctx.createGain();
-        o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.value=f;
-        const t=ctx.currentTime+i*0.18;
-        g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.5,t+0.05);g.gain.linearRampToValueAtTime(0,t+0.2);
-        o.start(t);o.stop(t+0.22);
-      });
+      actx.current=ctx;if(ctx.state==="suspended")ctx.resume();
+      if(tipo==="ot_nueva"){
+        // 4 tonos ascendentes — OT nueva
+        [523,659,784,1047].forEach((f,i)=>{
+          const o=ctx.createOscillator(),g=ctx.createGain();
+          o.connect(g);g.connect(ctx.destination);o.type="sine";o.frequency.value=f;
+          const t=ctx.currentTime+i*0.18;
+          g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.5,t+0.05);g.gain.linearRampToValueAtTime(0,t+0.2);
+          o.start(t);o.stop(t+0.22);
+        });
+        try{navigator.vibrate&&navigator.vibrate([200,100,200,100,400]);}catch(e){}
+      } else if(tipo==="ot_urgente"){
+        // 3 pulsos cortos graves — recordatorio urgente
+        [330,330,330].forEach((f,i)=>{
+          const o=ctx.createOscillator(),g=ctx.createGain();
+          o.connect(g);g.connect(ctx.destination);o.type="square";o.frequency.value=f;
+          const t=ctx.currentTime+i*0.35;
+          g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.4,t+0.04);g.gain.linearRampToValueAtTime(0,t+0.25);
+          o.start(t);o.stop(t+0.28);
+        });
+        try{navigator.vibrate&&navigator.vibrate([400,100,400,100,400,100,600]);}catch(e){}
+      }
     }catch(e){}
-    try{navigator.vibrate&&navigator.vibrate([150,80,150,80,300]);}catch(e){}
   },[]);
+
+  // Ref para el intervalo de recordatorio de OTs urgentes
+  const otReminderRef=useRef(null);
+  // Ref para rastrear OTs que ya recibieron notificación (evitar spam al recargar)
+  const notifiedOTsRef=useRef(new Set());
 
   const setF=(k,v)=>setForm(f=>({...f,[k]:v}));
   const openMod=m=>{
@@ -3867,9 +3932,12 @@ function App(){
               }
             }
           }
+          showToast({icon:"✅",titulo:`OT ${form.ot_id} cerrada`,msg:`📍 ${loc} — Solucionada por ${usuario.nombre}`,color:"#22c55e"});
         }else{
-          await push(ref(db,"activeOTs"),{ot_id:form.ot_id,loc,det:[form.ot_rapido,form.ot_detalle].filter(Boolean).join(' · ')||form.ot_tipo,fecha:rec.FECHA,_ts:Date.now()});
-          playSound();
+          const otDet=[form.ot_rapido,form.ot_detalle].filter(Boolean).join(' · ')||form.ot_tipo;
+          await push(ref(db,"activeOTs"),{ot_id:form.ot_id,loc,det:otDet,fecha:rec.FECHA,usuario:usuario.nombre,_ts:Date.now()});
+          playSound("ot_nueva");
+          showToast({icon:"🔧",titulo:`OT ${form.ot_id} abierta`,msg:`📍 ${loc}${otDet&&otDet!==loc?" — "+otDet.slice(0,50):""}`,color:"#ef4444"});
         }
       }
       setSync("ok");
@@ -4003,10 +4071,17 @@ function App(){
         </div>
       )}
       {otAlert&&(
-        <div className="fi" style={{position:'absolute',top:0,left:0,right:0,zIndex:999,background:'linear-gradient(135deg,#ef4444,#b91c1c)',padding:'13px 16px',boxShadow:'0 4px 20px #ef444460',display:'flex',alignItems:'center',gap:10}}>
-          <div style={{fontSize:24}}>🔧</div>
-          <div style={{flex:1}}><div style={{fontSize:12,fontWeight:900,color:'white'}}>¡NUEVA ORDEN DE TRABAJO!</div><div style={{fontSize:11,color:'#fecaca'}}>📍 {otAlert.loc}</div>{otAlert.det&&<div style={{fontSize:10,color:'#fca5a5'}}>{otAlert.det}</div>}</div>
-          <button onClick={()=>setOtAlert(null)} style={{background:'#ffffff30',border:'none',color:'white',fontWeight:900,fontSize:12,padding:'6px 10px',borderRadius:8,cursor:'pointer'}}>✕</button>
+        <div className="fi" style={{position:'absolute',top:0,left:0,right:0,zIndex:999,background:'linear-gradient(135deg,#7f1d1d,#ef4444)',padding:'12px 14px',boxShadow:'0 6px 28px #ef444480',display:'flex',alignItems:'center',gap:10,animation:"slideDown .2s ease"}}>
+          <div style={{fontSize:26,animation:"blink .6s infinite"}}>🚨</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:900,color:'white',letterSpacing:.3}}>¡NUEVA ORDEN DE TRABAJO!</div>
+            <div style={{fontSize:11,color:'#fecaca',marginTop:1}}>📍 {otAlert.loc}{otAlert.id?` · ${otAlert.id}`:""}</div>
+            {otAlert.det&&otAlert.det!==otAlert.loc&&<div style={{fontSize:10,color:'#fca5a5',marginTop:1}}>{otAlert.det.slice(0,70)}</div>}
+          </div>
+          <div style={{display:'flex',gap:6,flexShrink:0}}>
+            <button onClick={()=>{setOtAlert(null);setScreen("home");}} style={{background:'#ffffff25',border:'1px solid #ffffff50',color:'white',fontWeight:900,fontSize:10,padding:'6px 10px',borderRadius:8,cursor:'pointer'}}>VER</button>
+            <button onClick={()=>setOtAlert(null)} style={{background:'transparent',border:'none',color:'#fca5a5',fontWeight:900,fontSize:16,padding:'4px 6px',borderRadius:8,cursor:'pointer',lineHeight:1}}>✕</button>
+          </div>
         </div>
       )}
 
@@ -4050,6 +4125,43 @@ function App(){
           )}
         </div>
       )}
+
+      {/* ── BANNER PERSISTENTE OTs URGENTES — visible en cualquier pantalla ── */}
+      {(()=>{
+        const otsUrg=activeOTs.filter(o=>o.tipo!=="cam_revision"&&o.tipo!=="cam_escalamiento"&&o._ts&&(Date.now()-o._ts)>5*60*1000);
+        if(otsUrg.length===0) return null;
+        const masAntigua=otsUrg.reduce((a,b)=>(a._ts||0)<(b._ts||0)?a:b);
+        const min=Math.floor((Date.now()-(masAntigua._ts||Date.now()))/60000);
+        return(
+          <div
+            onClick={()=>setScreen("home")}
+            style={{
+              background:"linear-gradient(135deg,#7f1d1d,#ef4444)",
+              borderBottom:"3px solid #ef4444",
+              padding:"10px 14px",
+              display:"flex",alignItems:"center",gap:10,
+              flexShrink:0,
+              boxShadow:"0 4px 20px #ef444460",
+              cursor:"pointer",
+              position:"relative",zIndex:499,
+              animation:"blink 2s infinite",
+            }}>
+            <div style={{fontSize:24,animation:"blink .8s infinite"}}>🚨</div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:900,color:"white",letterSpacing:.3}}>
+                {otsUrg.length===1?`OT SIN CERRAR · ${masAntigua.ot_id||""}`:`${otsUrg.length} OTs SIN CERRAR`}
+              </div>
+              <div style={{fontSize:11,color:"#fecaca",marginTop:1,fontWeight:700}}>
+                📍 {masAntigua.loc} · {min} min abierta{otsUrg.length>1?` (+${otsUrg.length-1} más)`:""}
+              </div>
+            </div>
+            <div style={{background:"#ffffff25",borderRadius:10,padding:"6px 10px",textAlign:"center",flexShrink:0}}>
+              <div style={{fontSize:9,color:"white",fontWeight:800}}>VER</div>
+              <div style={{fontSize:18,color:"white"}}>›</div>
+            </div>
+          </div>
+        );
+      })()}
 
       {screen==="home"&&(
         <div className="fi" style={{height:'100%',display:'flex',flexDirection:'column'}}>
@@ -4163,31 +4275,60 @@ function App(){
             )}
 
             {activeOTs.filter(o=>o.tipo!=="cam_revision").length>0&&(
-              <div>
+              <div data-tick={otTick}>
                 <div className="label-sec">⚠️ ÓRDENES PENDIENTES ({activeOTs.filter(o=>o.tipo!=="cam_revision").length})</div>
                 {activeOTs.filter(o=>o.tipo!=="cam_revision").map(o=>{
                   const min=o._ts?Math.floor((Date.now()-o._ts)/60000):0;
+                  // Semáforo: verde<5, amarillo<15, naranja<30, rojo>=30
+                  const ct=min<5?'#22c55e':min<15?'#f59e0b':min<30?'#f97316':'#ef4444';
                   const urg=min>=5;
-                  const ct=min<5?'#22c55e':min<15?'#f59e0b':'#ef4444';
+                  const muyUrg=min>=30;
                   return(
-                    <div key={o._fbKey} className={`ot-card${urg?' ot-urgente':''}`} style={urg?{borderLeftWidth:6}:{}}>
-                      <div className="ot-id-badge">{o.ot_id}</div>
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
-                        <div style={{fontSize:14,fontWeight:900,color:'#f87171'}}>{o.loc}</div>
-                        <div style={{fontSize:11,fontWeight:900,color:ct,background:`${ct}20`,padding:'3px 8px',borderRadius:20,marginLeft:8,flexShrink:0}}>{urg?'🚨':''} {min<1?'Ahora':`${min} min`}</div>
+                    <div key={o._fbKey} className={`ot-card${muyUrg?' ot-urgente':''}`}
+                      style={{borderLeftWidth:muyUrg?6:4,borderLeftColor:ct}}>
+                      {/* Cabecera: ID + tiempo */}
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                        <span style={{fontSize:9,fontWeight:900,color:ct,background:`${ct}18`,padding:'2px 7px',borderRadius:6}}>{o.ot_id}</span>
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          {muyUrg&&<span style={{fontSize:13,animation:"blink .8s infinite"}}>🚨</span>}
+                          <span style={{fontSize:12,fontWeight:900,color:ct,background:`${ct}18`,padding:'3px 9px',borderRadius:20}}>
+                            {min<1?'Ahora mismo':`${min} min`}
+                          </span>
+                        </div>
                       </div>
-                      <p style={{fontSize:12,color:'#94a3b8',marginBottom:6}}>{o.det}</p>
-                      {urg&&<div style={{fontSize:10,color:'#ef4444',fontWeight:700,marginBottom:6}}>⚠️ Lleva más de {min} min sin cerrar</div>}
+                      {/* Ubicación */}
+                      <div style={{fontSize:14,fontWeight:900,color:'#f87171',marginBottom:3}}>{o.loc}</div>
+                      {/* Detalle */}
+                      {o.det&&o.det!==o.loc&&<p style={{fontSize:12,color:'#94a3b8',marginBottom:4,lineHeight:1.4}}>{o.det}</p>}
+                      {/* Quién abrió + cuándo */}
+                      <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:urg?6:0,flexWrap:'wrap'}}>
+                        {o.usuario&&<span style={{fontSize:10,color:'#a855f7',fontWeight:700}}>👤 {o.usuario}</span>}
+                        {o.fecha&&<span style={{fontSize:10,color:'var(--muted)'}}>📅 {o.fecha}</span>}
+                      </div>
+                      {/* Barra de urgencia */}
+                      {urg&&(
+                        <div style={{marginBottom:8}}>
+                          <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:ct,fontWeight:700,marginBottom:3}}>
+                            <span>{muyUrg?'🔴 URGENTE — SIN RESPUESTA':'⚠️ EN ESPERA'}</span>
+                            <span>{min} min</span>
+                          </div>
+                          <div style={{height:4,background:'var(--border)',borderRadius:4,overflow:'hidden'}}>
+                            <div style={{height:'100%',width:`${Math.min(100,Math.round((min/30)*100))}%`,background:ct,borderRadius:4,transition:'width 1s'}}/>
+                          </div>
+                        </div>
+                      )}
                       {usuario.rol!=="Monitoreo"&&(
-                        <button className="btn-ot-close" onClick={()=>{
-  const otMod=MODS.find(m=>m.id==='ot');
-  if(!otMod){console.error("OT mod not found");return;}
-  setModulo(otMod);
-  setForm({ot_tipo:'CERRAR ORDEN DE TRABAJO',ot_ubicacion:o.loc,ot_id:o.ot_id,original_det:o.det});
-  setTimer(0);setTimerOn(false);
-  if(tRef.current)clearInterval(tRef.current);
-  setScreen("form");
-}}>CERRAR ✓</button>
+                        <button className="btn-ot-close"
+                          style={{background:ct,boxShadow:`0 0 12px ${ct}50`}}
+                          onClick={()=>{
+                            const otMod=MODS.find(m=>m.id==='ot');
+                            if(!otMod)return;
+                            setModulo(otMod);
+                            setForm({ot_tipo:'CERRAR ORDEN DE TRABAJO',ot_ubicacion:o.loc,ot_id:o.ot_id,original_det:o.det});
+                            setTimer(0);setTimerOn(false);
+                            if(tRef.current)clearInterval(tRef.current);
+                            setScreen("form");
+                          }}>CERRAR ORDEN ✓</button>
                       )}
                     </div>
                   );
