@@ -873,6 +873,12 @@ function AlmuerzoScreen({vales,soloLec,onVolver,fb,hoy,onRegreso,vpData}){
 function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolver,fb,onNotif}){
   const hoy=getFechaActual();
   const AA="#f59e0b";
+
+  // ── Variables adicionales para tab Estado ──
+  // nosHoy, pctOK, hoyH ya declarados más abajo — se referencian desde Estado tab
+  const camPendiente=false; // Admin no recibe cam state — Estado tab muestra N/A
+  const IU_ADMIN={"Vicente":"🧠","Christopher":"🔧","Gustavo":"🔄","Joel":"📋","Geovanny":"👁","Esteban":"🏃","Marlon":"🚗","Daniel":"🔵","Johan":"🟢","Outsourcing":"⚙️"};
+  const CU_ADMIN={"Vicente":"#f59e0b","Christopher":"#0ea5e9","Gustavo":"#22c55e","Joel":"#a855f7","Geovanny":"#06b6d4","Esteban":"#f97316","Marlon":"#ec4899","Daniel":"#3b82f6","Johan":"#10b981","Outsourcing":"#6b7280"};
   const ROLES=["Técnico","Ciclo","Coordinador","Recorridos","Monitoreo","Administrador"];
   const ICONOS_U=["🔧","🔄","📋","👁","🖥","🧠","👷","🛡","📡","🎯","👨‍💼","🧑‍🔧"];
   const COLORES_U=["#0ea5e9","#22c55e","#f59e0b","#a855f7","#f97316","#06b6d4","#e879f9","#ef4444","#84cc16","#fb923c"];
@@ -909,6 +915,10 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
   const[bitacora,setBitacora]=useState([]);
   const[adminCamRevs,setAdminCamRevs]=useState([]);
   const[adminCamEstado,setAdminCamEstado]=useState(null);
+  // Version control states (must be at component level — not inside JSX)
+  const[verInput,setVerInput]=useState("");
+  const[msgInput,setMsgInput]=useState("");
+  const[verSending,setVerSending]=useState(false);
   const[busquedaActividad,setBusquedaActividad]=useState("");
   const[paginaActividad,setPaginaActividad]=useState(0);
   const[busquedaSesion,setBusquedaSesion]=useState("");
@@ -1524,51 +1534,42 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                   </div>
                 </div>
               </div>
-              {(()=>{
-                const[newVer,setNewVer]=React.useState("");
-                const[newMsg,setNewMsg]=React.useState("");
-                const[sending,setSending]=React.useState(false);
-                return(
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    <div style={{display:"flex",gap:8}}>
-                      <input
-                        placeholder="Versión ej: 8.3"
-                        value={newVer}
-                        onChange={e=>setNewVer(e.target.value)}
-                        style={{flex:1,background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 11px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"inherit"}}
-                      />
-                    </div>
-                    <input
-                      placeholder="Descripción del cambio (ej: Mejoras en módulo OT)"
-                      value={newMsg}
-                      onChange={e=>setNewMsg(e.target.value)}
-                      style={{width:"100%",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 11px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"inherit"}}
-                    />
-                    <button
-                      disabled={!newVer.trim()||sending}
-                      onClick={async()=>{
-                        if(!fb||!newVer.trim())return;
-                        setSending(true);
-                        await fb.set(fb.ref(fb.db,"app_version"),{v:newVer.trim(),msg:newMsg.trim()||"Nueva versión disponible",ts:Date.now()});
-                        logBitacora("VERSIÓN",`Notificación enviada: v${newVer.trim()} — ${newMsg.trim()}`);
-                        showMsg("ok",`📢 Notificación de v${newVer.trim()} enviada a todos los técnicos`);
-                        setNewVer("");setNewMsg("");setSending(false);
-                      }}
-                      style={{width:"100%",padding:"12px",background:newVer.trim()?"#22c55e":"var(--border)",border:"none",borderRadius:10,color:newVer.trim()?"#000":"var(--muted)",fontWeight:900,fontSize:12,cursor:newVer.trim()?"pointer":"not-allowed",opacity:sending?0.5:1}}>
-                      {sending?"⏳ Enviando...":"📢 NOTIFICAR ACTUALIZACIÓN A TODOS"}
-                    </button>
-                    <button
-                      onClick={async()=>{
-                        if(!fb)return;
-                        await fb.set(fb.ref(fb.db,"app_version"),{v:APP_VERSION,msg:"",ts:Date.now()});
-                        showMsg("ok","✅ Notificación limpiada");
-                      }}
-                      style={{width:"100%",padding:"9px",background:"transparent",border:"1px solid var(--border)",borderRadius:10,color:"var(--muted)",fontWeight:700,fontSize:11,cursor:"pointer"}}>
-                      ✕ Limpiar notificación activa
-                    </button>
-                  </div>
-                );
-              })()}
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <input
+                  placeholder="Versión ej: 8.3"
+                  value={verInput}
+                  onChange={e=>setVerInput(e.target.value)}
+                  style={{width:"100%",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 11px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"inherit"}}
+                />
+                <input
+                  placeholder="Descripción del cambio (ej: Mejoras en módulo OT)"
+                  value={msgInput}
+                  onChange={e=>setMsgInput(e.target.value)}
+                  style={{width:"100%",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 11px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"inherit"}}
+                />
+                <button
+                  disabled={!verInput.trim()||verSending}
+                  onClick={async()=>{
+                    if(!fb||!verInput.trim())return;
+                    setVerSending(true);
+                    await fb.set(fb.ref(fb.db,"app_version"),{v:verInput.trim(),msg:msgInput.trim()||"Nueva versión disponible",ts:Date.now()});
+                    logBitacora("VERSIÓN",`Notificación enviada: v${verInput.trim()} — ${msgInput.trim()}`);
+                    showMsg("ok",`📢 Notificación de v${verInput.trim()} enviada a todos los técnicos`);
+                    setVerInput("");setMsgInput("");setVerSending(false);
+                  }}
+                  style={{width:"100%",padding:"12px",background:verInput.trim()?"#22c55e":"var(--border)",border:"none",borderRadius:10,color:verInput.trim()?"#000":"var(--muted)",fontWeight:900,fontSize:12,cursor:verInput.trim()?"pointer":"not-allowed",opacity:verSending?0.5:1}}>
+                  {verSending?"⏳ Enviando...":"📢 NOTIFICAR ACTUALIZACIÓN A TODOS"}
+                </button>
+                <button
+                  onClick={async()=>{
+                    if(!fb)return;
+                    await fb.set(fb.ref(fb.db,"app_version"),{v:APP_VERSION,msg:"",ts:Date.now()});
+                    showMsg("ok","✅ Notificación limpiada");
+                  }}
+                  style={{width:"100%",padding:"9px",background:"transparent",border:"1px solid var(--border)",borderRadius:10,color:"var(--muted)",fontWeight:700,fontSize:11,cursor:"pointer"}}>
+                  ✕ Limpiar notificación activa
+                </button>
+              </div>
             </div>
 
             <div className="label-sec">📊 RESUMEN DEL SISTEMA · {hoy}</div>
@@ -1727,7 +1728,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
 
           // Revisiones de cajeros/entradas/salidas hoy
           const revHoy=hoyH.filter(r=>["Cajero","Entrada","Salida"].includes(r.MODULO));
-          const fallosHoy=hoyH.filter(r=>{let f=false;ALLCHK.forEach(c=>{if(r[fk(c.label)]==="NO")f=true;});return f;});
+          const fallosHoy=hoyH.filter(r=>{let f=false;([]).forEach(c=>{if(r[fk(c.label)]==="NO")f=true;});return f;});
 
           // Cámaras — se obtienen del estado global (camPendiente no disponible aquí, usamos activeOTs)
           const camPend=false; // cámaras ya no generan OTs — usar camPendiente del estado global
@@ -1874,10 +1875,10 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                     const label=min<1?"activo ahora":`${min>=60?`${Math.floor(min/60)}h `:""}${min%60}m sin registrar`;
                     return(
                       <div key={nombre} style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
-                        <span style={{fontSize:14}}>{IU[nombre]||"👤"}</span>
+                        <span style={{fontSize:14}}>{IU_ADMIN[nombre]||"👤"}</span>
                         <div style={{flex:1}}>
                           <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
-                            <span style={{fontSize:11,fontWeight:800,color:CU[nombre]||"var(--text)"}}>{nombre}</span>
+                            <span style={{fontSize:11,fontWeight:800,color:CU_ADMIN[nombre]||"var(--text)"}}>{nombre}</span>
                             <span style={{fontSize:10,fontWeight:900,color:c}}>{label}</span>
                           </div>
                           <div style={{height:4,background:"var(--border)",borderRadius:3,overflow:"hidden"}}>
@@ -6114,7 +6115,7 @@ function App(){
                         items={listaActual}
                         grupos={form.lim_cat==="Cajeros"?GRUPOS_LIM_CAJEROS:GRUPOS_LIM_SALIDAS}
                         active={form.lim_loc}
-                        onSelect={v=>{setF('lim_loc',v);setF('lim_estado',null);}}
+                        onSelect={v=>{setF('lim_loc',v);setF('lim_estado','LIMPIO');}}
                         counts={countsHoy}
                         countsMios={countsMios}
                         lastStatus={lastStatus}
@@ -6160,12 +6161,7 @@ function App(){
                   );
                 })()}
 
-                {/* Estado: solo LIMPIO — se auto-selecciona al elegir ubicación */}
-                {form.lim_cat&&form.lim_loc&&(()=>{
-                  // Auto-seleccionar LIMPIO si no hay estado aún
-                  if(!form.lim_estado) setTimeout(()=>setF('lim_estado','LIMPIO'),0);
-                  return null;
-                })()}
+
               </>
             )}
 
