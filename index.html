@@ -319,11 +319,86 @@ const USUARIOS_ORIGINALES = [
   {nombre:"Monitoreo",password:"5",rol:"Monitoreo"},
 ];
 
-const CAJEROS=["Siman Sotano","Hooligan's Izq","Holligan's Cen","Hooligan's Der","Siman Terraza","Rosti","Katrin izq","Universal","Chilis izq","Chilis der","Katrin der"];
-const ENTRADAS=["Entrada Nesting","Entrada 2 Zapote","Entrada 1 Zapote","Entrada 1 Arturo Calle","Entrada 2 Arturo Calle","Entrada 2 Rosti","Entrada 1 Katrin","Entrada 2 Katrin","Entrada 1 Rosti"];
-const SALIDAS=["SALIDA NESTING","SALIDA 2 ZAPOTE","SALIDA 1 ZAPOTE","Salida 1 Arturo Calle","Salida 2 Arturo Calle","SALIDA REVERSIBLE ARTURO CALLE","SALIDA 1 ROSTI","Salida 2 Roti","SALIDA UNIVERSAL"];
-const LIMPIEZA_CAJEROS = ["Katrin","Rosti","Hooligan","Chillis","Universal","Siman"];
-const LIMPIEZA_SALIDAS = ["ZAPOTE","Arturo Calle","Salida Rostipollo","universal"];
+// Agrupadas por zona — el orden dentro de cada grupo refleja su ubicación física
+const CAJEROS=[
+  // Siman
+  "Siman Sótano","Siman Terraza",
+  // Hooligan's
+  "Hooligan's Izq","Hooligan's Cen","Hooligan's Der",
+  // Katrin
+  "Katrin Izq","Katrin Der",
+  // Rosti
+  "Rosti",
+  // Chilis
+  "Chilis Izq","Chilis Der",
+  // Universal
+  "Universal",
+];
+const ENTRADAS=[
+  // Nesting
+  "Entrada Nesting",
+  // Zapote
+  "Entrada 1 Zapote","Entrada 2 Zapote",
+  // Arturo Calle
+  "Entrada 1 Arturo Calle","Entrada 2 Arturo Calle",
+  // Rosti
+  "Entrada 1 Rosti","Entrada 2 Rosti",
+  // Katrin
+  "Entrada 1 Katrin","Entrada 2 Katrin",
+];
+const SALIDAS=[
+  // Nesting
+  "Salida Nesting",
+  // Zapote
+  "Salida 1 Zapote","Salida 2 Zapote",
+  // Arturo Calle
+  "Salida 1 Arturo Calle","Salida 2 Arturo Calle","Salida Reversible Arturo Calle",
+  // Rosti
+  "Salida 1 Rosti","Salida 2 Rosti",
+  // Universal
+  "Salida Universal",
+];
+const LIMPIEZA_CAJEROS=["Siman","Hooligan's","Katrin","Rosti","Chilis","Universal"];
+const LIMPIEZA_SALIDAS=["Nesting","Zapote","Arturo Calle","Rosti","Universal"];
+
+// Grupos de zona para mostrar separadores en los selectores
+const GRUPOS_CAJEROS={
+  "Siman":["Siman Sótano","Siman Terraza"],
+  "Hooligan's":["Hooligan's Izq","Hooligan's Cen","Hooligan's Der"],
+  "Katrin":["Katrin Izq","Katrin Der"],
+  "Rosti":["Rosti"],
+  "Chilis":["Chilis Izq","Chilis Der"],
+  "Universal":["Universal"],
+};
+const GRUPOS_ENTRADAS={
+  "Nesting":["Entrada Nesting"],
+  "Zapote":["Entrada 1 Zapote","Entrada 2 Zapote"],
+  "Arturo Calle":["Entrada 1 Arturo Calle","Entrada 2 Arturo Calle"],
+  "Rosti":["Entrada 1 Rosti","Entrada 2 Rosti"],
+  "Katrin":["Entrada 1 Katrin","Entrada 2 Katrin"],
+};
+const GRUPOS_SALIDAS={
+  "Nesting":["Salida Nesting"],
+  "Zapote":["Salida 1 Zapote","Salida 2 Zapote"],
+  "Arturo Calle":["Salida 1 Arturo Calle","Salida 2 Arturo Calle","Salida Reversible Arturo Calle"],
+  "Rosti":["Salida 1 Rosti","Salida 2 Rosti"],
+  "Universal":["Salida Universal"],
+};
+const GRUPOS_LIM_CAJEROS={
+  "Sótano":["Siman"],
+  "Zona Hooligan's":["Hooligan's"],
+  "Zona Katrin":["Katrin"],
+  "Zona Rosti":["Rosti"],
+  "Zona Chilis":["Chilis"],
+  "Zona Universal":["Universal"],
+};
+const GRUPOS_LIM_SALIDAS={
+  "Nesting":["Nesting"],
+  "Zapote":["Zapote"],
+  "Arturo Calle":["Arturo Calle"],
+  "Rosti":["Rosti"],
+  "Universal":["Universal"],
+};
 const MODS=[
   {id:"cajero",label:"Cajero",icon:"🏧",color:"#0ea5e9"},
   {id:"entrada",label:"Entrada",icon:"🚗",color:"#22c55e"},
@@ -489,42 +564,79 @@ function LoginScreen({passwords,onLogin}){
 // ============================================================
 // SELECTORES
 // ============================================================
+/* ── Renderizador agrupado por zona ──
+   grupos = { "NombreZona": ["item1","item2",...] }  (orden manual)
+   Si grupos es null → render plano sin separadores (fallback)
+   renderItem(item, idx) → JSX del botón
+*/
+function SelGrupo({label,grupos,items,renderItem,header}){
+  // Si no hay grupos, render plano
+  if(!grupos){
+    const sorted=[...items].sort((a,b)=>a.localeCompare(b,"es"));
+    return(
+      <div>
+        <div className="label-sec">{label}{header}</div>
+        <div className="pill-grid">{sorted.map((i,idx)=>renderItem(i,idx))}</div>
+      </div>
+    );
+  }
+  // Render agrupado
+  return(
+    <div>
+      <div className="label-sec">{label}{header}</div>
+      {Object.entries(grupos).map(([zona,equipos])=>(
+        <div key={zona} style={{marginBottom:10}}>
+          {/* Separador de zona */}
+          <div style={{
+            display:"flex",alignItems:"center",gap:6,marginBottom:6,
+          }}>
+            <span style={{fontSize:8,fontWeight:900,color:"var(--muted)",letterSpacing:1.5,textTransform:"uppercase"}}>{zona}</span>
+            <div style={{flex:1,height:1,background:"var(--border)"}}/>
+          </div>
+          <div className="pill-grid">{equipos.map((i,idx)=>renderItem(i,idx))}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ── Selector simple (sin conteo) ── */
-function Sel({label,items,active,onSelect}){
-  const sorted=[...items].sort((a,b)=>a.localeCompare(b,"es"));
-  return(<div><div className="label-sec">{label}</div><div className="pill-grid">{sorted.map(i=><button key={i} className={`pill${active===i?' active':''}`} onClick={()=>onSelect(i)}>{i}</button>)}</div></div>);
+function Sel({label,items,active,onSelect,grupos}){
+  return(
+    <SelGrupo label={label} grupos={grupos} items={items}
+      renderItem={(i)=>(
+        <button key={i} className={`pill${active===i?' active':''}`} onClick={()=>onSelect(i)}>{i}</button>
+      )}
+    />
+  );
 }
 
 /* ── Selector con conteo del equipo + marca del usuario propio ──
    done     = array de ubicaciones ya visitadas por ESTE usuario hoy
    counts   = { ubicacion: N } visitas TOTALES del equipo hoy
 */
-function SelEst({label,items,active,onSelect,done=[],counts={}}){
-  const sorted=[...items].sort((a,b)=>a.localeCompare(b,"es"));
+function SelEst({label,items,active,onSelect,done=[],counts={},grupos}){
   const miosTotal=done.length;
   const equipoTotal=Object.values(counts).reduce((s,n)=>s+n,0);
 
-  return(
-    <div>
-      {/* Header con resumen */}
-      <div className="label-sec" style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-        {label}
-        {miosTotal>0&&(
-          <span style={{fontSize:9,fontWeight:800,background:'#22c55e20',color:'#22c55e',
-            border:'1px solid #22c55e40',padding:'2px 7px',borderRadius:10}}>
-            ✓ {miosTotal} míos
-          </span>
-        )}
-        {equipoTotal>0&&(
-          <span style={{fontSize:9,fontWeight:800,background:'#0ea5e915',color:'var(--accent)',
-            border:'1px solid #0ea5e930',padding:'2px 7px',borderRadius:10}}>
-            👥 {equipoTotal} equipo
-          </span>
-        )}
-      </div>
+  const header=(
+    <span style={{display:"inline-flex",gap:5,marginLeft:6}}>
+      {miosTotal>0&&(
+        <span style={{fontSize:9,fontWeight:800,background:'#22c55e20',color:'#22c55e',
+          border:'1px solid #22c55e40',padding:'2px 7px',borderRadius:10}}>
+          ✓ {miosTotal} míos
+        </span>
+      )}
+      {equipoTotal>0&&(
+        <span style={{fontSize:9,fontWeight:800,background:'#0ea5e915',color:'var(--accent)',
+          border:'1px solid #0ea5e930',padding:'2px 7px',borderRadius:10}}>
+          👥 {equipoTotal} equipo
+        </span>
+      )}
+    </span>
+  );
 
-      <div className="pill-grid">
-        {sorted.map(i=>{
+  const renderItem=(i)=>{
           const yoLo=done.includes(i);   // yo lo revisé
           const n=counts[i]||0;           // total del equipo
           const s=active===i;             // seleccionado ahora
@@ -563,23 +675,23 @@ function SelEst({label,items,active,onSelect,done=[],counts={}}){
               )}
             </button>
           );
-        })}
-      </div>
+    };
 
+  return(
+    <>
+      <SelGrupo label={label} grupos={grupos} items={items} renderItem={renderItem} header={header}/>
       {/* Leyenda compacta */}
       {(miosTotal>0||equipoTotal>0)&&(
-        <div style={{display:'flex',gap:10,marginTop:6,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:10,marginTop:4,marginBottom:4,flexWrap:'wrap'}}>
           {miosTotal>0&&<span style={{fontSize:8,color:'#22c55e',display:'flex',alignItems:'center',gap:3}}>
-            <span style={{width:10,height:10,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>
-            Revisado por mí
+            <span style={{width:8,height:8,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>Revisado por mí
           </span>}
           {equipoTotal>miosTotal&&<span style={{fontSize:8,color:'var(--accent)',display:'flex',alignItems:'center',gap:3}}>
-            <span style={{width:10,height:10,borderRadius:'50%',background:'#0ea5e9',display:'inline-block'}}/>
-            Revisado por el equipo
+            <span style={{width:8,height:8,borderRadius:'50%',background:'#0ea5e9',display:'inline-block'}}/>Revisado por equipo
           </span>}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -588,8 +700,7 @@ function SelEst({label,items,active,onSelect,done=[],counts={}}){
    countsMios = { ubicacion: N } limpiezas del usuario actual hoy
    lastStatus = { ubicacion: "LIMPIO"|"PENDIENTE"|"REQUIERE ATENCIÓN" } último estado
 */
-function SelCnt({label,items,active,onSelect,counts={},countsMios={},lastStatus={}}){
-  const sorted=[...items].sort((a,b)=>a.localeCompare(b,"es"));
+function SelCnt({label,items,active,onSelect,counts={},countsMios={},lastStatus={},grupos}){
   const total=Object.values(counts).reduce((s,n)=>s+n,0);
   const totalMios=Object.values(countsMios).reduce((s,n)=>s+n,0);
 
@@ -618,24 +729,22 @@ function SelCnt({label,items,active,onSelect,counts={},countsMios={},lastStatus=
     return{show:false};
   };
 
-  return(
-    <div>
-      <div className="label-sec" style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-        {label}
-        {totalMios>0&&(
-          <span style={{fontSize:9,fontWeight:800,background:'#22c55e20',color:'#22c55e',border:'1px solid #22c55e40',padding:'2px 7px',borderRadius:10}}>
-            ✓ {totalMios} míos
-          </span>
-        )}
-        {total>0&&(
-          <span style={{fontSize:9,fontWeight:800,background:'#fbbf2415',color:'#fbbf24',border:'1px solid #fbbf2430',padding:'2px 7px',borderRadius:10}}>
-            🧹 {total} hoy
-          </span>
-        )}
-      </div>
+  const header=(
+    <span style={{display:"inline-flex",gap:5,marginLeft:6}}>
+      {totalMios>0&&(
+        <span style={{fontSize:9,fontWeight:800,background:'#22c55e20',color:'#22c55e',border:'1px solid #22c55e40',padding:'2px 7px',borderRadius:10}}>
+          ✓ {totalMios} míos
+        </span>
+      )}
+      {total>0&&(
+        <span style={{fontSize:9,fontWeight:800,background:'#fbbf2415',color:'#fbbf24',border:'1px solid #fbbf2430',padding:'2px 7px',borderRadius:10}}>
+          🧹 {total} hoy
+        </span>
+      )}
+    </span>
+  );
 
-      <div className="pill-grid">
-        {sorted.map(i=>{
+  const renderItemCnt=(i)=>{
           const s=active===i;
           const ps=getPillStyle(i,s);
           const badge=getBadge(i);
@@ -659,27 +768,29 @@ function SelCnt({label,items,active,onSelect,counts={},countsMios={},lastStatus=
               )}
             </button>
           );
-        })}
-      </div>
+  };
 
+  return(
+    <>
+      <SelGrupo label={label} grupos={grupos} items={items} renderItem={renderItemCnt} header={header}/>
       {/* Leyenda */}
       {total>0&&(
-        <div style={{display:'flex',gap:10,marginTop:6,flexWrap:'wrap'}}>
+        <div style={{display:'flex',gap:8,marginTop:4,flexWrap:'wrap'}}>
           {totalMios>0&&<span style={{fontSize:8,color:'#22c55e',display:'flex',alignItems:'center',gap:3}}>
-            <span style={{width:10,height:10,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>Limpiado por mí
+            <span style={{width:8,height:8,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>Limpiado por mí
           </span>}
           {total>totalMios&&<span style={{fontSize:8,color:'#0ea5e9',display:'flex',alignItems:'center',gap:3}}>
-            <span style={{width:10,height:10,borderRadius:'50%',background:'#0ea5e9',display:'inline-block'}}/>Limpiado por equipo
+            <span style={{width:8,height:8,borderRadius:'50%',background:'#0ea5e9',display:'inline-block'}}/>Por equipo
           </span>}
           {Object.values(lastStatus).includes("PENDIENTE")&&<span style={{fontSize:8,color:'#f59e0b',display:'flex',alignItems:'center',gap:3}}>
-            <span style={{width:10,height:10,borderRadius:'50%',background:'#f59e0b',display:'inline-block'}}/>Pendiente
+            <span style={{width:8,height:8,borderRadius:'50%',background:'#f59e0b',display:'inline-block'}}/>Pendiente
           </span>}
           {Object.values(lastStatus).includes("REQUIERE ATENCIÓN")&&<span style={{fontSize:8,color:'#ef4444',display:'flex',alignItems:'center',gap:3}}>
-            <span style={{width:10,height:10,borderRadius:'50%',background:'#ef4444',display:'inline-block'}}/>Requiere atención
+            <span style={{width:8,height:8,borderRadius:'50%',background:'#ef4444',display:'inline-block'}}/>Requiere atención
           </span>}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -1564,7 +1675,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
           const fallosHoy=hoyH.filter(r=>{let f=false;ALLCHK.forEach(c=>{if(r[fk(c.label)]==="NO")f=true;});return f;});
 
           // Cámaras — se obtienen del estado global (camPendiente no disponible aquí, usamos activeOTs)
-          const camPend=activeOTs.some(o=>o.tipo==="cam_revision");
+          const camPend=false; // cámaras ya no generan OTs — usar camPendiente del estado global
 
           // Técnicos con acceso (no Monitoreo, no Vicente)
           const tecnicosList=usuarios.filter(u=>u.activo&&u.nombre!=="Vicente"&&u.rol!=="Monitoreo");
@@ -3805,11 +3916,36 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
         {!esAdmin&&!pendiente&&segsRestantes>0&&(
           <div style={{marginBottom:14,opacity:0.45,pointerEvents:"none"}}>
             <div style={{width:"100%",padding:"14px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,textAlign:"center"}}>
-              <div style={{fontSize:11,fontWeight:900,color:"var(--muted)"}}>🔒 REVISIÓN BLOQUEADA HASTA</div>
+              <div style={{fontSize:11,fontWeight:900,color:"var(--muted)"}}>🔒 PRÓXIMA REVISIÓN EN</div>
               <div style={{fontSize:26,fontWeight:900,color:"var(--muted)",marginTop:4,fontVariantNumeric:"tabular-nums"}}>{countdown}</div>
             </div>
           </div>
         )}
+
+        {/* Recordatorio escalado si hay pendiente sin atender por más de 5 min */}
+        {pendiente&&(()=>{
+          const _fb2=fb||window._fb;
+          if(!_fb2||!camSiguiente)return null;
+          // El tick pone siguiente = ts + 30min cuando vence
+          // Así que el tiempo sin atender = 30min - segsRestantes del nuevo ciclo
+          // Pero más simple: usar el horaAlerta guardado — aquí no tenemos ese dato local
+          // Mostramos el recordatorio simplemente si hay pendiente > 0 segs
+          const minSinAtender=Math.floor((30*60*1000-Math.max(0,(camSiguiente-Date.now())))/60000);
+          if(minSinAtender<2)return null; // dar 2 min de gracia
+          const urgencia=minSinAtender>=10?"CRÍTICO":minSinAtender>=5?"URGENTE":"RECORDATORIO";
+          const uc=minSinAtender>=10?"#ef4444":minSinAtender>=5?"#f97316":"#f59e0b";
+          return(
+            <div style={{background:`${uc}12`,border:`2px solid ${uc}`,borderRadius:14,padding:"12px 14px",marginBottom:14,animation:"blink 1.5s infinite"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:22}}>⏰</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,fontWeight:900,color:uc}}>{urgencia} — {minSinAtender} min sin atender</div>
+                  <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>Registra la revisión para cerrar esta alerta</div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ══ KPIs DEL DÍA ══ */}
         <div className="label-sec">📊 HOY · {hoy}</div>
@@ -4146,6 +4282,8 @@ function App(){
   const[otAlert,setOtAlert]=useState(null);
   // ── Notification Center
   const[notifOpen,setNotifOpen]=useState(false);
+  // Expose addNotif globally after mount — used by cam engine and other async contexts
+  useEffect(()=>{ window._addNotif=addNotif; },[addNotif]);
   const[notifs,setNotifs]=useState([]);
   const[toasts,setToasts]=useState([]);
   const toastIdRef=useRef(0);
@@ -4261,34 +4399,64 @@ function App(){
       if(d.siguiente) setCamSiguiente(d.siguiente);
       const isPend=!!d.pendiente;
       setCamPendiente(isPend);
-      // Disparar sonido y vibración cuando se activa por primera vez
-      if(isPend&&!camPrevPendiente.current){
+
+      // ── Alertas SOLO para Monitoreo y Vicente ──
+      const uActual=window._usuarioActual; // referencia al usuario activo
+      const esMonitoreo=uActual&&(uActual.rol==="Monitoreo"||uActual.nombre==="Vicente");
+
+      if(isPend&&!camPrevPendiente.current&&esMonitoreo){
         camPrevPendiente.current=true;
+
+        // 1. Sonido diferenciado para cámaras (3 tonos graves + pausa + tono agudo)
         try{
           const ctx=new(window.AudioContext||window.webkitAudioContext)();
-          // Tres pulsos ascendentes
-          [0,0.35,0.7].forEach((t,i)=>{
-            const o=ctx.createOscillator();
-            const g=ctx.createGain();
+          const secuencia=[
+            {f:440,t:0,dur:0.3},{f:440,t:0.35,dur:0.3},{f:880,t:0.8,dur:0.5}
+          ];
+          secuencia.forEach(({f,t,dur})=>{
+            const o=ctx.createOscillator(),g=ctx.createGain();
             o.connect(g);g.connect(ctx.destination);
-            o.type="sine";
-            o.frequency.setValueAtTime(440+i*180,ctx.currentTime+t);
-            g.gain.setValueAtTime(0.6,ctx.currentTime+t);
-            g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+t+0.3);
-            o.start(ctx.currentTime+t);o.stop(ctx.currentTime+t+0.35);
+            o.type="sine";o.frequency.value=f;
+            const at=ctx.currentTime+t;
+            g.gain.setValueAtTime(0,at);
+            g.gain.linearRampToValueAtTime(0.6,at+0.04);
+            g.gain.exponentialRampToValueAtTime(0.001,at+dur);
+            o.start(at);o.stop(at+dur+0.05);
           });
-          navigator.vibrate&&navigator.vibrate([200,100,200,100,400]);
+          navigator.vibrate&&navigator.vibrate([300,100,300,100,100,50,600]);
         }catch(e){}
-        // Solicitar notificación del sistema operativo
+
+        // 2. Notificación del sistema operativo
+        const notifBody=`Hora: ${d.horaAlerta||"--:--"} — Ingresa al módulo para registrar la revisión`;
         if(window.Notification&&Notification.permission==="granted"){
-          new Notification("📹 Revisión de cámaras",{body:"Es hora de realizar la revisión perimetral",icon:"/favicon.ico",tag:"cam-revision",requireInteraction:true});
+          new Notification("📹 REVISIÓN DE CÁMARAS PENDIENTE",{
+            body:notifBody,tag:"cam-revision",requireInteraction:true,
+            icon:"/favicon.ico",silent:false
+          });
         } else if(window.Notification&&Notification.permission!=="denied"){
           Notification.requestPermission().then(p=>{
-            if(p==="granted") new Notification("📹 Revisión de cámaras",{body:"Es hora de realizar la revisión perimetral",tag:"cam-revision",requireInteraction:true});
+            if(p==="granted") new Notification("📹 REVISIÓN DE CÁMARAS PENDIENTE",{
+              body:notifBody,tag:"cam-revision",requireInteraction:true
+            });
+          });
+        }
+
+        // 3. Agregar al centro de notificaciones de la app
+        if(window._addNotif){
+          window._addNotif({
+            icon:"📹",
+            titulo:"Revisión de cámaras pendiente",
+            msg:`Generada a las ${d.horaAlerta||"--:--"} · Ingresa al módulo para registrar`,
+            color:"#06b6d4",
+            screen:"camaras",
           });
         }
       }
-      if(!isPend) camPrevPendiente.current=false;
+      if(!isPend){
+        camPrevPendiente.current=false;
+        // Cerrar notificación del SO si existe
+        try{ if(window.Notification) new Notification("📹 Cámaras",{tag:"cam-revision",silent:true}); }catch(e){}
+      }
     });
     return()=>unsub();
   },[]);
@@ -4314,43 +4482,15 @@ function App(){
         const ahora=Date.now();
 
         if(d.siguiente<=ahora){
-          // Venció — reprogramar el siguiente ciclo inmediatamente (+30 min desde ahora)
+          // Venció — reprogramar +30 min y marcar pendiente
+          // El onValue de cam_estado se encarga de disparar sonido/vibración/notificación
           const horaAlerta=new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
           await set(ref(db,"cam_estado"),{
-            siguiente:ahora+CAM_INTERVALO_MS,   // reinicia el contador desde ahora
-            pendiente:true,                      // queda pendiente hasta que se atienda
+            siguiente:ahora+CAM_INTERVALO_MS,
+            pendiente:true,
             horaAlerta,
             ts:ahora,
           });
-          // Alerta sonora local
-          try{
-            const ctx=new(window.AudioContext||window.webkitAudioContext)();
-            [440,660,880].forEach((f,i)=>{
-              const o=ctx.createOscillator(),g=ctx.createGain();
-              o.connect(g);g.connect(ctx.destination);
-              o.type="sine";o.frequency.value=f;
-              const t=ctx.currentTime+i*0.2;
-              g.gain.setValueAtTime(0,t);
-              g.gain.linearRampToValueAtTime(0.55,t+0.04);
-              g.gain.linearRampToValueAtTime(0,t+0.22);
-              o.start(t);o.stop(t+0.25);
-            });
-            navigator.vibrate&&navigator.vibrate([200,100,200,100,400]);
-          }catch(e){}
-          // Notificación del SO
-          if(window.Notification&&Notification.permission==="granted"){
-            new Notification("📹 Revisión de cámaras pendiente",{
-              body:"Han pasado 30 min — realiza la revisión perimetral",
-              tag:"cam-revision",requireInteraction:true
-            });
-          } else if(window.Notification&&Notification.permission!=="denied"){
-            Notification.requestPermission().then(p=>{
-              if(p==="granted") new Notification("📹 Revisión de cámaras pendiente",{
-                body:"Han pasado 30 min — realiza la revisión perimetral",
-                tag:"cam-revision",requireInteraction:true
-              });
-            });
-          }
         }
       }catch(e){}
     };
@@ -4377,6 +4517,9 @@ function App(){
   const[passwords,setPasswords]=useState({});
   // Cerrar sesión explícito (sin timeout automático)
   const[confirmLogout,setConfirmLogout]=useState(false);
+  // Exponer usuario activo globalmente para que el engine de cámaras pueda verificar el rol
+  useEffect(()=>{ window._usuarioActual=usuario; },[usuario]);
+
   const cerrarSesion=useCallback(()=>{
     if(window._fb&&window._fb.presenceRef) window._fb.remove(window._fb.presenceRef);
     setUsuario(null);
@@ -5718,6 +5861,7 @@ function App(){
                   <SelEst
                     label="Equipo"
                     items={form.ind_cat==="Cajeros"?listaCajeros:form.ind_cat==="Entradas"?listaEntradas:listaSalidas}
+                    grupos={form.ind_cat==="Cajeros"?GRUPOS_CAJEROS:form.ind_cat==="Entradas"?GRUPOS_ENTRADAS:GRUPOS_SALIDAS}
                     active={form.ind_loc}
                     onSelect={v=>setF('ind_loc',v)}
                     done={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO==="Indicador"&&h.FECHA===hoy).map(h=>h.UBICACION)}
@@ -5864,6 +6008,7 @@ function App(){
                       <SelCnt
                         label="Ubicación"
                         items={listaActual}
+                        grupos={form.lim_cat==="Cajeros"?GRUPOS_LIM_CAJEROS:GRUPOS_LIM_SALIDAS}
                         active={form.lim_loc}
                         onSelect={v=>{setF('lim_loc',v);setF('lim_estado',null);setF('lim_obs','');}}
                         counts={countsHoy}
@@ -5966,6 +6111,7 @@ function App(){
                   <SelEst
                   label="Ubicación"
                   items={modulo.id==='cajero'?listaCajeros:modulo.id==='entrada'?listaEntradas:listaSalidas}
+                  grupos={modulo.id==='cajero'?GRUPOS_CAJEROS:modulo.id==='entrada'?GRUPOS_ENTRADAS:GRUPOS_SALIDAS}
                   active={form[modulo.id]}
                   onSelect={v=>setF(modulo.id,v)}
                   done={history.filter(h=>h.USUARIO===usuario.nombre&&h.MODULO===modulo.label&&h.FECHA===hoy).map(h=>h.UBICACION)}
