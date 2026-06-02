@@ -4,12 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate">
-<title>RECORRIDO MULTI v8.1 - MODO LOTE + PROMEDIO LIMPIEZA</title>
+<title>RECORRIDO MULTI v8.2</title>
 <script>
-const APP_VERSION="8.1";
-const sv=localStorage.getItem("app_version");
-if(sv&&sv!==APP_VERSION){localStorage.setItem("app_version",APP_VERSION);window.location.reload(true);}
-else{localStorage.setItem("app_version",APP_VERSION);}
+const APP_VERSION="8.2";
+localStorage.setItem("app_version",APP_VERSION);
 document.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('keydown',e=>{if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C','K'].includes(e.key.toUpperCase()))||(e.ctrlKey&&['U','S'].includes(e.key.toUpperCase()))){e.preventDefault();return false;}});
 </script>
@@ -523,7 +521,7 @@ function LoginScreen({passwords,onLogin}){
           <div style={{fontSize:36,marginBottom:6}}>🔐</div>
           <div style={{fontSize:22,fontWeight:900}}>RECORRIDO <span style={{color:'var(--accent)'}}>MULTI</span></div>
           <div style={{fontSize:11,color:'var(--muted)',marginTop:3,fontWeight:700}}>Selecciona tu usuario</div>
-          <div style={{fontSize:9,color:'#ffffff15',marginTop:2}}>v8.1 · SHA-256 Security</div>
+          <div style={{fontSize:9,color:'#ffffff15',marginTop:2}}>v8.2 · SHA-256 Security</div>
           <div style={{fontSize:8,color:'#22c55e',marginTop:4}}>🔒 Contraseñas encriptadas</div>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
@@ -1515,6 +1513,64 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
         {/* ════════════════ DASHBOARD ════════════════ */}
         {tab==="dash"&&(
           <div>
+            {/* ── Control de versión / Notificación de actualización ── */}
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <span style={{fontSize:20}}>🆕</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:900,color:"var(--text)"}}>Control de versión</div>
+                  <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>
+                    Versión actual del archivo: <b style={{color:"var(--accent)"}}>v{APP_VERSION}</b> · Al guardar, todos los técnicos ven el banner de actualización
+                  </div>
+                </div>
+              </div>
+              {(()=>{
+                const[newVer,setNewVer]=React.useState("");
+                const[newMsg,setNewMsg]=React.useState("");
+                const[sending,setSending]=React.useState(false);
+                return(
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    <div style={{display:"flex",gap:8}}>
+                      <input
+                        placeholder="Versión ej: 8.3"
+                        value={newVer}
+                        onChange={e=>setNewVer(e.target.value)}
+                        style={{flex:1,background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 11px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"inherit"}}
+                      />
+                    </div>
+                    <input
+                      placeholder="Descripción del cambio (ej: Mejoras en módulo OT)"
+                      value={newMsg}
+                      onChange={e=>setNewMsg(e.target.value)}
+                      style={{width:"100%",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px 11px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"inherit"}}
+                    />
+                    <button
+                      disabled={!newVer.trim()||sending}
+                      onClick={async()=>{
+                        if(!fb||!newVer.trim())return;
+                        setSending(true);
+                        await fb.set(fb.ref(fb.db,"app_version"),{v:newVer.trim(),msg:newMsg.trim()||"Nueva versión disponible",ts:Date.now()});
+                        logBitacora("VERSIÓN",`Notificación enviada: v${newVer.trim()} — ${newMsg.trim()}`);
+                        showMsg("ok",`📢 Notificación de v${newVer.trim()} enviada a todos los técnicos`);
+                        setNewVer("");setNewMsg("");setSending(false);
+                      }}
+                      style={{width:"100%",padding:"12px",background:newVer.trim()?"#22c55e":"var(--border)",border:"none",borderRadius:10,color:newVer.trim()?"#000":"var(--muted)",fontWeight:900,fontSize:12,cursor:newVer.trim()?"pointer":"not-allowed",opacity:sending?0.5:1}}>
+                      {sending?"⏳ Enviando...":"📢 NOTIFICAR ACTUALIZACIÓN A TODOS"}
+                    </button>
+                    <button
+                      onClick={async()=>{
+                        if(!fb)return;
+                        await fb.set(fb.ref(fb.db,"app_version"),{v:APP_VERSION,msg:"",ts:Date.now()});
+                        showMsg("ok","✅ Notificación limpiada");
+                      }}
+                      style={{width:"100%",padding:"9px",background:"transparent",border:"1px solid var(--border)",borderRadius:10,color:"var(--muted)",fontWeight:700,fontSize:11,cursor:"pointer"}}>
+                      ✕ Limpiar notificación activa
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+
             <div className="label-sec">📊 RESUMEN DEL SISTEMA · {hoy}</div>
 
             {/* KPIs fila 1 */}
@@ -1654,7 +1710,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
           </div>
         )}
 
-        {/* ════════════════ ESTADO DEL SISTEMA ════════════════ */}
+
         {tab==="estado"&&(()=>{
           // ── Datos para los semáforos
           const ahora=Date.now();
@@ -4519,6 +4575,29 @@ function App(){
   // Exponer usuario activo globalmente para que el engine de cámaras pueda verificar el rol
   useEffect(()=>{ window._usuarioActual=usuario; },[usuario]);
 
+  // ── Sistema de actualización remota ──
+  // Vicente escribe en Firebase: set(ref(db,"app_version"),{v:"8.3",msg:"Mejoras en módulo OT"})
+  // Todos los clientes ven el banner inmediatamente
+  const[updateAvail,setUpdateAvail]=useState(null); // {v, msg}
+  const[updateDismissed,setUpdateDismissed]=useState(false);
+  useEffect(()=>{
+    if(!window._fb)return;
+    const{db,ref,onValue:ov}=window._fb;
+    const unsub=ov(ref(db,"app_version"),snap=>{
+      const d=snap.val();
+      if(!d)return;
+      const remota=d.v||d;
+      // Si la versión remota es mayor que la local → mostrar banner
+      if(typeof remota==="string"&&remota!==APP_VERSION){
+        setUpdateAvail({v:remota,msg:d.msg||"Nueva versión disponible"});
+        setUpdateDismissed(false);
+      } else {
+        setUpdateAvail(null);
+      }
+    });
+    return()=>unsub();
+  },[]);
+
   const cerrarSesion=useCallback(()=>{
     if(window._fb&&window._fb.presenceRef) window._fb.remove(window._fb.presenceRef);
     setUsuario(null);
@@ -4790,7 +4869,7 @@ function App(){
     }
     let t=1,a=0;
     if(form.cajero||form.entrada||form.salida||form.lim_loc||form.ot_ubicacion||form.ind_loc)a++;
-    if(modulo.id==='limpieza'){t+=2;if(form.lim_cat)a++;if(form.lim_estado)a++;} // lim_obs es siempre opcional
+    if(modulo.id==='limpieza'){t+=2;if(form.lim_cat)a++;if(form.lim_estado)a++;}
     const chk=modulo.id==='cajero'?CC:modulo.id==='entrada'?CE:modulo.id==='salida'?CS:[];
     chk.forEach(c=>{t++;if(form[c.id])a++;});
     if(modulo.id==='indicador'){t++;if(form.timer_val)a++;}
@@ -4832,7 +4911,7 @@ function App(){
       FECHA:now.toLocaleDateString("es"),HORA:now.toLocaleTimeString("es"),MODULO:modulo.label,
       ACCION:modulo.id==='ot'?form.ot_tipo:"REVISIÓN",UBICACION:loc,
       RESULTADO:modulo.id==='indicador'?`${form.timer_val}s`:modulo.id==='limpieza'?(form.lim_estado||"LIMPIO"):"OK",
-      NOTAS:modulo.id==='limpieza'&&form.lim_obs?form.lim_obs:([form.ot_rapido,form.ot_rapido_cierre,form.ot_detalle].filter(Boolean).join(' · ')||form.obs||"-"),...cr};
+      NOTAS:[form.ot_rapido,form.ot_rapido_cierre,form.ot_detalle].filter(Boolean).join(' · ')||form.obs||"-",...cr};
     try{
       await push(ref(db,"registros"),rec);
       if(modulo.id==='ot'){
@@ -4863,7 +4942,7 @@ function App(){
         setRafagaRegistros(prev=>[...prev,{loc,tiempo:form.timer_val,cat:form.ind_cat}]);
         setRafagaLimpieza([]);
       } else if(modulo.id==="limpieza"){
-        setRafagaLimpieza(prev=>[...prev,{loc,estado:form.lim_estado||"LIMPIO",cat:form.lim_cat,obs:form.lim_obs||""}]);
+        setRafagaLimpieza(prev=>[...prev,{loc,estado:form.lim_estado||"LIMPIO",cat:form.lim_cat}]);
         setRafagaRegistros([]);
       } else if(["cajero","entrada","salida"].includes(modulo.id)){
         // Calcular fallas del registro guardado
@@ -5061,7 +5140,7 @@ function App(){
           <div style={{marginBottom:20}}>
             <div className="sb-logo-title">RECORRIDO <span>MULTI</span></div>
             <div className="sb-logo-sub">Sistema de Control</div>
-            <div className="sb-version">● v8.1 · SHA-256</div>
+            <div className="sb-version">● v8.2 · SHA-256</div>
           </div>
 
           {/* Usuario activo */}
@@ -5158,12 +5237,44 @@ function App(){
             style={{width:"100%",padding:"10px",background:"#ef444415",border:"1px solid #ef444435",borderRadius:10,color:"#ef4444",fontWeight:900,fontSize:11,cursor:"pointer",marginBottom:10}}>
             🚪 CERRAR SESIÓN
           </button>
-          <div className="sb-footer">RECORRIDO MULTI · v8.1</div>
+          <div className="sb-footer">RECORRIDO MULTI · v8.2</div>
         </div>
       </div>
     )}
 
     <div className="shell">
+
+      {/* ── BANNER DE ACTUALIZACIÓN DISPONIBLE ── */}
+      {updateAvail&&!updateDismissed&&(
+        <div style={{
+          background:"linear-gradient(135deg,#1a2e1a,#0d2b10)",
+          borderBottom:"2px solid #22c55e",
+          padding:"10px 14px",flexShrink:0,
+          display:"flex",alignItems:"center",gap:10,
+          animation:"slideDown .3s ease",
+          zIndex:500,
+        }}>
+          <div style={{fontSize:22,flexShrink:0,animation:"pop .4s ease"}}>🆕</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:900,color:"#22c55e"}}>
+              Actualización disponible · v{updateAvail.v}
+            </div>
+            <div style={{fontSize:10,color:"#86efac",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+              {updateAvail.msg}
+            </div>
+          </div>
+          <button
+            onClick={()=>window.location.reload(true)}
+            style={{background:"#22c55e",border:"none",borderRadius:9,padding:"8px 14px",color:"#000",fontWeight:900,fontSize:11,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
+            🔄 Actualizar
+          </button>
+          <button
+            onClick={()=>setUpdateDismissed(true)}
+            style={{background:"transparent",border:"none",color:"#86efac",fontSize:16,cursor:"pointer",padding:"4px",flexShrink:0,lineHeight:1}}>
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* ── MODAL LIMPIAR DATOS POST-EXCEL ── */}
       {xlsLimpiarModal&&(
@@ -5985,7 +6096,7 @@ function App(){
 
             {modulo?.id==='limpieza'&&(
               <>
-                <Sel label="Categoría" items={["Cajeros","Salidas"]} active={form.lim_cat} onSelect={v=>{setF('lim_cat',v);setF('lim_loc',null);setF('lim_estado',null);setF('lim_obs','');}}/>
+                <Sel label="Categoría" items={["Cajeros","Salidas"]} active={form.lim_cat} onSelect={v=>{setF('lim_cat',v);setF('lim_loc',null);setF('lim_estado',null);}}/>
 
                 {form.lim_cat&&(()=>{
                   const listaActual=form.lim_cat==="Cajeros"?listaLimCajeros:listaLimSalidas;
@@ -5994,14 +6105,8 @@ function App(){
                   const countsHoy=regsHoyLista.reduce((a,h)=>{a[h.UBICACION]=(a[h.UBICACION]||0)+1;return a;},{});
                   // Conteo solo del usuario actual hoy
                   const countsMios=regsHoyLista.filter(h=>h.USUARIO===usuario.nombre).reduce((a,h)=>{a[h.UBICACION]=(a[h.UBICACION]||0)+1;return a;},{});
-                  // Último estado por ubicación (de toda la historia, no solo hoy)
+                  // lastStatus vacío — ya no hay estados PENDIENTE/REQUIERE ATENCIÓN
                   const lastStatus={};
-                  listaActual.forEach(loc=>{
-                    const regsLoc=history.filter(h=>h.MODULO==="Limpieza"&&h.UBICACION===loc).sort((a,b)=>(b._ts||0)-(a._ts||0));
-                    if(regsLoc[0]&&regsLoc[0].RESULTADO&&regsLoc[0].RESULTADO!=="LIMPIO"){
-                      lastStatus[loc]=regsLoc[0].RESULTADO;
-                    }
-                  });
                   return(
                     <>
                       <SelCnt
@@ -6009,7 +6114,7 @@ function App(){
                         items={listaActual}
                         grupos={form.lim_cat==="Cajeros"?GRUPOS_LIM_CAJEROS:GRUPOS_LIM_SALIDAS}
                         active={form.lim_loc}
-                        onSelect={v=>{setF('lim_loc',v);setF('lim_estado',null);setF('lim_obs','');}}
+                        onSelect={v=>{setF('lim_loc',v);setF('lim_estado',null);}}
                         counts={countsHoy}
                         countsMios={countsMios}
                         lastStatus={lastStatus}
@@ -6055,52 +6160,12 @@ function App(){
                   );
                 })()}
 
-                {/* Propuesta 2: estados ampliados */}
-                {form.lim_cat&&form.lim_loc&&(
-                  <>
-                    <div className="label-sec">Estado</div>
-                    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
-                      {[
-                        {v:"LIMPIO",icon:"✅",desc:"Limpieza completada sin novedad",color:"#22c55e"},
-                        {v:"PENDIENTE",icon:"⏳",desc:"No se pudo realizar — queda pendiente",color:"#f59e0b"},
-                        {v:"REQUIERE ATENCIÓN",icon:"⚠️",desc:"Problema que requiere intervención",color:"#ef4444"},
-                      ].map(op=>{
-                        const sel=form.lim_estado===op.v;
-                        return(
-                          <button key={op.v} onClick={()=>{setF('lim_estado',sel?null:op.v);if(op.v==="LIMPIO")setF('lim_obs','');}}
-                            style={{
-                              padding:"12px 14px",borderRadius:12,cursor:"pointer",
-                              border:`${sel?"2px":"1px"} solid ${sel?op.color:op.color+"50"}`,
-                              background:sel?`${op.color}18`:"var(--card)",
-                              display:"flex",alignItems:"center",gap:10,textAlign:"left",
-                            }}>
-                            <span style={{fontSize:20,flexShrink:0}}>{op.icon}</span>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:12,fontWeight:900,color:sel?op.color:"var(--text)"}}>{op.v}</div>
-                              <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>{op.desc}</div>
-                            </div>
-                            {sel&&<span style={{fontSize:14,color:op.color,flexShrink:0}}>✓</span>}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Observación — solo para PENDIENTE y REQUIERE ATENCIÓN */}
-                    {form.lim_estado&&form.lim_estado!=="LIMPIO"&&(
-                      <div style={{marginBottom:14}}>
-                        <div className="label-sec">Observación <span style={{color:"var(--muted)",fontWeight:600,fontSize:9}}>(opcional)</span></div>
-                        <textarea
-                          className="inp"
-                          rows={2}
-                          placeholder={form.lim_estado==="PENDIENTE"?"¿Por qué no se pudo realizar? (área ocupada, falta producto...)":"¿Qué requiere atención? (derrame, daño, obstáculo...)"}
-                          value={form.lim_obs||""}
-                          onChange={e=>setF('lim_obs',e.target.value)}
-                          style={{marginBottom:0,fontSize:13,resize:"none"}}
-                        />
-                      </div>
-                    )}
-                  </>
-                )}
+                {/* Estado: solo LIMPIO — se auto-selecciona al elegir ubicación */}
+                {form.lim_cat&&form.lim_loc&&(()=>{
+                  // Auto-seleccionar LIMPIO si no hay estado aún
+                  if(!form.lim_estado) setTimeout(()=>setF('lim_estado','LIMPIO'),0);
+                  return null;
+                })()}
               </>
             )}
 
@@ -6141,7 +6206,7 @@ function App(){
               </>
             )}
 
-            {modulo?.id!=='ot'&&<textarea className="inp" rows="3" placeholder="Observaciones..." onChange={e=>setF('obs',e.target.value)}></textarea>}
+            {modulo?.id!=='ot'&&modulo?.id!=='limpieza'&&<textarea className="inp" rows="3" placeholder="Observaciones..." onChange={e=>setF('obs',e.target.value)}></textarea>}
           </div>
           <div className="footer-fixed">
             {/* Para indicador: solo mostrar botón guardar cuando el tiempo está listo */}
@@ -6357,23 +6422,45 @@ function App(){
 
               <div style={{flex:1,overflowY:"auto",padding:"16px"}}>
 
-                {/* Último registrado */}
+                {/* Último registrado + campo de observación opcional */}
                 {(()=>{
                   const ultimo=rafagaLimpieza[rafagaLimpieza.length-1];
                   const estadoColor=ultimo?.estado==="LIMPIO"?"#22c55e":ultimo?.estado==="PENDIENTE"?"#f59e0b":"#ef4444";
                   const estadoIcon=ultimo?.estado==="LIMPIO"?"✅":ultimo?.estado==="PENDIENTE"?"⏳":"⚠️";
                   return(
-                    <div style={{background:`${estadoColor}10`,border:`2px solid ${estadoColor}`,borderRadius:14,padding:"14px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12,animation:"pop .3s ease"}}>
-                      <div style={{fontSize:26}}>{estadoIcon}</div>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:13,fontWeight:900,color:estadoColor}}>Registrado</div>
-                        <div style={{fontSize:14,fontWeight:900,color:"var(--text)",marginTop:2}}>{lastRecord.loc}</div>
-                        {ultimo?.obs&&<div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>{ultimo.obs}</div>}
+                    <div style={{background:`${estadoColor}10`,border:`2px solid ${estadoColor}`,borderRadius:14,padding:"14px 16px",marginBottom:16,animation:"pop .3s ease"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}>
+                        <div style={{fontSize:26}}>{estadoIcon}</div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:900,color:estadoColor}}>Registrado</div>
+                          <div style={{fontSize:14,fontWeight:900,color:"var(--text)",marginTop:2}}>{lastRecord.loc}</div>
+                        </div>
+                        <div style={{textAlign:"center",flexShrink:0}}>
+                          <div style={{fontSize:22,fontWeight:900,color:"#fbbf24"}}>{rafagaLimpieza.length}</div>
+                          <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>TOTAL</div>
+                        </div>
                       </div>
-                      <div style={{textAlign:"center"}}>
-                        <div style={{fontSize:22,fontWeight:900,color:"#fbbf24"}}>{rafagaLimpieza.length}</div>
-                        <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>TOTAL</div>
-                      </div>
+                      {/* Observación opcional — solo en ráfaga */}
+                      <textarea
+                        rows={2}
+                        placeholder="Observación (opcional)..."
+                        defaultValue=""
+                        key={lastRecord.loc}
+                        onBlur={async e=>{
+                          const obs=e.target.value.trim();
+                          if(!obs||!window._fb)return;
+                          const{db,ref,push}=window._fb;
+                          const ahora=new Date();
+                          await push(ref(db,"registros"),{
+                            USUARIO:usuario.nombre,ROL:usuario.rol||"",
+                            FECHA:ahora.toLocaleDateString("es"),
+                            HORA:ahora.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"}),
+                            MODULO:"Limpieza",ACCION:"OBSERVACIÓN",
+                            UBICACION:lastRecord.loc,NOTAS:obs,_ts:Date.now()
+                          });
+                        }}
+                        style={{width:"100%",background:"rgba(0,0,0,0.2)",border:`1px solid ${estadoColor}50`,borderRadius:9,padding:"9px 11px",color:"white",fontSize:12,outline:"none",resize:"none",fontFamily:"inherit",lineHeight:1.5}}
+                      />
                     </div>
                   );
                 })()}
@@ -6427,7 +6514,7 @@ function App(){
                 <div style={{display:"flex",flexDirection:"column",gap:10}}>
                   <button
                     onClick={()=>{
-                      setForm(f=>({...f,lim_loc:null,lim_estado:null,lim_obs:""}));
+                      setForm(f=>({...f,lim_loc:null,lim_estado:null}));
                       setModulo(lastRecord.modulo);
                       setScreen("form");
                     }}
@@ -6438,7 +6525,7 @@ function App(){
 
                   <button
                     onClick={()=>{
-                      setForm(f=>({...f,lim_cat:null,lim_loc:null,lim_estado:null,lim_obs:""}));
+                      setForm(f=>({...f,lim_cat:null,lim_loc:null,lim_estado:null}));
                       setModulo(lastRecord.modulo);
                       setScreen("form");
                     }}
