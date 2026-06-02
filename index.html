@@ -566,33 +566,80 @@ function LoginScreen({passwords,onLogin}){
    Si grupos es null → render plano sin separadores (fallback)
    renderItem(item, idx) → JSX del botón
 */
-function SelGrupo({label,grupos,items,renderItem,header}){
+/* ── SelGrupo: renderizador base con colapso al seleccionar ──
+   - Al seleccionar un item: los demás se ocultan (solo queda el seleccionado visible)
+   - Doble clic en el seleccionado: vuelven a aparecer todos
+   - active: el item actualmente seleccionado (viene del padre)
+   - El estado de colapso es local a este componente
+*/
+function SelGrupo({label,grupos,items,renderItem,header,active}){
+  const[collapsed,setCollapsed]=useState(false);
+  // Reset collapse when selection is cleared
+  useEffect(()=>{ if(!active) setCollapsed(false); },[active]);
+
+  // Colapsar cuando se elige algo, expandir con doble clic
+  // Envolvemos renderItem para interceptar clicks y doble clicks
+  const wrapItem=(item,idx)=>{
+    const isActive=active===item;
+    return(
+      <div key={item} style={{display:collapsed&&!isActive?"none":"block"}}
+        onClick={()=>{
+          if(!isActive) setCollapsed(true); // al elegir uno nuevo → colapsar
+        }}
+        onDoubleClick={()=>{
+          if(isActive) setCollapsed(false); // doble clic en el activo → expandir
+        }}
+      >
+        {renderItem(item,idx)}
+      </div>
+    );
+  };
+
   // Si no hay grupos, render plano
   if(!grupos){
     const sorted=[...items].sort((a,b)=>a.localeCompare(b,"es"));
     return(
       <div>
-        <div className="label-sec">{label}{header}</div>
-        <div className="pill-grid">{sorted.map((i,idx)=>renderItem(i,idx))}</div>
+        <div className="label-sec" style={{display:"flex",alignItems:"center",flexWrap:"wrap"}}>
+          {label}{header}
+          {collapsed&&active&&(
+            <span style={{fontSize:8,color:"var(--muted)",marginLeft:6,fontWeight:700}}>
+              doble toque para ver todos
+            </span>
+          )}
+        </div>
+        <div className="pill-grid">{sorted.map((i,idx)=>wrapItem(i,idx))}</div>
       </div>
     );
   }
+
   // Render agrupado
   return(
     <div>
-      <div className="label-sec">{label}{header}</div>
-      {Object.entries(grupos).map(([zona,equipos])=>(
-        <div key={zona} style={{marginBottom:10}}>
-          {/* Separador de zona */}
-          <div style={{
-            display:"flex",alignItems:"center",gap:6,marginBottom:6,
-          }}>
-            <span style={{fontSize:8,fontWeight:900,color:"var(--muted)",letterSpacing:1.5,textTransform:"uppercase"}}>{zona}</span>
-            <div style={{flex:1,height:1,background:"var(--border)"}}/>
+      <div className="label-sec" style={{display:"flex",alignItems:"center",flexWrap:"wrap"}}>
+        {label}{header}
+        {collapsed&&active&&(
+          <span style={{fontSize:8,color:"var(--muted)",marginLeft:6,fontWeight:700}}>
+            doble toque para ver todos
+          </span>
+        )}
+      </div>
+      {Object.entries(grupos).map(([zona,equipos])=>{
+        // Si colapsado, ocultar zonas que no contienen el item activo
+        const tieneActivo=equipos.includes(active);
+        if(collapsed&&!tieneActivo) return null;
+        return(
+          <div key={zona} style={{marginBottom:10}}>
+            {(!collapsed)&&(
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                <span style={{fontSize:8,fontWeight:900,color:"var(--muted)",letterSpacing:1.5,textTransform:"uppercase"}}>{zona}</span>
+                <div style={{flex:1,height:1,background:"var(--border)"}}/>
+              </div>
+            )}
+            <div className="pill-grid">{equipos.map((i,idx)=>wrapItem(i,idx))}</div>
           </div>
-          <div className="pill-grid">{equipos.map((i,idx)=>renderItem(i,idx))}</div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -600,7 +647,7 @@ function SelGrupo({label,grupos,items,renderItem,header}){
 /* ── Selector simple (sin conteo) ── */
 function Sel({label,items,active,onSelect,grupos}){
   return(
-    <SelGrupo label={label} grupos={grupos} items={items}
+    <SelGrupo label={label} grupos={grupos} items={items} active={active}
       renderItem={(i)=>(
         <button key={i} className={`pill${active===i?' active':''}`} onClick={()=>onSelect(i)}>{i}</button>
       )}
@@ -676,7 +723,7 @@ function SelEst({label,items,active,onSelect,done=[],counts={},grupos}){
 
   return(
     <>
-      <SelGrupo label={label} grupos={grupos} items={items} renderItem={renderItem} header={header}/>
+      <SelGrupo label={label} grupos={grupos} items={items} renderItem={renderItem} header={header} active={active}/>
       {/* Leyenda compacta */}
       {(miosTotal>0||equipoTotal>0)&&(
         <div style={{display:'flex',gap:10,marginTop:4,marginBottom:4,flexWrap:'wrap'}}>
@@ -769,7 +816,7 @@ function SelCnt({label,items,active,onSelect,counts={},countsMios={},lastStatus=
 
   return(
     <>
-      <SelGrupo label={label} grupos={grupos} items={items} renderItem={renderItemCnt} header={header}/>
+      <SelGrupo label={label} grupos={grupos} items={items} renderItem={renderItemCnt} header={header} active={active}/>
       {/* Leyenda */}
       {total>0&&(
         <div style={{display:'flex',gap:8,marginTop:4,flexWrap:'wrap'}}>
@@ -3940,27 +3987,23 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
             {pendiente?"🔴 REVISIÓN PENDIENTE":esAdmin?"📹 SISTEMA DE MONITOREO":"PRÓXIMA REVISIÓN EN"}
           </div>
 
-          {/* Countdown grande — visible para todos */}
-          {!pendiente&&(
-            <>
-              <div style={{fontSize:"clamp(34px,10vw,50px)",fontWeight:900,color:pct>80?"#f97316":CC,letterSpacing:2,fontVariantNumeric:"tabular-nums",lineHeight:1}}>{countdown}</div>
-              <div style={{fontSize:10,color:"var(--muted)",marginTop:8}}>
-                Cada 30 min · {String(Math.floor(camConfig?.horaInicio||9)).padStart(2,"0")}:{(camConfig?.horaInicio||9)%1===0.5?"30":"00"} – {String(Math.floor(camConfig?.horaFin||21.5)).padStart(2,"0")}:{(camConfig?.horaFin||21.5)%1===0.5?"30":"00"}
-              </div>
-            </>
-          )}
+          {/* Countdown grande — SIEMPRE visible */}
+          <div style={{fontSize:"clamp(34px,10vw,50px)",fontWeight:900,color:pendiente?"#ef4444":pct>80?"#f97316":CC,letterSpacing:2,fontVariantNumeric:"tabular-nums",lineHeight:1}}>{countdown}</div>
+          <div style={{fontSize:10,color:"var(--muted)",marginTop:6}}>
+            Cada 30 min · {String(Math.floor(camConfig?.horaInicio||9)).padStart(2,"0")}:{(camConfig?.horaInicio||9)%1===0.5?"30":"00"} – {String(Math.floor(camConfig?.horaFin||21.5)).padStart(2,"0")}:{(camConfig?.horaFin||21.5)%1===0.5?"30":"00"}
+          </div>
           {pendiente&&(
-            <div style={{fontSize:13,fontWeight:800,color:"#fca5a5",margin:"8px 0"}}>Es hora de realizar la revisión perimetral</div>
+            <div style={{fontSize:11,fontWeight:800,color:"#fca5a5",marginTop:6}}>🔴 Revisión pendiente desde las {window._camHoraAlerta||"--:--"}</div>
           )}
 
-          {/* Barra de progreso */}
+          {/* Barra de progreso — siempre visible */}
           <div style={{marginTop:10,height:5,background:"var(--border)",borderRadius:4,overflow:"hidden"}}>
             <div style={{height:"100%",width:`${pct}%`,background:pendiente?"#ef4444":pct>80?"#f97316":CC,borderRadius:4,transition:"width 1s"}}/>
           </div>
-          {!pendiente&&sigTs&&<div style={{fontSize:9,color:"var(--muted)",marginTop:4}}>{pct}% del intervalo transcurrido</div>}
+          <div style={{fontSize:9,color:"var(--muted)",marginTop:4}}>{pct}% del ciclo transcurrido</div>
 
-          {/* Botón de revisión — Vicente también puede atender */}
-          {(pendiente||segsRestantes===0)&&(
+          {/* Botón de revisión — solo cuando hay pendiente */}
+          {pendiente&&(
             <button onClick={()=>{setRevManual(true);setStep(null);setNotaAnomalia("");}}
               style={{width:"100%",padding:"14px",background:"#ef444418",border:"2px solid #ef4444",borderRadius:12,color:"#ef4444",fontWeight:900,fontSize:13,cursor:"pointer",marginTop:14,display:"flex",alignItems:"center",justifyContent:"center",gap:10,animation:"blink 1.5s infinite"}}>
               <span style={{fontSize:20}}>🔴</span> ATENDER REVISIÓN PENDIENTE
@@ -3968,15 +4011,7 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
           )}
         </div>
 
-        {/* Botón manual para Monitoreo cuando no hay alerta activa */}
-        {!esAdmin&&!pendiente&&segsRestantes>0&&(
-          <div style={{marginBottom:14,opacity:0.45,pointerEvents:"none"}}>
-            <div style={{width:"100%",padding:"14px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,textAlign:"center"}}>
-              <div style={{fontSize:11,fontWeight:900,color:"var(--muted)"}}>🔒 PRÓXIMA REVISIÓN EN</div>
-              <div style={{fontSize:26,fontWeight:900,color:"var(--muted)",marginTop:4,fontVariantNumeric:"tabular-nums"}}>{countdown}</div>
-            </div>
-          </div>
-        )}
+
 
         {/* Recordatorio escalado si hay pendiente sin atender por más de 5 min */}
         {pendiente&&(()=>{
@@ -4441,10 +4476,23 @@ function App(){
     if(!window._fb)return;
     const{db,ref,onValue:ov,set,push,get}=window._fb;
 
-    // Inicializar si no existe
+    // Inicializar si no existe — respetar horaInicio
     get(ref(db,"cam_estado")).then(snap=>{
       if(!snap.val()){
-        const sig=Date.now()+camConfigRef.current.intervalo*60*1000;
+        const cfg=camConfigRef.current;
+        const now=new Date();
+        const hMin=now.getHours()*60+now.getMinutes();
+        const hIni=Math.floor(cfg.horaInicio)*60+(cfg.horaInicio%1===0.5?30:0);
+        let sig;
+        if(hMin<hIni){
+          // Antes del horario → programar para la hora de inicio de hoy
+          const inicio=new Date();
+          inicio.setHours(Math.floor(cfg.horaInicio),cfg.horaInicio%1===0.5?30:0,0,0);
+          sig=inicio.getTime();
+        } else {
+          // Ya estamos en horario o pasó → primer ciclo en 30 min
+          sig=Date.now()+CAM_INTERVALO_MS;
+        }
         set(ref(db,"cam_estado"),{siguiente:sig,pendiente:false,ts:Date.now()});
       }
     });
@@ -4519,10 +4567,13 @@ function App(){
 
   // ── Motor de revisión de cámaras ──────────────────────────────────────
   // Reglas:
-  //   • Intervalo fijo: 30 min (siempre)
-  //   • Al vencer: marcar pendiente=true, reprogramar INMEDIATAMENTE el siguiente ciclo
-  //   • El pendiente queda hasta que Monitoreo lo atienda manualmente
-  //   • Sin OTs, sin escalamiento — solo estado en cam_estado y alertas locales
+  //   • El reloj SIEMPRE corre — visible en pantalla aunque haya pendiente
+  //   • Intervalo fijo: 30 min
+  //   • Horario activo: horaInicio–horaFin (config). Fuera de horario el tick
+  //     avanza el "siguiente" pero NO marca pendiente ni dispara alerta.
+  //   • Al vencer dentro del horario: pendiente=true (alerta). siguiente ya
+  //     apunta al próximo ciclo desde ese momento → reloj sigue corriendo.
+  //   • Al atender: SOLO pendiente=false. No se toca "siguiente".
   // ───────────────────────────────────────────────────────────────────────
   const CAM_INTERVALO_MS = 30 * 60 * 1000; // 30 minutos fijos
 
@@ -4536,15 +4587,35 @@ function App(){
         const d=snap.val();
         if(!d||!d.siguiente)return;
         const ahora=Date.now();
+        if(d.siguiente>ahora)return; // aún no vence
 
-        if(d.siguiente<=ahora){
-          // Venció — reprogramar +30 min y marcar pendiente
-          // El onValue de cam_estado se encarga de disparar sonido/vibración/notificación
-          const horaAlerta=new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+        // Venció → reprogramar el siguiente ciclo (siempre, sin importar horario)
+        const horaAlerta=new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+        const siguienteTs=ahora+CAM_INTERVALO_MS;
+
+        // Verificar horario para decidir si generar alerta
+        const cfg=camConfigRef.current;
+        const now=new Date();
+        const hMin=now.getHours()*60+now.getMinutes();
+        const hIni=Math.floor(cfg.horaInicio)*60+(cfg.horaInicio%1===0.5?30:0);
+        const hFin=Math.floor(cfg.horaFin)*60+(cfg.horaFin%1===0.5?30:0);
+        const enHorario=hMin>=hIni&&hMin<=hFin;
+
+        if(enHorario){
+          // Dentro del horario → marcar pendiente y disparar alerta
           await set(ref(db,"cam_estado"),{
-            siguiente:ahora+CAM_INTERVALO_MS,
+            siguiente:siguienteTs,
             pendiente:true,
             horaAlerta,
+            ts:ahora,
+          });
+          // La alerta (sonido/notif) la dispara el onValue al detectar pendiente=true
+        } else {
+          // Fuera del horario → solo avanzar el reloj, sin alerta ni pendiente
+          await set(ref(db,"cam_estado"),{
+            siguiente:siguienteTs,
+            pendiente:d.pendiente||false, // conservar estado previo
+            horaAlerta:d.horaAlerta||"",
             ts:ahora,
           });
         }
@@ -4556,16 +4627,23 @@ function App(){
     return()=>clearInterval(id);
   },[]);
 
-  // Reprogramar después de atender — solo limpia pendiente, mantiene ciclo de 30 min
+  // Al atender revisión: SOLO apagar pendiente. El reloj (siguiente) ya corre.
   window._camArrancar=()=>{
     if(!window._fb)return;
-    const{db,ref,set}=window._fb;
-    // El siguiente ciclo ya fue programado por el tick cuando venció.
-    // Solo marcamos pendiente=false para apagar la alerta.
-    set(ref(db,"cam_estado"),{
-      siguiente:Date.now()+CAM_INTERVALO_MS,
-      pendiente:false,
-      ts:Date.now(),
+    const{db,ref,get,set}=window._fb;
+    get(ref(db,"cam_estado")).then(snap=>{
+      const d=snap.val()||{};
+      set(ref(db,"cam_estado"),{
+        siguiente:d.siguiente||Date.now()+CAM_INTERVALO_MS, // conservar el siguiente ya programado
+        pendiente:false,
+        horaAlerta:"",
+        ts:Date.now(),
+      });
+    }).catch(()=>{
+      set(ref(db,"cam_estado"),{
+        siguiente:Date.now()+CAM_INTERVALO_MS,
+        pendiente:false,ts:Date.now(),
+      });
     });
   };
 
