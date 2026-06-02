@@ -50,12 +50,18 @@ window._fbReady = true;
 /* ═══════ RESET ═══════ */
 *{box-sizing:border-box;margin:0;padding:0;font-family:'Barlow',sans-serif;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none;}
 input,textarea,select{user-select:text;-webkit-user-select:text;}
-html,body{height:100%;overflow:hidden;}
+html,body{height:100%;height:100dvh;overflow:hidden;}
 body{background:var(--bg);color:var(--text);font-size:13px;}
 
 /* ═══════ LAYOUT ═══════ */
-.desktop-wrapper{display:flex;height:100vh;width:100%;overflow:hidden;background:var(--bg);}
-.shell{width:100%;max-width:420px;margin:0 auto;height:100vh;display:flex;flex-direction:column;position:relative;overflow:hidden;flex-shrink:0;}
+.desktop-wrapper{display:flex;height:100vh;height:100dvh;width:100%;overflow:hidden;background:var(--bg);}
+/* Shell: fill 100% on small phones, cap at 420px on larger */
+.shell{
+  width:100%;max-width:420px;margin:0 auto;
+  height:100vh;height:100dvh;
+  display:flex;flex-direction:column;
+  position:relative;overflow:hidden;flex-shrink:0;
+}
 .desktop-sidebar{display:none;flex-direction:column;width:260px;flex-shrink:0;padding:24px 18px;background:#060b11;border-right:1px solid var(--border);overflow-y:auto;}
 .desktop-right{display:none;flex:1;flex-direction:column;align-items:center;padding:24px 20px;overflow-y:auto;gap:14px;background:#060b11;border-left:1px solid var(--border);min-width:260px;max-width:380px;}
 
@@ -74,6 +80,20 @@ body{background:var(--bg);color:var(--text);font-size:13px;}
   .mod-item:hover{transform:translateY(-2px);box-shadow:0 6px 20px #0ea5e920;}
 }
 
+/* ── Very small phones (≤ 375px) ── */
+@media(max-width:375px){
+  body{font-size:12px;}
+  .check-card{padding:9px 10px;}
+  .chk-btns button{padding:9px 11px;font-size:10px;}
+  .label-sec{font-size:9px;margin:12px 0 8px;}
+  .pill{padding:7px 10px;font-size:10px;}
+  .btn-save{padding:14px;font-size:14px;}
+  .scrollable{padding:12px;padding-bottom:130px;}
+  .mod-item{padding:14px 8px 10px;}
+  .mod-icon{font-size:20px;}
+  .mod-name{font-size:10px;}
+}
+
 /* ═══════ WATERMARK ═══════ */
 .watermark{font-size:11px;font-weight:900;color:#0ea5e9;letter-spacing:3px;text-align:center;padding:5px 0;background:#0ea5e912;border-bottom:1px solid #0ea5e930;}
 
@@ -81,7 +101,9 @@ body{background:var(--bg);color:var(--text);font-size:13px;}
 .hdr{padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;}
 
 /* ═══════ SCROLLABLE ═══════ */
-.scrollable{flex:1;overflow-y:auto;padding:16px;padding-bottom:160px;}
+.scrollable{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px;padding-bottom:150px;}
+/* Admin panel scrollable — no footer button so less pb needed */
+.admin-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px;padding-bottom:24px;}
 
 /* ═══════ LABELS ═══════ */
 .label-sec{font-size:var(--font-xs);font-weight:800;color:var(--text3);margin:18px 0 10px;letter-spacing:1.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
@@ -104,14 +126,15 @@ body{background:var(--bg);color:var(--text);font-size:13px;}
 .btn-ot-close{background:var(--green);color:white;border:none;padding:10px;border-radius:8px;font-weight:800;font-size:11px;cursor:pointer;width:100%;margin-top:8px;}
 
 /* ═══════ CHECK CARDS ═══════ */
-.check-card{background:var(--card);border:1px solid var(--border);padding:12px 14px;border-radius:10px;margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;}
-.chk-btns{display:flex;gap:6px;}
+.check-card{background:var(--card);border:1px solid var(--border);padding:11px 12px;border-radius:10px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.chk-btns{display:flex;gap:5px;flex-shrink:0;}
+.check-card b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
 .chk-btns button{padding:10px 13px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-weight:800;font-size:11px;cursor:pointer;}
 .asi{background:#22c55e15!important;border-color:var(--green)!important;color:var(--green)!important;}
 .ano{background:#ef444415!important;border-color:var(--red)!important;color:var(--red)!important;}
 
 /* ═══════ PILLS ═══════ */
-.pill-grid{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.pill-grid{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;max-width:100%;}
 .pill{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:9px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;}
 .pill.active{background:var(--accent);color:white;border-color:var(--accent);}
 
@@ -119,8 +142,8 @@ body{background:var(--bg);color:var(--text);font-size:13px;}
 .inp{width:100%;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;color:white;font-size:15px;margin-bottom:14px;outline:none;resize:none;}
 
 /* ═══════ BUTTONS ═══════ */
-.footer-fixed{position:absolute;bottom:0;left:0;right:0;padding:16px;background:linear-gradient(transparent,var(--bg) 40%);z-index:10;}
-.btn-save{width:100%;padding:17px;background:var(--green);color:white;border:none;border-radius:16px;font-weight:900;font-size:15px;cursor:pointer;}
+.footer-fixed{position:absolute;bottom:0;left:0;right:0;padding:12px 14px;background:linear-gradient(transparent,var(--bg) 35%);z-index:10;}
+.btn-save{width:100%;padding:15px;background:var(--green);color:white;border:none;border-radius:14px;font-weight:900;font-size:15px;cursor:pointer;}
 .btn-save:disabled{opacity:.2;filter:grayscale(1);cursor:not-allowed;}
 .btn-xl{width:100%;padding:14px;background:var(--accent);color:white;border-radius:12px;border:none;font-weight:800;margin-top:10px;cursor:pointer;}
 .btn-lote-group{display:flex;gap:10px;margin-bottom:16px;}
@@ -474,104 +497,188 @@ function Sel({label,items,active,onSelect}){
 
 /* ── Selector con conteo del equipo + marca del usuario propio ──
    done     = array de ubicaciones ya visitadas por ESTE usuario hoy
-   counts   = { ubicacion: N } visitas TOTALES del equipo hoy (todos los técnicos)
+   counts   = { ubicacion: N } visitas TOTALES del equipo hoy
 */
 function SelEst({label,items,active,onSelect,done=[],counts={}}){
   const sorted=[...items].sort((a,b)=>a.localeCompare(b,"es"));
-  const totalHecho=done.length;
-  // Paleta de intensidad para el conteo del equipo
-  const HEAT=[
-    {bg:'var(--card)',   b:'var(--border)',   t:'var(--muted)'},   // 0 visitas
-    {bg:'#22c55e15',     b:'#22c55e70',       t:'#22c55e'},        // 1
-    {bg:'#0ea5e915',     b:'#0ea5e970',       t:'#0ea5e9'},        // 2
-    {bg:'#f9731615',     b:'#f9731670',       t:'#f97316'},        // 3+
-  ];
+  const miosTotal=done.length;
+  const equipoTotal=Object.values(counts).reduce((s,n)=>s+n,0);
+
   return(
     <div>
-      <div className="label-sec" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+      {/* Header con resumen */}
+      <div className="label-sec" style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
         {label}
-        <span style={{fontSize:9,color:'var(--green)',fontWeight:700,background:'#22c55e15',padding:'2px 7px',borderRadius:10}}>✓ {totalHecho} míos</span>
-        {Object.keys(counts).length>0&&<span style={{fontSize:9,color:'var(--accent)',fontWeight:700,background:'#0ea5e915',padding:'2px 7px',borderRadius:10}}>👥 {Object.values(counts).reduce((s,n)=>s+n,0)} equipo</span>}
+        {miosTotal>0&&(
+          <span style={{fontSize:9,fontWeight:800,background:'#22c55e20',color:'#22c55e',
+            border:'1px solid #22c55e40',padding:'2px 7px',borderRadius:10}}>
+            ✓ {miosTotal} míos
+          </span>
+        )}
+        {equipoTotal>0&&(
+          <span style={{fontSize:9,fontWeight:800,background:'#0ea5e915',color:'var(--accent)',
+            border:'1px solid #0ea5e930',padding:'2px 7px',borderRadius:10}}>
+            👥 {equipoTotal} equipo
+          </span>
+        )}
       </div>
+
       <div className="pill-grid">
         {sorted.map(i=>{
-          const yoLo=done.includes(i);
-          const n=counts[i]||0;
-          const s=active===i;
-          const heat=HEAT[Math.min(n,HEAT.length-1)];
+          const yoLo=done.includes(i);   // yo lo revisé
+          const n=counts[i]||0;           // total del equipo
+          const s=active===i;             // seleccionado ahora
+
+          // Color según estado
+          // Prioridad: seleccionado > yo lo hice > equipo lo hizo > sin revisar
+          const bg=s?'var(--accent)':yoLo?'#22c55e20':n>0?'#0ea5e910':'var(--card)';
+          const brd=s?'2px solid var(--accent)'
+            :yoLo?'2px solid #22c55e60'
+            :n>0?'1px solid #0ea5e940'
+            :'1px solid var(--border)';
+          const textC=s?'white':yoLo?'#22c55e':n>0?'var(--accent)':'var(--muted)';
+
+          // Badge: si yo lo hice → ✓ verde; si solo el equipo → número azul
+          const badgeBg=yoLo?'#22c55e':'#0ea5e9';
+          const badgeText=yoLo?'✓':String(n);
+          const showBadge=!s&&(yoLo||n>0);
+
           return(
             <button key={i} onClick={()=>onSelect(i)} style={{
               padding:'9px 12px',borderRadius:20,fontSize:11,fontWeight:700,cursor:'pointer',
-              position:'relative',
-              border:s?'2px solid var(--accent)':yoLo?'2px solid #22c55e80':`1px solid ${n>0?heat.b:'var(--border)'}`,
-              background:s?'var(--accent)':yoLo?'#22c55e18':n>0?heat.bg:'var(--card)',
-              color:s?'white':yoLo?'var(--green)':n>0?heat.t:'var(--muted)',
+              position:'relative',border:brd,background:bg,color:textC,
+              transition:'all .15s',
             }}>
-              {/* Marca de propio (✓) visible solo si no está seleccionado */}
-              {yoLo&&!s&&<span style={{marginRight:3,fontSize:10}}>✓</span>}
               {i}
-              {/* Badge de conteo del equipo */}
-              {n>0&&!s&&(
+              {showBadge&&(
                 <span style={{
-                  position:'absolute',top:-6,right:-6,
-                  background:yoLo?'#22c55e':heat.t,color:'white',
-                  borderRadius:'50%',minWidth:16,height:16,fontSize:9,fontWeight:900,
+                  position:'absolute',top:-7,right:-7,
+                  background:badgeBg,color:'white',
+                  borderRadius:'50%',minWidth:17,height:17,
+                  fontSize:yoLo?11:9,fontWeight:900,
                   display:'flex',alignItems:'center',justifyContent:'center',
                   border:'2px solid var(--bg)',lineHeight:1,padding:'0 2px',
-                }}>{n}</span>
+                  boxShadow:`0 0 6px ${badgeBg}60`,
+                }}>{badgeText}</span>
               )}
             </button>
           );
         })}
       </div>
+
+      {/* Leyenda compacta */}
+      {(miosTotal>0||equipoTotal>0)&&(
+        <div style={{display:'flex',gap:10,marginTop:6,flexWrap:'wrap'}}>
+          {miosTotal>0&&<span style={{fontSize:8,color:'#22c55e',display:'flex',alignItems:'center',gap:3}}>
+            <span style={{width:10,height:10,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>
+            Revisado por mí
+          </span>}
+          {equipoTotal>miosTotal&&<span style={{fontSize:8,color:'var(--accent)',display:'flex',alignItems:'center',gap:3}}>
+            <span style={{width:10,height:10,borderRadius:'50%',background:'#0ea5e9',display:'inline-block'}}/>
+            Revisado por el equipo
+          </span>}
+        </div>
+      )}
     </div>
   );
 }
 
-/* ── Selector de limpieza con conteo de veces ── */
-function SelCnt({label,items,active,onSelect,counts={}}){
+/* ── Selector de limpieza con conteo de veces + distinción yo/equipo/estado ──
+   counts     = { ubicacion: N } total limpiezas hoy (equipo completo)
+   countsMios = { ubicacion: N } limpiezas del usuario actual hoy
+   lastStatus = { ubicacion: "LIMPIO"|"PENDIENTE"|"REQUIERE ATENCIÓN" } último estado
+*/
+function SelCnt({label,items,active,onSelect,counts={},countsMios={},lastStatus={}}){
   const sorted=[...items].sort((a,b)=>a.localeCompare(b,"es"));
-  const HEAT=[
-    {bg:'var(--card)',   b:'var(--border)',   t:'var(--muted)'},
-    {bg:'#22c55e15',     b:'#22c55e70',       t:'#22c55e'},
-    {bg:'#0ea5e915',     b:'#0ea5e970',       t:'#0ea5e9'},
-    {bg:'#f9731615',     b:'#f9731670',       t:'#f97316'},
-    {bg:'#a855f715',     b:'#a855f770',       t:'#a855f7'},
-  ];
   const total=Object.values(counts).reduce((s,n)=>s+n,0);
+  const totalMios=Object.values(countsMios).reduce((s,n)=>s+n,0);
+
+  // Color del pill según conteo y estado
+  const getPillStyle=(i,s)=>{
+    const n=counts[i]||0;
+    const mio=countsMios[i]||0;
+    const status=lastStatus[i];
+    if(s) return{bg:'var(--accent)',brd:'2px solid var(--accent)',txt:'white'};
+    if(status==="REQUIERE ATENCIÓN") return{bg:'#ef444412',brd:'1.5px solid #ef444450',txt:'#ef4444'};
+    if(status==="PENDIENTE")         return{bg:'#f59e0b12',brd:'1.5px solid #f59e0b50',txt:'#f59e0b'};
+    if(mio>0)  return{bg:'#22c55e12',brd:'2px solid #22c55e50',txt:'#22c55e'};
+    if(n>0)    return{bg:'#0ea5e910',brd:'1px solid #0ea5e940',txt:'#0ea5e9'};
+    return{bg:'var(--card)',brd:'1px solid var(--border)',txt:'var(--muted)'};
+  };
+
+  // Ícono/texto del badge
+  const getBadge=(i)=>{
+    const n=counts[i]||0;
+    const mio=countsMios[i]||0;
+    const status=lastStatus[i];
+    if(status==="REQUIERE ATENCIÓN") return{show:true,txt:'!',bg:'#ef4444'};
+    if(status==="PENDIENTE")         return{show:true,txt:'⏳',bg:'#f59e0b',sz:10};
+    if(mio>0&&n===mio)               return{show:true,txt:'✓',bg:'#22c55e',sz:11};  // solo yo limpié
+    if(n>0)                          return{show:true,txt:String(n),bg:mio>0?'#22c55e':'#0ea5e9'}; // número total
+    return{show:false};
+  };
+
   return(
     <div>
-      <div className="label-sec" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+      <div className="label-sec" style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
         {label}
-        {total>0&&<span style={{fontSize:9,color:'#fbbf24',fontWeight:700,background:'#fbbf2415',padding:'2px 7px',borderRadius:10}}>🧹 {total} limpiezas hoy</span>}
+        {totalMios>0&&(
+          <span style={{fontSize:9,fontWeight:800,background:'#22c55e20',color:'#22c55e',border:'1px solid #22c55e40',padding:'2px 7px',borderRadius:10}}>
+            ✓ {totalMios} míos
+          </span>
+        )}
+        {total>0&&(
+          <span style={{fontSize:9,fontWeight:800,background:'#fbbf2415',color:'#fbbf24',border:'1px solid #fbbf2430',padding:'2px 7px',borderRadius:10}}>
+            🧹 {total} hoy
+          </span>
+        )}
       </div>
+
       <div className="pill-grid">
         {sorted.map(i=>{
-          const n=counts[i]||0;
-          const c=HEAT[Math.min(n,HEAT.length-1)];
           const s=active===i;
+          const ps=getPillStyle(i,s);
+          const badge=getBadge(i);
           return(
             <button key={i} onClick={()=>onSelect(i)} style={{
               padding:'9px 12px',borderRadius:20,fontSize:11,fontWeight:700,cursor:'pointer',
-              position:'relative',
-              border:s?'2px solid var(--accent)':`1px solid ${c.b}`,
-              background:s?'var(--accent)':c.bg,
-              color:s?'white':c.t,
+              position:'relative',border:ps.brd,background:ps.bg,color:ps.txt,
+              transition:'all .15s',
             }}>
               {i}
-              {n>0&&!s&&(
+              {!s&&badge.show&&(
                 <span style={{
-                  position:'absolute',top:-6,right:-6,
-                  background:c.t,color:'white',
-                  borderRadius:'50%',minWidth:16,height:16,fontSize:9,fontWeight:900,
+                  position:'absolute',top:-7,right:-7,
+                  background:badge.bg,color:'white',
+                  borderRadius:'50%',minWidth:17,height:17,
+                  fontSize:badge.sz||9,fontWeight:900,
                   display:'flex',alignItems:'center',justifyContent:'center',
                   border:'2px solid var(--bg)',lineHeight:1,padding:'0 2px',
-                }}>{n}</span>
+                  boxShadow:`0 0 6px ${badge.bg}60`,
+                }}>{badge.txt}</span>
               )}
             </button>
           );
         })}
       </div>
+
+      {/* Leyenda */}
+      {total>0&&(
+        <div style={{display:'flex',gap:10,marginTop:6,flexWrap:'wrap'}}>
+          {totalMios>0&&<span style={{fontSize:8,color:'#22c55e',display:'flex',alignItems:'center',gap:3}}>
+            <span style={{width:10,height:10,borderRadius:'50%',background:'#22c55e',display:'inline-block'}}/>Limpiado por mí
+          </span>}
+          {total>totalMios&&<span style={{fontSize:8,color:'#0ea5e9',display:'flex',alignItems:'center',gap:3}}>
+            <span style={{width:10,height:10,borderRadius:'50%',background:'#0ea5e9',display:'inline-block'}}/>Limpiado por equipo
+          </span>}
+          {Object.values(lastStatus).includes("PENDIENTE")&&<span style={{fontSize:8,color:'#f59e0b',display:'flex',alignItems:'center',gap:3}}>
+            <span style={{width:10,height:10,borderRadius:'50%',background:'#f59e0b',display:'inline-block'}}/>Pendiente
+          </span>}
+          {Object.values(lastStatus).includes("REQUIERE ATENCIÓN")&&<span style={{fontSize:8,color:'#ef4444',display:'flex',alignItems:'center',gap:3}}>
+            <span style={{width:10,height:10,borderRadius:'50%',background:'#ef4444',display:'inline-block'}}/>Requiere atención
+          </span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -692,6 +799,14 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
   const[alertaConfig,setAlertaConfig]=useState({umbralFallas:3,umbralOTs:2,umbralInactividad:60,activa:true});
   const[reporteFecha,setReporteFecha]=useState(()=>getFechaActual());
   const[bitacora,setBitacora]=useState([]);
+  const[adminCamRevs,setAdminCamRevs]=useState([]);
+  const[adminCamEstado,setAdminCamEstado]=useState(null);
+  const[busquedaActividad,setBusquedaActividad]=useState("");
+  const[paginaActividad,setPaginaActividad]=useState(0);
+  const[busquedaSesion,setBusquedaSesion]=useState("");
+  const[filtroSesionUser,setFiltroSesionUser]=useState("Todos");
+  const[notaPrioridad,setNotaPrioridad]=useState("normal");
+  const[tabBitacora,setTabBitacora]=useState(false);
   const[permEditU,setPermEditU]=useState(null);
   const[permLocal,setPermLocal]=useState({});
   // ── Config listas
@@ -799,6 +914,21 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
       if(d) setAlertaConfig(d);
     });
     return()=>unsub();
+  },[fb]);
+
+  // ── Suscribir cam_revisiones y cam_estado en AdminPanel
+  useEffect(()=>{
+    if(!fb)return;
+    const u1=fb.onValue(fb.ref(fb.db,"cam_revisiones"),snap=>{
+      const d=snap.val();
+      if(d) setAdminCamRevs(Object.entries(d).map(([k,v])=>({...v,_fbKey:k})).sort((a,b)=>(b.ts||0)-(a.ts||0)));
+      else setAdminCamRevs([]);
+    });
+    const u2=fb.onValue(fb.ref(fb.db,"cam_estado"),snap=>{
+      const d=snap.val();
+      setAdminCamEstado(d||null);
+    });
+    return()=>{u1();u2();};
   },[fb]);
 
   // ── Cargar bitácora de acciones admin
@@ -1061,7 +1191,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
 
   // ── Stats
   const ayer=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toLocaleDateString("es");})();
-  const semana=(()=>{const d=new Date();d.setDate(d.getDate()-6);return d.toLocaleDateString("es");})();
+  // semana removed — unused
   const hoyH=history.filter(h=>h.FECHA===hoy);
   const ayerH=history.filter(h=>h.FECHA===ayer);
   const nosHoy=hoyH.reduce((a,h)=>{ALLCHK.forEach(c=>{if(h[fk(c.label)]==="NO")a++;});return a;},0);
@@ -1157,7 +1287,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
   const agregarNota=async()=>{
     if(!nuevaNota.trim())return;
     const ahora=new Date();
-    await fb.push(fb.ref(fb.db,"admin_notas"),{texto:nuevaNota.trim(),fecha:ahora.toLocaleDateString("es"),hora:ahora.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"}),ts:Date.now()});
+    await fb.push(fb.ref(fb.db,"admin_notas"),{texto:nuevaNota.trim(),prioridad:notaPrioridad,fecha:ahora.toLocaleDateString("es"),hora:ahora.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"}),ts:Date.now()});
     setNuevaNota("");
     showMsg("ok","📌 Nota guardada");
   };
@@ -1207,6 +1337,8 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
   const BTN={background:"none",border:"none",cursor:"pointer"};
   const TABS=[
     {id:"dash",icon:"📊",label:"Dashboard"},
+    {id:"estado",icon:"🚦",label:"Estado"},
+    {id:"camaras_admin",icon:"📹",label:"Cámaras"},
     {id:"usuarios",icon:"👥",label:"Usuarios"},
     {id:"permisos",icon:"🛡",label:"Permisos"},
     {id:"config",icon:"⚙️",label:"Config"},
@@ -1218,6 +1350,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
     {id:"alertas",icon:"🔔",label:"Alertas"},
     {id:"reporte",icon:"📄",label:"Reporte"},
     {id:"notas",icon:"📌",label:"Notas"},
+    {id:"bitacora",icon:"📜",label:"Bitácora"},
   ];
 
   return(
@@ -1240,7 +1373,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
           </div>
         </div>
         {/* TABS */}
-        <div style={{display:"flex",overflowX:"auto"}}>
+        <div style={{display:"flex",overflowX:"auto",WebkitOverflowScrolling:"touch",scrollbarWidth:"none",msOverflowStyle:"none"}}>
           {TABS.map(t=>(
             <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:"0 0 auto",padding:"8px 10px",border:"none",background:"transparent",cursor:"pointer",borderBottom:tab===t.id?`2px solid ${AA}`:"2px solid transparent",minWidth:52,position:"relative"}}>
               <div style={{fontSize:16}}>{t.icon}</div>
@@ -1266,7 +1399,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
         </div>
       )}
 
-      <div className="scrollable">
+      <div className="admin-scroll">
         {msg&&<div style={{background:msg.t==="ok"?"#22c55e18":"#ef444418",border:`1px solid ${msg.t==="ok"?"#22c55e50":"#ef444450"}`,borderRadius:10,padding:"10px 14px",marginBottom:12,fontSize:12,fontWeight:700,color:msg.t==="ok"?"#22c55e":"#ef4444",textAlign:"center"}}>{msg.m}</div>}
 
         {/* ════════════════ DASHBOARD ════════════════ */}
@@ -1410,6 +1543,206 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
             })}
           </div>
         )}
+
+        {/* ════════════════ ESTADO DEL SISTEMA ════════════════ */}
+        {tab==="estado"&&(()=>{
+          // ── Datos para los semáforos
+          const ahora=Date.now();
+          const otsAbiertas=activeOTs.filter(o=>o.tipo!=="cam_revision"&&o.tipo!=="cam_escalamiento");
+          const otMasAntigua=otsAbiertas.length>0?otsAbiertas.reduce((a,b)=>(a._ts||0)<(b._ts||0)?a:b):null;
+          const minOT=otMasAntigua?Math.floor((ahora-(otMasAntigua._ts||ahora))/60000):0;
+
+          // Última actividad por usuario (de history)
+          const ultimaAct={};
+          history.forEach(r=>{if(!ultimaAct[r.USUARIO]||r._ts>ultimaAct[r.USUARIO]._ts)ultimaAct[r.USUARIO]=r;});
+
+          // Vales abiertos (sin regreso)
+          const valesAbiertos=vales.filter(v=>!v.regreso&&v.fecha===hoy);
+
+          // Revisiones de cajeros/entradas/salidas hoy
+          const revHoy=hoyH.filter(r=>["Cajero","Entrada","Salida"].includes(r.MODULO));
+          const fallosHoy=hoyH.filter(r=>{let f=false;ALLCHK.forEach(c=>{if(r[fk(c.label)]==="NO")f=true;});return f;});
+
+          // Cámaras — se obtienen del estado global (camPendiente no disponible aquí, usamos activeOTs)
+          const camPend=activeOTs.some(o=>o.tipo==="cam_revision");
+
+          // Técnicos con acceso (no Monitoreo, no Vicente)
+          const tecnicosList=usuarios.filter(u=>u.activo&&u.nombre!=="Vicente"&&u.rol!=="Monitoreo");
+          const tecnicosOnline=tecnicosList.filter(u=>onlineU.includes(u.nombre));
+          const tecnicosOffline=tecnicosList.filter(u=>!onlineU.includes(u.nombre));
+
+          // Helper semáforo
+          const sem=(ok,warn,val)=>ok?"#22c55e":warn?"#f59e0b":"#ef4444";
+          const semIcon=(ok,warn)=>ok?"🟢":warn?"🟡":"🔴";
+
+          // Inactividad: tiempo desde último registro de cada técnico
+          const inactividad=(nombre)=>{
+            const u=ultimaAct[nombre];
+            if(!u||!u._ts)return null;
+            return Math.floor((ahora-u._ts)/60000);
+          };
+
+          const SEMAFOROS=[
+            {
+              titulo:"OTs Abiertas",
+              icon:"🔧",
+              valor:otsAbiertas.length===0?"Todo cerrado":`${otsAbiertas.length} orden${otsAbiertas.length!==1?"es":""}${minOT>0?` · más antigua: ${minOT}m`:""}`,
+              color:otsAbiertas.length===0?"#22c55e":minOT>30?"#ef4444":"#f59e0b",
+              dot:otsAbiertas.length===0?"🟢":minOT>30?"🔴":"🟡",
+              detalle:otsAbiertas.length>0?otsAbiertas.map(o=>`${o.ot_id} — ${o.loc}`).join(" · "):"Sin órdenes pendientes",
+              accion:otsAbiertas.length>0?{label:"Ver Órdenes",tab:"ordenes"}:null,
+            },
+            {
+              titulo:"Personal en Línea",
+              icon:"👥",
+              valor:`${tecnicosOnline.length}/${tecnicosList.length} conectado${tecnicosOnline.length!==1?"s":""}`,
+              color:tecnicosOnline.length===tecnicosList.length?"#22c55e":tecnicosOnline.length>0?"#f59e0b":"#ef4444",
+              dot:tecnicosOnline.length===tecnicosList.length?"🟢":tecnicosOnline.length>0?"🟡":"🔴",
+              detalle:tecnicosOffline.length>0?`Desconectado${tecnicosOffline.length!==1?"s":""}: ${tecnicosOffline.map(u=>u.nombre).join(", ")}`:"Todo el equipo conectado",
+            },
+            {
+              titulo:"Actividad Hoy",
+              icon:"📋",
+              valor:hoyH.length===0?"Sin registros":`${hoyH.length} registro${hoyH.length!==1?"s":""}`,
+              color:hoyH.length>10?"#22c55e":hoyH.length>0?"#f59e0b":"#ef4444",
+              dot:hoyH.length>10?"🟢":hoyH.length>0?"🟡":"🔴",
+              detalle:hoyH.length>0?`${revHoy.length} recorridos · ${otsCerradas} OTs cerradas · ${fallosHoy.length} con fallas`:"No hay registros del día",
+              accion:hoyH.length>0?{label:"Ver Actividad",tab:"actividad"}:null,
+            },
+            {
+              titulo:"Fallas Detectadas",
+              icon:"⚠️",
+              valor:nosHoy===0?"Sin fallas hoy":`${nosHoy} falla${nosHoy!==1?"s":""} (${100-pctOK}% del total)`,
+              color:nosHoy===0?"#22c55e":nosHoy<5?"#f59e0b":"#ef4444",
+              dot:nosHoy===0?"🟢":nosHoy<5?"🟡":"🔴",
+              detalle:nosHoy>0?(topFallas.slice(0,3).map(([e,n])=>`${e}: ${n}`).join(" · ")):"Todos los equipos en orden",
+            },
+            {
+              titulo:"Valet / Almuerzos",
+              icon:"🍽",
+              valor:valesAbiertos.length===0?"Todos han regresado":`${valesAbiertos.length} persona${valesAbiertos.length!==1?"s":""} fuera`,
+              color:valesAbiertos.length===0?"#22c55e":valesAbiertos.some(v=>{
+                const p=vales.find(x=>x.nombre===v.persona);
+                const max=v.tipo==="almuerzo"?(p?.minA||65):(p?.minC||15);
+                const[sh,sm]=(v.salida||"0:0").split(":").map(Number);
+                const[ah,am]=valetClock.split(":").map(Number);
+                return(ah*60+am)-(sh*60+sm)>max;
+              })?"#ef4444":"#f59e0b",
+              dot:valesAbiertos.length===0?"🟢":valesAbiertos.some(v=>{
+                const p=vales.find(x=>x.nombre===v.persona);
+                const max=v.tipo==="almuerzo"?(p?.minA||65):(p?.minC||15);
+                const[sh,sm]=(v.salida||"0:0").split(":").map(Number);
+                const[ah,am]=valetClock.split(":").map(Number);
+                return(ah*60+am)-(sh*60+sm)>max;
+              })?"🔴":"🟡",
+              detalle:valesAbiertos.length>0?valesAbiertos.map(v=>`${v.persona} (${v.tipo})`).join(", "):"Sin personal fuera",
+              accion:valesAbiertos.length>0?{label:"Ver Valet",tab:"valet"}:null,
+            },
+          ];
+
+          // Inactividad de técnicos online
+          const inacList=tecnicosOnline.map(u=>({nombre:u.nombre,min:inactividad(u.nombre)||0})).sort((a,b)=>b.min-a.min);
+
+          const globalOK=SEMAFOROS.every(s=>s.color==="#22c55e");
+          const globalCrit=SEMAFOROS.some(s=>s.color==="#ef4444");
+
+          return(
+            <div>
+              {/* Banner global */}
+              <div style={{
+                background:globalOK?"linear-gradient(135deg,#052e16,#0d2b10)":globalCrit?"linear-gradient(135deg,#1a0808,#2d0e0e)":"linear-gradient(135deg,#1a1200,#2d1f00)",
+                border:`1.5px solid ${globalOK?"#22c55e":globalCrit?"#ef4444":"#f59e0b"}`,
+                borderRadius:14,padding:"14px 16px",marginBottom:16,
+                display:"flex",alignItems:"center",gap:12,
+              }}>
+                <div style={{fontSize:32}}>{globalOK?"✅":globalCrit?"🚨":"⚠️"}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:900,color:globalOK?"#22c55e":globalCrit?"#ef4444":"#f59e0b"}}>
+                    {globalOK?"Sistema operando normalmente":globalCrit?"Atención requerida":"Revisar puntos en amarillo"}
+                  </div>
+                  <div style={{fontSize:9,color:"var(--muted)",marginTop:2,fontWeight:700}}>
+                    {valetClock} · {hoy} · {onlineU.length} usuario{onlineU.length!==1?"s":""} en línea
+                  </div>
+                </div>
+                <div style={{textAlign:"center",flexShrink:0}}>
+                  <div style={{fontSize:20,fontWeight:900,color:globalOK?"#22c55e":globalCrit?"#ef4444":"#f59e0b"}}>
+                    {SEMAFOROS.filter(s=>s.color==="#22c55e").length}/{SEMAFOROS.length}
+                  </div>
+                  <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>OK</div>
+                </div>
+              </div>
+
+              {/* Semáforos */}
+              {SEMAFOROS.map((s,i)=>(
+                <div key={i} style={{
+                  background:"var(--card)",
+                  border:`1px solid ${s.color}40`,
+                  borderLeft:`4px solid ${s.color}`,
+                  borderRadius:12,padding:"12px 14px",marginBottom:9,
+                }}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+                    <span style={{fontSize:20,flexShrink:0}}>{s.dot}</span>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div style={{fontSize:12,fontWeight:900,color:s.color}}>{s.titulo}</div>
+                        {s.accion&&(
+                          <button onClick={()=>setTab(s.accion.tab)}
+                            style={{fontSize:9,fontWeight:800,background:`${s.color}20`,border:`1px solid ${s.color}50`,color:s.color,padding:"2px 8px",borderRadius:8,cursor:"pointer"}}>
+                            {s.accion.label} →
+                          </button>
+                        )}
+                      </div>
+                      <div style={{fontSize:12,fontWeight:800,color:"var(--text)",marginTop:1}}>{s.valor}</div>
+                    </div>
+                  </div>
+                  <div style={{fontSize:9,color:"var(--muted)",lineHeight:1.5,paddingLeft:30}}>{s.detalle}</div>
+                </div>
+              ))}
+
+              {/* Inactividad de técnicos */}
+              {inacList.length>0&&(
+                <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"14px",marginBottom:12}}>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--muted)",letterSpacing:1,marginBottom:10}}>⏱ INACTIVIDAD — TÉCNICOS EN LÍNEA</div>
+                  {inacList.map(({nombre,min})=>{
+                    const c=min<20?"#22c55e":min<60?"#f59e0b":"#ef4444";
+                    const label=min<1?"activo ahora":`${min>=60?`${Math.floor(min/60)}h `:""}${min%60}m sin registrar`;
+                    return(
+                      <div key={nombre} style={{display:"flex",alignItems:"center",gap:10,marginBottom:7}}>
+                        <span style={{fontSize:14}}>{IU[nombre]||"👤"}</span>
+                        <div style={{flex:1}}>
+                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                            <span style={{fontSize:11,fontWeight:800,color:CU[nombre]||"var(--text)"}}>{nombre}</span>
+                            <span style={{fontSize:10,fontWeight:900,color:c}}>{label}</span>
+                          </div>
+                          <div style={{height:4,background:"var(--border)",borderRadius:3,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${Math.min(100,Math.round((min/60)*100))}%`,background:c,borderRadius:3,transition:"width 1s"}}/>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Técnicos offline */}
+              {tecnicosOffline.length>0&&(
+                <div style={{background:"#1a0808",border:"1px solid #ef444430",borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+                  <div style={{fontSize:10,fontWeight:800,color:"#ef4444",marginBottom:8,letterSpacing:1}}>🔴 DESCONECTADOS</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                    {tecnicosOffline.map(u=>(
+                      <div key={u.nombre} style={{display:"flex",alignItems:"center",gap:5,background:"#ef444415",border:"1px solid #ef444430",borderRadius:20,padding:"4px 10px"}}>
+                        <span style={{fontSize:12}}>{u.icon||"👤"}</span>
+                        <span style={{fontSize:11,fontWeight:800,color:"#fca5a5"}}>{u.nombre}</span>
+                        {(()=>{const m=inactividad(u.nombre);return m!=null?<span style={{fontSize:9,color:"#ef4444aa"}}>({m>=60?`${Math.floor(m/60)}h`:`${m}m`})</span>:null;})()}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          );
+        })()}
 
         {/* ════════════════ USUARIOS ════════════════ */}
         {tab==="usuarios"&&(
@@ -1882,9 +2215,16 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
             {cfgSec==="camaras"&&(
               <div>
                 <div style={{fontSize:13,fontWeight:900,color:"#06b6d4",marginBottom:14}}>📹 CONFIGURACIÓN DE CÁMARAS</div>
+                {/* Aviso: intervalo fijo */}
+                <div style={{background:"#0ea5e910",border:"1px solid #0ea5e930",borderRadius:12,padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:20}}>⏱</span>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:900,color:"var(--accent)"}}>Intervalo fijo: 30 minutos</div>
+                    <div style={{fontSize:10,color:"var(--muted)",marginTop:2,lineHeight:1.5}}>El cronómetro se reinicia cada 30 min automáticamente, sin importar si se atendió o no. La revisión pendiente queda activa hasta que Monitoreo la registre.</div>
+                  </div>
+                </div>
+                {/* Solo horario es configurable */}
                 {[
-                  {k:"intervalo",l:"⏱ Intervalo entre revisiones",unit:"min",min:10,max:120,step:5},
-                  {k:"escalamiento",l:"🚨 Tiempo para escalamiento",unit:"min",min:5,max:30,step:5},
                   {k:"horaInicio",l:"🌅 Hora inicio monitoreo",unit:"h",min:6,max:12,step:0.5},
                   {k:"horaFin",l:"🌙 Hora fin monitoreo",unit:"h",min:18,max:23.5,step:0.5},
                 ].map(({k,l,unit,min,max,step})=>(
@@ -1892,9 +2232,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                       <span style={{fontSize:11,fontWeight:700}}>{l}</span>
                       <span style={{fontSize:15,fontWeight:900,color:"#06b6d4"}}>
-                        {k==="horaInicio"||k==="horaFin"
-                          ? `${String(Math.floor(camConfig[k])).padStart(2,"0")}:${camConfig[k]%1===0.5?"30":"00"}`
-                          : `${camConfig[k]} ${unit}`}
+                        {`${String(Math.floor(camConfig[k])).padStart(2,"0")}:${camConfig[k]%1===0.5?"30":"00"}`}
                       </span>
                     </div>
                     <input type="range" min={min} max={max} step={step} value={camConfig[k]}
@@ -1907,9 +2245,8 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                   </div>
                 ))}
                 <div style={{background:"#06b6d410",border:"1px solid #06b6d430",borderRadius:10,padding:"10px",marginBottom:14,fontSize:10,color:"var(--muted)",lineHeight:1.6}}>
-                  ⏱ Revisión cada <b style={{color:"#06b6d4"}}>{camConfig.intervalo} min</b> · 
-                  🌅 De <b style={{color:"#06b6d4"}}>{String(Math.floor(camConfig.horaInicio)).padStart(2,"0")}:{camConfig.horaInicio%1===0.5?"30":"00"}</b> a <b style={{color:"#06b6d4"}}>{String(Math.floor(camConfig.horaFin)).padStart(2,"0")}:{camConfig.horaFin%1===0.5?"30":"00"}</b> · 
-                  🚨 Escala en <b style={{color:"#06b6d4"}}>{camConfig.escalamiento} min</b> sin respuesta
+                  ⏱ Revisión cada <b style={{color:"#06b6d4"}}>30 min</b> · 
+                  🌅 De <b style={{color:"#06b6d4"}}>{String(Math.floor(camConfig.horaInicio)).padStart(2,"0")}:{camConfig.horaInicio%1===0.5?"30":"00"}</b> a <b style={{color:"#06b6d4"}}>{String(Math.floor(camConfig.horaFin)).padStart(2,"0")}:{camConfig.horaFin%1===0.5?"30":"00"}</b>
                 </div>
                 <button
                   onClick={async()=>{
@@ -1982,36 +2319,55 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
         {/* ════════════════ ACTIVIDAD ════════════════ */}
         {tab==="actividad"&&(
           <div>
-            {/* Filtros */}
+            {/* Búsqueda + Filtros */}
             <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"12px",marginBottom:12}}>
-              <div style={{fontSize:10,fontWeight:800,color:"var(--muted)",marginBottom:8}}>🔍 FILTROS</div>
+              <input
+                type="text"
+                placeholder="🔍 Buscar por ubicación, usuario, notas, módulo..."
+                value={busquedaActividad}
+                onChange={e=>{setBusquedaActividad(e.target.value);setPaginaActividad(0);}}
+                style={{width:"100%",background:"var(--bg)",border:"1px solid var(--accent)",borderRadius:9,padding:"10px 12px",color:"var(--text)",fontSize:12,outline:"none",marginBottom:9,fontFamily:"inherit"}}
+              />
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                <select style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px",color:"var(--text)",fontSize:11,outline:"none"}} value={filtroUser} onChange={e=>setFiltroUser(e.target.value)}>
+                <select style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px",color:"var(--text)",fontSize:11,outline:"none"}} value={filtroUser} onChange={e=>{setFiltroUser(e.target.value);setPaginaActividad(0);}}>
                   {nomUs.map(u=><option key={u}>{u}</option>)}
                 </select>
-                <select style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px",color:"var(--text)",fontSize:11,outline:"none"}} value={filtroMod} onChange={e=>setFiltroMod(e.target.value)}>
+                <select style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px",color:"var(--text)",fontSize:11,outline:"none"}} value={filtroMod} onChange={e=>{setFiltroMod(e.target.value);setPaginaActividad(0);}}>
                   {nomMs.map(m=><option key={m}>{m}</option>)}
                 </select>
               </div>
               <input type="date" style={{width:"100%",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px",color:"var(--text)",fontSize:12,outline:"none"}} value={filtroFecha} onChange={e=>{
-                // Convertir YYYY-MM-DD a formato local DD/M/YYYY para comparar con r.FECHA
-                if(e.target.value){
-                  const[y,m,d]=e.target.value.split("-").map(Number);
-                  setFiltroFecha(new Date(y,m-1,d).toLocaleDateString("es"));
-                } else {
-                  setFiltroFecha("");
-                }
+                if(e.target.value){const[y,m,d]=e.target.value.split("-").map(Number);setFiltroFecha(new Date(y,m-1,d).toLocaleDateString("es"));}
+                else setFiltroFecha("");
+                setPaginaActividad(0);
               }}/>
             </div>
+            {/* Barra de acciones */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-              <span style={{fontSize:11,fontWeight:800,color:"var(--muted)"}}>{regFiltrados.length} registros</span>
-              <div style={{display:"flex",gap:8}}>
-                {(filtroUser!=="Todos"||filtroMod!=="Todos"||filtroFecha)&&<button onClick={()=>{setFiltroUser("Todos");setFiltroMod("Todos");setFiltroFecha("");}} style={{fontSize:10,fontWeight:800,color:"#ef4444",background:"#ef444415",border:"1px solid #ef444430",padding:"5px 10px",borderRadius:8,cursor:"pointer"}}>✕ LIMPIAR</button>}
+              <span style={{fontSize:11,fontWeight:800,color:"var(--muted)"}}>
+                {(()=>{
+                  const q=busquedaActividad.trim().toLowerCase();
+                  const total=regFiltrados.filter(r=>!q||[r.USUARIO,r.MODULO,r.UBICACION,r.NOTAS,r.ACCION].some(v=>(v||"").toLowerCase().includes(q))).length;
+                  return total+" registro"+(total!==1?"s":"");
+                })()}
+              </span>
+              <div style={{display:"flex",gap:6}}>
+                {(filtroUser!=="Todos"||filtroMod!=="Todos"||filtroFecha||busquedaActividad)&&(
+                  <button onClick={()=>{setFiltroUser("Todos");setFiltroMod("Todos");setFiltroFecha("");setBusquedaActividad("");setPaginaActividad(0);}} style={{fontSize:10,fontWeight:800,color:"#ef4444",background:"#ef444415",border:"1px solid #ef444430",padding:"5px 10px",borderRadius:8,cursor:"pointer"}}>✕ LIMPIAR</button>
+                )}
                 <button onClick={exportarCSV} style={{fontSize:10,fontWeight:800,color:"#22c55e",background:"#22c55e15",border:"1px solid #22c55e30",padding:"5px 10px",borderRadius:8,cursor:"pointer"}}>📥 CSV</button>
               </div>
             </div>
-            {regFiltrados.length===0&&<div style={{color:"var(--muted)",textAlign:"center",padding:"30px 0",fontSize:12}}>Sin registros con estos filtros</div>}
-            {regFiltrados.slice(0,120).map((r,i)=>{ // muestra hasta 120 por rendimiento
+            {/* Lista paginada */}
+            {(()=>{
+              const POR_PAG=25;
+              const q=busquedaActividad.trim().toLowerCase();
+              const filtrados=regFiltrados.filter(r=>!q||[r.USUARIO,r.MODULO,r.UBICACION,r.NOTAS,r.ACCION].some(v=>(v||"").toLowerCase().includes(q)));
+              const totalPags=Math.ceil(filtrados.length/POR_PAG);
+              const pagina=filtrados.slice(paginaActividad*POR_PAG,(paginaActividad+1)*POR_PAG);
+              return(<>
+              {filtrados.length===0&&<div style={{color:"var(--muted)",textAlign:"center",padding:"30px 0",fontSize:12}}>Sin registros con estos filtros</div>}
+              {pagina.map((r,i)=>{
               const nos=ALLCHK.filter(c=>r[fk(c.label)]==="NO").map(c=>c.label);
               const m=MODS.find(x=>x.label===r.MODULO);
               const isOpen=expandReg===i;
@@ -2046,7 +2402,25 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                   )}
                 </div>
               );
-            })}
+              })}
+              {/* Controles de paginación */}
+              {totalPags>1&&(
+                <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:12,paddingTop:12,borderTop:"1px solid var(--border)"}}>
+                  <button onClick={()=>setPaginaActividad(p=>Math.max(0,p-1))} disabled={paginaActividad===0}
+                    style={{padding:"7px 14px",borderRadius:8,border:"1px solid var(--border)",background:"var(--card)",color:"var(--text)",fontWeight:900,fontSize:12,cursor:paginaActividad===0?"not-allowed":"pointer",opacity:paginaActividad===0?0.4:1}}>
+                    ←
+                  </button>
+                  <span style={{fontSize:11,fontWeight:800,color:"var(--muted)"}}>
+                    {paginaActividad+1} / {totalPags}
+                  </span>
+                  <button onClick={()=>setPaginaActividad(p=>Math.min(totalPags-1,p+1))} disabled={paginaActividad>=totalPags-1}
+                    style={{padding:"7px 14px",borderRadius:8,border:"1px solid var(--border)",background:"var(--card)",color:"var(--text)",fontWeight:900,fontSize:12,cursor:paginaActividad>=totalPags-1?"not-allowed":"pointer",opacity:paginaActividad>=totalPags-1?0.4:1}}>
+                    →
+                  </button>
+                </div>
+              )}
+              </>);
+            })()}
           </div>
         )}
 
@@ -2057,30 +2431,46 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
               <div className="label-sec" style={{margin:0}}>🔐 REGISTRO DE SESIONES</div>
               <button onClick={()=>setConfirm({icon:"🗑",titulo:"Limpiar sesiones antiguas",label:"Se eliminarán sesiones de más de 30 días",color:"#f97316",accion:"LIMPIAR",fn:limpiarSesiones})} style={{fontSize:10,fontWeight:800,color:"#f97316",background:"#f9731615",border:"1px solid #f9731630",padding:"5px 10px",borderRadius:8,cursor:"pointer"}}>🗑 LIMPIAR</button>
             </div>
-            <div style={{background:"#0ea5e90c",border:"1px solid #0ea5e925",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:10,color:"var(--muted)"}}>
-              Se registra cada inicio de sesión. Total: {sesiones.length} entradas.
+            {/* Chips de usuario — filtro rápido */}
+            <div style={{display:"flex",overflowX:"auto",gap:6,marginBottom:12,paddingBottom:4,WebkitOverflowScrolling:"touch"}}>
+              {["Todos",...new Set(sesiones.map(s=>s.nombre))].map(u=>{
+                const cnt=u==="Todos"?sesiones.length:sesiones.filter(s=>s.nombre===u).length;
+                const sel=filtroSesionUser===u;
+                return(
+                  <button key={u} onClick={()=>setFiltroSesionUser(u)}
+                    style={{flexShrink:0,background:sel?`${CU[u]||AA}20`:"var(--card)",border:`1.5px solid ${sel?CU[u]||AA:"var(--border)"}`,borderRadius:20,padding:"6px 12px",display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}>
+                    <span style={{fontSize:14}}>{u==="Todos"?"👥":IU[u]||"👤"}</span>
+                    <span style={{fontSize:10,fontWeight:900,color:sel?CU[u]||AA:"var(--text)"}}>{u==="Todos"?"Todos":u}</span>
+                    <span style={{fontSize:9,color:"var(--muted)",fontWeight:700}}>{cnt}</span>
+                  </button>
+                );
+              })}
             </div>
-            {/* Stats por usuario */}
-            <div style={{display:"flex",overflowX:"auto",gap:8,marginBottom:14,paddingBottom:4}}>
-              {[...new Set(sesiones.map(s=>s.nombre))].map(u=>(
-                <div key={u} style={{flexShrink:0,background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:"8px 12px",textAlign:"center",minWidth:70}}>
-                  <div style={{fontSize:18}}>{IU[u]||"👤"}</div>
-                  <div style={{fontSize:11,fontWeight:900,color:CU[u]||"var(--accent)"}}>{sesiones.filter(s=>s.nombre===u).length}</div>
-                  <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>{u}</div>
-                </div>
-              ))}
-            </div>
-            {sesiones.length===0&&<div style={{color:"var(--muted)",textAlign:"center",padding:"30px 0",fontSize:12}}>Sin sesiones registradas</div>}
-            {sesiones.map((s,i)=>(
-              <div key={s._fbKey||i} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:"11px",marginBottom:7,display:"flex",gap:10,alignItems:"center"}}>
-                <span style={{fontSize:20}}>{IU[s.nombre]||"👤"}</span>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:900,color:CU[s.nombre]||"var(--accent)"}}>{s.nombre}</div>
-                  <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>📅 {s.fecha} · 🕒 {s.hora}</div>
-                </div>
-                <span style={{fontSize:8,fontWeight:800,padding:"3px 8px",borderRadius:10,background:"#22c55e18",color:"#22c55e",border:"1px solid #22c55e30"}}>LOGIN</span>
-              </div>
-            ))}
+            {/* Buscador */}
+            <input type="text" placeholder="🔍 Buscar por nombre..." value={busquedaSesion} onChange={e=>setBusquedaSesion(e.target.value)}
+              style={{width:"100%",background:"var(--bg)",border:"1px solid var(--accent)",borderRadius:9,padding:"9px 12px",color:"var(--text)",fontSize:12,outline:"none",marginBottom:12,fontFamily:"inherit"}}/>
+            {(()=>{
+              const q=busquedaSesion.trim().toLowerCase();
+              const filtradas=sesiones.filter(s=>{
+                if(filtroSesionUser!=="Todos"&&s.nombre!==filtroSesionUser)return false;
+                if(q&&!s.nombre?.toLowerCase().includes(q)&&!s.fecha?.includes(q))return false;
+                return true;
+              });
+              return(<>
+                <div style={{fontSize:10,color:"var(--muted)",marginBottom:8,fontWeight:700}}>{filtradas.length} inicio{filtradas.length!==1?"s":""} de sesión</div>
+                {filtradas.length===0&&<div style={{color:"var(--muted)",textAlign:"center",padding:"30px 0",fontSize:12}}>Sin sesiones con estos filtros</div>}
+                {filtradas.slice(0,60).map((s,i)=>(
+                  <div key={s._fbKey||i} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:"11px",marginBottom:6,display:"flex",gap:10,alignItems:"center"}}>
+                    <span style={{fontSize:20}}>{IU[s.nombre]||"👤"}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:900,color:CU[s.nombre]||"var(--accent)"}}>{s.nombre}</div>
+                      <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>📅 {s.fecha} · 🕒 {s.hora} · <span style={{color:CU[s.nombre]||"var(--muted)"}}>{s.rol||""}</span></div>
+                    </div>
+                    <span style={{fontSize:8,fontWeight:800,padding:"3px 8px",borderRadius:10,background:"#22c55e18",color:"#22c55e",border:"1px solid #22c55e30"}}>LOGIN</span>
+                  </div>
+                ))}
+              </>);
+            })()}
           </div>
         )}
 
@@ -2493,10 +2883,37 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                         </div>
                       );
                     })}
-                    <button onClick={()=>generarReporteExcel(reporteFecha)} style={{width:"100%",padding:"14px",background:"#22c55e",border:"none",borderRadius:12,fontWeight:900,fontSize:13,cursor:"pointer",color:"white",marginTop:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                      <span>📥</span> DESCARGAR EXCEL · {reporteFecha}
-                    </button>
-                    <div style={{fontSize:9,color:"var(--muted)",textAlign:"center",marginTop:6}}>Incluye hojas: Resumen · OT · Detalle · Cámaras</div>
+                    {(()=>{
+                      const datosF=history.filter(r=>r.FECHA===reporteFecha);
+                      const hasData=datosF.length>0;
+                      const otsCerr=datosF.filter(r=>r.MODULO==="Orden Trabajo (OT)"&&r.ACCION==="CERRAR ORDEN DE TRABAJO").length;
+                      const limpiezas=datosF.filter(r=>r.MODULO==="Limpieza").length;
+                      const fallas=datosF.reduce((a,h)=>{ALLCHK.forEach(c=>{if(h[fk(c.label)]==="NO")a++;});return a;},0);
+                      return(
+                        <>
+                          {hasData?(
+                            <div style={{background:"#22c55e0c",border:"1px solid #22c55e30",borderRadius:10,padding:"10px 12px",marginBottom:10,display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,textAlign:"center",marginTop:12}}>
+                              {[{v:datosF.length,l:"Registros"},{v:otsCerr,l:"OTs cerradas"},{v:fallas,l:"Fallas"}].map((k,i)=>(
+                                <div key={i}>
+                                  <div style={{fontSize:16,fontWeight:900,color:"#22c55e"}}>{k.v}</div>
+                                  <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>{k.l}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ):(
+                            <div style={{background:"#ef444410",border:"1px solid #ef444430",borderRadius:10,padding:"10px",textAlign:"center",marginTop:12,fontSize:11,color:"#ef4444",fontWeight:700}}>
+                              ⚠️ Sin registros para {reporteFecha}
+                            </div>
+                          )}
+                          <button onClick={()=>hasData&&generarReporteExcel(reporteFecha)}
+                            disabled={!hasData}
+                            style={{width:"100%",padding:"14px",background:hasData?"#22c55e":"var(--border)",border:"none",borderRadius:12,fontWeight:900,fontSize:13,cursor:hasData?"pointer":"not-allowed",color:hasData?"white":"var(--muted)",marginTop:10,display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:hasData?1:0.5}}>
+                            <span>📥</span> DESCARGAR EXCEL · {reporteFecha}
+                          </button>
+                          <div style={{fontSize:9,color:"var(--muted)",textAlign:"center",marginTop:6}}>Incluye hojas: Resumen · OT · Detalle · Cámaras</div>
+                        </>
+                      );
+                    })()}
                     <button onClick={exportarCSV} style={{width:"100%",padding:"12px",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,fontWeight:900,fontSize:12,cursor:"pointer",color:"var(--text)",marginTop:8}}>
                       📋 DESCARGAR CSV
                     </button>
@@ -2531,15 +2948,255 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                 📌 GUARDAR NOTA
               </button>
             </div>
+            {/* Priority selector */}
+            <div style={{display:"flex",gap:6,marginBottom:10}}>
+              {[{v:"normal",l:"📋 Normal",c:"var(--border)"},{v:"urgente",l:"🔴 Urgente",c:"#ef4444"},{v:"info",l:"💡 Info",c:"#0ea5e9"}].map(p=>(
+                <button key={p.v} onClick={()=>setNotaPrioridad(p.v)}
+                  style={{flex:1,padding:"7px 4px",borderRadius:9,border:`1.5px solid ${notaPrioridad===p.v?p.c:"var(--border)"}`,background:notaPrioridad===p.v?`${p.c}18`:"var(--card)",color:notaPrioridad===p.v?p.c:"var(--muted)",fontWeight:800,fontSize:10,cursor:"pointer"}}>
+                  {p.l}
+                </button>
+              ))}
+            </div>
             {notas.length===0&&<div style={{color:"var(--muted)",textAlign:"center",padding:"20px 0",fontSize:12}}>Sin notas guardadas</div>}
-            {notas.map((n,i)=>(
-              <div key={n._fbKey||i} style={{background:"var(--card)",border:"1px solid #f59e0b30",borderRadius:12,padding:"14px",marginBottom:10,borderLeft:"3px solid "+AA}}>
+            {notas.map((n,i)=>{
+              const borderC=n.prioridad==="urgente"?"#ef4444":n.prioridad==="info"?"#0ea5e9":AA;
+              return(
+              <div key={n._fbKey||i} style={{background:"var(--card)",border:`1px solid ${borderC}30`,borderRadius:12,padding:"14px",marginBottom:10,borderLeft:`3px solid ${borderC}`}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
                   <div style={{flex:1}}>
+                    {n.prioridad==="urgente"&&<div style={{fontSize:9,fontWeight:900,color:"#ef4444",marginBottom:4}}>🔴 URGENTE</div>}
+                    {n.prioridad==="info"&&<div style={{fontSize:9,fontWeight:900,color:"#0ea5e9",marginBottom:4}}>💡 INFO</div>}
                     <div style={{fontSize:12,fontWeight:700,color:"var(--text)",lineHeight:1.5,whiteSpace:"pre-wrap"}}>{n.texto}</div>
                     <div style={{fontSize:9,color:"var(--muted)",marginTop:6}}>📅 {n.fecha} · 🕒 {n.hora}</div>
                   </div>
                   <button onClick={()=>setConfirm({icon:"🗑",titulo:"Eliminar nota",label:n.texto.slice(0,60)+(n.texto.length>60?"...":""),color:"#ef4444",accion:"ELIMINAR",fn:()=>eliminarNota(n)})} style={{background:"#ef444412",border:"1px solid #ef444430",color:"#ef4444",padding:"5px 8px",borderRadius:7,fontWeight:900,fontSize:11,cursor:"pointer",flexShrink:0}}>🗑</button>
+                </div>
+              </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ════════════════ CÁMARAS PERIMETRALES ════════════════ */}
+        {tab==="camaras_admin"&&(()=>{
+          const CC2="#06b6d4";
+          const hoyRevs=adminCamRevs.filter(r=>r.fecha===hoy);
+          const totalOK=hoyRevs.filter(r=>r.estado==="ok").length;
+          const totalAnom=hoyRevs.filter(r=>r.estado==="anomalia").length;
+
+          // Tiempo hasta próxima revisión
+          const siguiente=adminCamEstado?.siguiente||null;
+          const pendiente=!!adminCamEstado?.pendiente;
+          const ahora=Date.now();
+          const diffMs=siguiente?Math.max(0,siguiente-ahora):0;
+          const diffMin=Math.floor(diffMs/60000);
+          const diffSeg=Math.floor((diffMs%60000)/1000);
+          const countdown=siguiente?`${String(diffMin).padStart(2,"0")}:${String(diffSeg).padStart(2,"0")}`:"--:--";
+          const pct=siguiente?Math.min(100,Math.round(((30*60*1000-diffMs)/(30*60*1000))*100)):0;
+
+          // Tiempo promedio de respuesta
+          const conTiempos=hoyRevs.filter(r=>r.horaAlerta&&r.horaAtencion);
+          const promResp=conTiempos.length>0?(()=>{
+            const total=conTiempos.reduce((s,r)=>{
+              const[ah,am,as2]=(r.horaAlerta||"0:0:0").split(":").map(Number);
+              const[bh,bm,bs2]=(r.horaAtencion||"0:0:0").split(":").map(Number);
+              return s+Math.max(0,(bh*3600+bm*60+bs2)-(ah*3600+am*60+as2));
+            },0);
+            return Math.round(total/conTiempos.length/60);
+          })():null;
+
+          return(
+          <div>
+            {/* ─ Estado en tiempo real ─ */}
+            <div className="label-sec">📡 ESTADO EN TIEMPO REAL</div>
+            <div style={{background:pendiente?"#0e1a22":"#071a1a",border:`2px solid ${pendiente?"#f97316":CC2}`,borderRadius:14,padding:"16px",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{fontSize:28,animation:pendiente?"blink 1s infinite":"none"}}>
+                    {pendiente?"🔴":"📹"}
+                  </div>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:900,color:pendiente?"#f97316":CC2}}>
+                      {pendiente?"REVISIÓN PENDIENTE":"SISTEMA ACTIVO"}
+                    </div>
+                    <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>
+                      {pendiente
+                        ?`Alerta generada a las ${adminCamEstado?.horaAlerta||"--:--"}`
+                        :`Próxima revisión en ${countdown}`}
+                    </div>
+                  </div>
+                </div>
+                {/* Botón reiniciar timer */}
+                <button
+                  onClick={async()=>{
+                    if(!fb)return;
+                    const{db,ref,set}=fb;
+                    await set(ref(db,"cam_estado"),{
+                      siguiente:Date.now()+30*60*1000,
+                      pendiente:false,ts:Date.now()
+                    });
+                    logBitacora("CAM TIMER","Timer reiniciado manualmente desde admin");
+                    showMsg("ok","🔄 Timer de cámaras reiniciado");
+                  }}
+                  style={{background:"#06b6d418",border:"1px solid #06b6d440",borderRadius:10,padding:"8px 12px",color:CC2,fontWeight:900,fontSize:10,cursor:"pointer",flexShrink:0}}>
+                  🔄 REINICIAR
+                </button>
+              </div>
+              {/* Barra de progreso */}
+              <div style={{height:6,background:"var(--border)",borderRadius:4,overflow:"hidden",marginBottom:6}}>
+                <div style={{height:"100%",width:`${pct}%`,background:pendiente?"#f97316":CC2,borderRadius:4,transition:"width 1s"}}/>
+              </div>
+              <div style={{fontSize:9,color:"var(--muted)",display:"flex",justifyContent:"space-between"}}>
+                <span>{pct}% del ciclo transcurrido</span>
+                <span>⏱ Cada 30 min</span>
+              </div>
+            </div>
+
+            {/* ─ KPIs del día ─ */}
+            <div className="label-sec">📊 RESUMEN HOY · {hoy}</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
+              {[
+                {v:hoyRevs.length,l:"Revisiones",c:CC2},
+                {v:totalOK,l:"OK",c:"#22c55e"},
+                {v:totalAnom,l:"Anomalías",c:totalAnom>0?"#ef4444":"#22c55e"},
+              ].map((k,i)=>(
+                <div key={i} style={{background:"var(--card)",border:`1px solid ${k.c}30`,borderRadius:12,padding:"12px 8px",textAlign:"center"}}>
+                  <div style={{fontSize:22,fontWeight:900,color:k.c}}>{k.v}</div>
+                  <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>{k.l}</div>
+                </div>
+              ))}
+            </div>
+            {promResp!=null&&(
+              <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <span style={{fontSize:11,color:"var(--muted)",fontWeight:700}}>⏱ Tiempo promedio de respuesta hoy</span>
+                <span style={{fontSize:16,fontWeight:900,color:promResp<=5?"#22c55e":promResp<=10?"#f59e0b":"#ef4444"}}>{promResp} min</span>
+              </div>
+            )}
+
+            {/* ─ Configuración de horario ─ */}
+            <div className="label-sec">⚙️ CONFIGURACIÓN</div>
+            <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",marginBottom:14}}>
+              <div style={{background:"#0ea5e910",border:"1px solid #0ea5e930",borderRadius:10,padding:"10px 12px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:16}}>⏱</span>
+                <div style={{fontSize:11,color:"var(--muted)",lineHeight:1.5}}>Intervalo <b style={{color:CC2}}>fijo 30 min</b> · El cronómetro reinicia automáticamente</div>
+              </div>
+              {[
+                {k:"horaInicio",l:"🌅 Hora inicio",min:6,max:12,step:0.5},
+                {k:"horaFin",l:"🌙 Hora fin",min:18,max:23.5,step:0.5},
+              ].map(({k,l,min,max,step})=>(
+                <div key={k} style={{marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                    <span style={{fontSize:11,fontWeight:700}}>{l}</span>
+                    <span style={{fontSize:14,fontWeight:900,color:CC2}}>
+                      {`${String(Math.floor(camConfig[k])).padStart(2,"0")}:${camConfig[k]%1===0.5?"30":"00"}`}
+                    </span>
+                  </div>
+                  <input type="range" min={min} max={max} step={step} value={camConfig[k]}
+                    onChange={e=>setCamConfig(p=>({...p,[k]:parseFloat(e.target.value)}))}
+                    style={{width:"100%",accentColor:CC2}}/>
+                  <div style={{display:"flex",justifyContent:"space-between",marginTop:2}}>
+                    <span style={{fontSize:8,color:"var(--muted)"}}>{min}h</span>
+                    <span style={{fontSize:8,color:"var(--muted)"}}>{max}h</span>
+                  </div>
+                </div>
+              ))}
+              <div style={{background:"#06b6d410",border:"1px solid #06b6d430",borderRadius:8,padding:"8px 10px",marginBottom:10,fontSize:10,color:"var(--muted)"}}>
+                Activo de <b style={{color:CC2}}>{String(Math.floor(camConfig.horaInicio)).padStart(2,"0")}:{camConfig.horaInicio%1===0.5?"30":"00"}</b> a <b style={{color:CC2}}>{String(Math.floor(camConfig.horaFin)).padStart(2,"0")}:{camConfig.horaFin%1===0.5?"30":"00"}</b>
+              </div>
+              <button
+                onClick={async()=>{
+                  if(!fb)return;
+                  await fb.set(fb.ref(fb.db,"cam_config"),camConfig);
+                  logBitacora("CAM CONFIG",`Horario: ${camConfig.horaInicio}-${camConfig.horaFin}`);
+                  showMsg("ok","✅ Configuración guardada");
+                }}
+                style={{width:"100%",padding:"12px",background:CC2,border:"none",borderRadius:10,color:"#000",fontWeight:900,fontSize:12,cursor:"pointer"}}>
+                💾 GUARDAR HORARIO
+              </button>
+            </div>
+
+            {/* ─ Historial de revisiones ─ */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div className="label-sec" style={{margin:0}}>📋 HISTORIAL DE REVISIONES</div>
+              <button
+                onClick={()=>setConfirm({icon:"🗑",titulo:"Limpiar historial de cámaras",label:"Se borrarán todas las revisiones registradas",color:"#ef4444",accion:"LIMPIAR",fn:async()=>{await fb.set(fb.ref(fb.db,"cam_revisiones"),null);logBitacora("CAM HISTORIAL","Historial limpiado");showMsg("ok","🗑 Historial de cámaras limpiado");setConfirm(null);}})}
+                style={{fontSize:9,fontWeight:800,color:"#ef4444",background:"#ef444415",border:"1px solid #ef444430",padding:"4px 10px",borderRadius:8,cursor:"pointer"}}>
+                🗑 LIMPIAR
+              </button>
+            </div>
+            {adminCamRevs.length===0&&(
+              <div style={{color:"var(--muted)",textAlign:"center",padding:"24px 0",fontSize:12,background:"var(--card)",border:"1px solid var(--border)",borderRadius:12}}>
+                Sin revisiones registradas
+              </div>
+            )}
+            {adminCamRevs.slice(0,40).map((r,i)=>{
+              const esOK=r.estado==="ok";
+              const[ah,am,as2]=(r.horaAlerta||"0:0:0").split(":").map(Number);
+              const[bh,bm,bs2]=(r.horaAtencion||"0:0:0").split(":").map(Number);
+              const mins=r.horaAlerta&&r.horaAtencion?Math.round(((bh*3600+bm*60+bs2)-(ah*3600+am*60+as2))/60):null;
+              const tColor=mins!=null?(mins<=5?"#22c55e":mins<=10?"#f59e0b":"#ef4444"):"var(--muted)";
+              return(
+                <div key={r._fbKey||i} style={{
+                  background:esOK?"#071a0d":"#1a0808",
+                  border:`1px solid ${esOK?"#22c55e25":"#ef444425"}`,
+                  borderLeft:`3px solid ${esOK?"#22c55e":"#ef4444"}`,
+                  borderRadius:11,padding:"11px 13px",marginBottom:7,
+                }}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                    <span style={{fontSize:16}}>{esOK?"✅":"⚠️"}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,fontWeight:900,color:esOK?"#22c55e":"#ef4444"}}>{esOK?"Sin novedad":"Anomalía detectada"}</div>
+                      <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>📅 {r.fecha} · 👤 {r.usuario||"Sistema"}</div>
+                    </div>
+                    {mins!=null&&mins>=0&&mins<999&&(
+                      <div style={{textAlign:"right",flexShrink:0}}>
+                        <div style={{fontSize:13,fontWeight:900,color:tColor}}>{mins}m</div>
+                        <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>RESP.</div>
+                      </div>
+                    )}
+                  </div>
+                  {r.horaAlerta&&r.horaAtencion&&(
+                    <div style={{background:"var(--bg)",borderRadius:7,padding:"6px 9px",display:"flex",gap:10,fontSize:9}}>
+                      <span style={{color:"#f97316",fontWeight:800}}>⏰ {r.horaAlerta}</span>
+                      <span style={{color:"var(--muted)"}}>→</span>
+                      <span style={{color:"#22c55e",fontWeight:800}}>✅ {r.horaAtencion}</span>
+                    </div>
+                  )}
+                  {!esOK&&r.notas&&r.notas.trim()&&(
+                    <div style={{background:"#1a0808",borderRadius:7,padding:"6px 9px",marginTop:5,fontSize:10,color:"#fca5a5"}}>
+                      📝 {r.notas}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          );
+        })()}
+
+        {/* ════════════════ BITÁCORA ════════════════ */}
+        {tab==="bitacora"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div className="label-sec" style={{margin:0}}>📜 BITÁCORA DE ACCIONES</div>
+              <button onClick={()=>setConfirm({icon:"🗑",titulo:"Limpiar bitácora",label:"Se borrarán todos los registros de la bitácora",color:"#ef4444",accion:"LIMPIAR",fn:async()=>{await fb.set(fb.ref(fb.db,"admin_bitacora"),null);showMsg("ok","🗑 Bitácora limpiada");setConfirm(null);}})}
+                style={{fontSize:10,fontWeight:800,color:"#ef4444",background:"#ef444415",border:"1px solid #ef444430",padding:"5px 10px",borderRadius:8,cursor:"pointer"}}>🗑</button>
+            </div>
+            <div style={{background:"#0ea5e90c",border:"1px solid #0ea5e925",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:10,color:"var(--muted)",lineHeight:1.6}}>
+              Registro automático de todas las acciones del administrador. {bitacora.length} entradas recientes.
+            </div>
+            {bitacora.length===0&&<div style={{color:"var(--muted)",textAlign:"center",padding:"30px 0",fontSize:12}}>Sin acciones registradas</div>}
+            {bitacora.map((b,i)=>(
+              <div key={b._fbKey||i} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:"11px 13px",marginBottom:7,borderLeft:`3px solid ${AA}`}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,fontWeight:900,color:AA}}>{b.accion}</div>
+                    {b.detalle&&<div style={{fontSize:10,color:"var(--text)",marginTop:2,lineHeight:1.4}}>{b.detalle}</div>}
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{fontSize:9,color:"var(--muted)"}}>{b.fecha}</div>
+                    <div style={{fontSize:9,color:"var(--muted)"}}>{b.hora}</div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -2904,7 +3561,7 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
       setSegsRestantes(diff);
       const m=Math.floor(diff/60), s=diff%60;
       setCountdown(diff===0?"00:00":`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`);
-      const total=(camConfig?.intervalo||40)*60*1000;
+      const total=30*60*1000; // intervalo fijo 30 min
       setPct(Math.min(100,Math.round(((total-Math.max(0,sigTs-Date.now()))/total)*100)));
     };
     tick();
@@ -2998,17 +3655,6 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
         UBICACION:"Cámaras Perimetrales",
         NOTAS:nota,_ts:Date.now()
       });
-      try{
-        const otsSnap=await get(ref(db,"activeOTs"));
-        const otsData=otsSnap.val();
-        if(otsData){
-          const{remove}=_fb;
-          const keys=Object.entries(otsData)
-            .filter(([,v])=>v.tipo==="cam_revision"||v.tipo==="cam_escalamiento")
-            .map(([k])=>k);
-          await Promise.all(keys.map(k=>remove(ref(db,`activeOTs/${k}`))));
-        }
-      }catch(e){}
       if(window._camArrancar) window._camArrancar();
       if(opcion!=="ok"){
         setSaving(false);setRevManual(false);setStep(null);setNotaAnomalia("");
@@ -3130,9 +3776,9 @@ function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camC
           {/* Countdown grande — visible para todos */}
           {!pendiente&&(
             <>
-              <div style={{fontSize:50,fontWeight:900,color:pct>80?"#f97316":CC,letterSpacing:3,fontVariantNumeric:"tabular-nums",lineHeight:1}}>{countdown}</div>
+              <div style={{fontSize:"clamp(34px,10vw,50px)",fontWeight:900,color:pct>80?"#f97316":CC,letterSpacing:2,fontVariantNumeric:"tabular-nums",lineHeight:1}}>{countdown}</div>
               <div style={{fontSize:10,color:"var(--muted)",marginTop:8}}>
-                Cada {camConfig?.intervalo||40} min · {String(Math.floor(camConfig?.horaInicio||9)).padStart(2,"0")}:{(camConfig?.horaInicio||9)%1===0.5?"30":"00"} – {String(Math.floor(camConfig?.horaFin||21.5)).padStart(2,"0")}:{(camConfig?.horaFin||21.5)%1===0.5?"30":"00"}
+                Cada 30 min · {String(Math.floor(camConfig?.horaInicio||9)).padStart(2,"0")}:{(camConfig?.horaInicio||9)%1===0.5?"30":"00"} – {String(Math.floor(camConfig?.horaFin||21.5)).padStart(2,"0")}:{(camConfig?.horaFin||21.5)%1===0.5?"30":"00"}
               </div>
             </>
           )}
@@ -3317,7 +3963,6 @@ function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
         notas:opcion==="ok"?"":notaAnomalia.trim(),
         fecha,usuario:usuario.nombre,ts:Date.now()
       });
-      await remove(ref(db,`activeOTs/${ot._fbKey}`));
       if(window._camArrancar) window._camArrancar();
       if(opcion!=="ok"){
         const otMod=MODS.find(m=>m.id==="ot");
@@ -3523,6 +4168,9 @@ function App(){
   const[onlineU,setOnlineU]=useState([]);
   const[selMod,setSelMod]=useState(null);
   const[lastRecord,setLastRecord]=useState(null);
+  const[rafagaRegistros,setRafagaRegistros]=useState([]); // tiempos de la sesión ráfaga actual
+  const[rafagaLimpieza,setRafagaLimpieza]=useState([]); // ubicaciones de la sesión ráfaga limpieza
+  const[rafagaRecorrido,setRafagaRecorrido]=useState([]); // revisiones de la sesión ráfaga cajero/entrada/salida
   const bp=useBreakpoint();
   const isDesktop=bp==="desktop";
   const isTablet=bp==="tablet"||bp==="desktop";
@@ -3645,97 +4293,84 @@ function App(){
     return()=>unsub();
   },[]);
 
-  // 2. Tick cada 10s: verificar si venció y crear OT
+  // ── Motor de revisión de cámaras ──────────────────────────────────────
+  // Reglas:
+  //   • Intervalo fijo: 30 min (siempre)
+  //   • Al vencer: marcar pendiente=true, reprogramar INMEDIATAMENTE el siguiente ciclo
+  //   • El pendiente queda hasta que Monitoreo lo atienda manualmente
+  //   • Sin OTs, sin escalamiento — solo estado en cam_estado y alertas locales
+  // ───────────────────────────────────────────────────────────────────────
+  const CAM_INTERVALO_MS = 30 * 60 * 1000; // 30 minutos fijos
+
   useEffect(()=>{
     if(!window._fb)return;
-    const{db,ref,set,push,get}=window._fb;
+    const{db,ref,set,get}=window._fb;
 
     const tick=async()=>{
       try{
         const snap=await get(ref(db,"cam_estado"));
         const d=snap.val();
         if(!d||!d.siguiente)return;
-        const cfg=camConfigRef.current;
         const ahora=Date.now();
-        const _now=new Date();
-        // Comparar en minutos totales para evitar problemas con fracciones decimales (ej: 21.5 = 21:30)
-        const hMinActual=_now.getHours()*60+_now.getMinutes();
-        const hMinInicio=Math.floor(cfg.horaInicio)*60+(cfg.horaInicio%1===0.5?30:0);
-        const hMinFin=Math.floor(cfg.horaFin)*60+(cfg.horaFin%1===0.5?30:0);
-        const enHorario=hMinActual>=hMinInicio&&hMinActual<=hMinFin;
 
-        if(!d.pendiente && d.siguiente<=ahora && enHorario){
-          // Venció en horario → crear OT y marcar pendiente
-          const ahora2=new Date();
-          const otId="CAM-"+Math.random().toString(36).substr(2,4).toUpperCase();
-          await push(ref(db,"activeOTs"),{
-            ot_id:otId,
-            loc:"Cámaras Perimetrales",
-            det:"Revisión periódica de cámaras perimetrales",
-            usuario:"Sistema",
-            fecha:ahora2.toLocaleDateString("es"),
-            hora:ahora2.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"}),
-            tipo:"cam_revision",urgente:false,_ts:Date.now()
-          });
-          const horaAlerta2=ahora2.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+        if(d.siguiente<=ahora){
+          // Venció — reprogramar el siguiente ciclo inmediatamente (+30 min desde ahora)
+          const horaAlerta=new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
           await set(ref(db,"cam_estado"),{
-            siguiente:d.siguiente,pendiente:true,ot_id:otId,
-            horaAlerta:horaAlerta2,ts:Date.now()
+            siguiente:ahora+CAM_INTERVALO_MS,   // reinicia el contador desde ahora
+            pendiente:true,                      // queda pendiente hasta que se atienda
+            horaAlerta,
+            ts:ahora,
           });
-        } else if(!d.pendiente && d.siguiente<=ahora && !enHorario){
-          // Venció fuera de horario y no hay pendiente → reprogramar al inicio del próximo día
-          const ahora3=new Date();
-          const mañana=new Date(ahora3);
-          mañana.setDate(mañana.getDate()+1);
-          mañana.setHours(Math.floor(cfg.horaInicio),cfg.horaInicio%1===0.5?30:0,0,0);
-          await set(ref(db,"cam_estado"),{siguiente:mañana.getTime(),pendiente:false,ts:Date.now()});
-        } else if(d.pendiente && d.horaAlerta){
-          // Revisión pendiente → verificar si supera el tiempo de escalamiento
-          const escMs=(cfg.escalamiento||10)*60*1000;
-          const tsAlerta=d.ts||0; // ts se guarda cuando se marcó pendiente
-          if(ahora-tsAlerta>=escMs && !d.escalado){
-            // Escalar: crear OT urgente para técnicos
-            const ahora4=new Date();
-            const otIdEsc="CAM-ESC-"+Math.random().toString(36).substr(2,4).toUpperCase();
-            await push(ref(db,"activeOTs"),{
-              ot_id:otIdEsc,
-              loc:"Cámaras Perimetrales",
-              det:"⚠️ ESCALAMIENTO: Revisión de cámaras sin atender por más de "+cfg.escalamiento+" min",
-              usuario:"Sistema",
-              fecha:ahora4.toLocaleDateString("es"),
-              hora:ahora4.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"}),
-              tipo:"cam_escalamiento",urgente:true,_ts:Date.now()
+          // Alerta sonora local
+          try{
+            const ctx=new(window.AudioContext||window.webkitAudioContext)();
+            [440,660,880].forEach((f,i)=>{
+              const o=ctx.createOscillator(),g=ctx.createGain();
+              o.connect(g);g.connect(ctx.destination);
+              o.type="sine";o.frequency.value=f;
+              const t=ctx.currentTime+i*0.2;
+              g.gain.setValueAtTime(0,t);
+              g.gain.linearRampToValueAtTime(0.55,t+0.04);
+              g.gain.linearRampToValueAtTime(0,t+0.22);
+              o.start(t);o.stop(t+0.25);
             });
-            // Marcar como escalado para no repetir
-            await set(ref(db,"cam_estado"),{...d,escalado:true,ts_escalado:Date.now()});
+            navigator.vibrate&&navigator.vibrate([200,100,200,100,400]);
+          }catch(e){}
+          // Notificación del SO
+          if(window.Notification&&Notification.permission==="granted"){
+            new Notification("📹 Revisión de cámaras pendiente",{
+              body:"Han pasado 30 min — realiza la revisión perimetral",
+              tag:"cam-revision",requireInteraction:true
+            });
+          } else if(window.Notification&&Notification.permission!=="denied"){
+            Notification.requestPermission().then(p=>{
+              if(p==="granted") new Notification("📹 Revisión de cámaras pendiente",{
+                body:"Han pasado 30 min — realiza la revisión perimetral",
+                tag:"cam-revision",requireInteraction:true
+              });
+            });
           }
         }
       }catch(e){}
     };
 
     const id=setInterval(tick,10000);
-    tick(); // correr inmediatamente
+    tick();
     return()=>clearInterval(id);
   },[]);
 
-  // Función para reprogramar después de atender (llamada desde MonitoreoCamOT)
+  // Reprogramar después de atender — solo limpia pendiente, mantiene ciclo de 30 min
   window._camArrancar=()=>{
     if(!window._fb)return;
     const{db,ref,set}=window._fb;
-    const cfg=camConfigRef.current;
-    const ahora=new Date();
-    const hActual=ahora.getHours()+(ahora.getMinutes()/60);
-    let sig=Date.now()+cfg.intervalo*60*1000;
-    // Si la siguiente revisión cae fuera del horario, programar para mañana al inicio
-    const hSig=new Date(sig);
-    const hSigDecimal=hSig.getHours()+(hSig.getMinutes()/60);
-    if(hSigDecimal>cfg.horaFin || hActual>=cfg.horaFin){
-      const mañana=new Date(ahora);
-      mañana.setDate(mañana.getDate()+1);
-      mañana.setHours(Math.floor(cfg.horaInicio),cfg.horaInicio%1===0.5?30:0,0,0);
-      sig=mañana.getTime();
-    }
-    set(ref(db,"cam_estado"),{siguiente:sig,pendiente:false,escalado:false,ts:Date.now()});
+    // El siguiente ciclo ya fue programado por el tick cuando venció.
+    // Solo marcamos pendiente=false para apagar la alerta.
+    set(ref(db,"cam_estado"),{
+      siguiente:Date.now()+CAM_INTERVALO_MS,
+      pendiente:false,
+      ts:Date.now(),
+    });
   };
 
 
@@ -3907,7 +4542,7 @@ function App(){
     // Cada 3 minutos: si hay OTs normales con >10 min sin cerrar, sonar recordatorio
     otReminderRef.current=setInterval(()=>{
       const otsNormales=activeOTs.filter(o=>o.tipo!=="cam_revision"&&o.tipo!=="cam_escalamiento");
-      const urgentes=otsNormales.filter(o=>o._ts&&(Date.now()-o._ts)>10*60*1000);
+      const urgentes=otsNormales.filter(o=>o._ts&&(Date.now()-o._ts)>5*60*1000);
       if(urgentes.length>0){
         playSound("ot_urgente");
         showToast({
@@ -4013,7 +4648,7 @@ function App(){
     }
     let t=1,a=0;
     if(form.cajero||form.entrada||form.salida||form.lim_loc||form.ot_ubicacion||form.ind_loc)a++;
-    if(modulo.id==='limpieza'){t+=2;if(form.lim_cat)a++;if(form.lim_estado)a++;}
+    if(modulo.id==='limpieza'){t+=2;if(form.lim_cat)a++;if(form.lim_estado)a++;} // lim_obs es siempre opcional
     const chk=modulo.id==='cajero'?CC:modulo.id==='entrada'?CE:modulo.id==='salida'?CS:[];
     chk.forEach(c=>{t++;if(form[c.id])a++;});
     if(modulo.id==='indicador'){t++;if(form.timer_val)a++;}
@@ -4054,8 +4689,8 @@ function App(){
     const rec={_ts:Date.now(),USUARIO:usuario.nombre,ROL:usuario.rol,ORDEN_ID:form.ot_id||"-",
       FECHA:now.toLocaleDateString("es"),HORA:now.toLocaleTimeString("es"),MODULO:modulo.label,
       ACCION:modulo.id==='ot'?form.ot_tipo:"REVISIÓN",UBICACION:loc,
-      RESULTADO:modulo.id==='indicador'?`${form.timer_val}s`:modulo.id==='limpieza'?"LIMPIO":"OK",
-      NOTAS:[form.ot_rapido,form.ot_rapido_cierre,form.ot_detalle].filter(Boolean).join(' · ')||form.obs||"-",...cr};
+      RESULTADO:modulo.id==='indicador'?`${form.timer_val}s`:modulo.id==='limpieza'?(form.lim_estado||"LIMPIO"):"OK",
+      NOTAS:modulo.id==='limpieza'&&form.lim_obs?form.lim_obs:([form.ot_rapido,form.ot_rapido_cierre,form.ot_detalle].filter(Boolean).join(' · ')||form.obs||"-"),...cr};
     try{
       await push(ref(db,"registros"),rec);
       if(modulo.id==='ot'){
@@ -4079,7 +4714,27 @@ function App(){
         }
       }
       setSync("ok");
-      setLastRecord({modulo,form,loc,fecha:hoy,hora:new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"})});
+      const newRec={modulo,form,loc,fecha:hoy,hora:new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"})};
+      setLastRecord(newRec);
+      // Acumular en sesión ráfaga según módulo
+      if(modulo.id==="indicador"){
+        setRafagaRegistros(prev=>[...prev,{loc,tiempo:form.timer_val,cat:form.ind_cat}]);
+        setRafagaLimpieza([]);
+      } else if(modulo.id==="limpieza"){
+        setRafagaLimpieza(prev=>[...prev,{loc,estado:form.lim_estado||"LIMPIO",cat:form.lim_cat,obs:form.lim_obs||""}]);
+        setRafagaRegistros([]);
+      } else if(["cajero","entrada","salida"].includes(modulo.id)){
+        // Calcular fallas del registro guardado
+        const chkItems=modulo.id==="cajero"?CC:modulo.id==="entrada"?CE:CS;
+        const fallas=chkItems.filter(c=>form[c.id]==="NO").map(c=>c.label);
+        setRafagaRecorrido(prev=>[...prev,{loc,modId:modulo.id,fallas,totalItems:chkItems.length}]);
+        setRafagaRegistros([]);
+        setRafagaLimpieza([]);
+      } else {
+        setRafagaRegistros([]);
+        setRafagaLimpieza([]);
+        setRafagaRecorrido([]);
+      }
       setScreen("success");
     }catch(e){console.error(e);setSync("err");alert("Error: "+e.message);}
   };
@@ -4473,9 +5128,9 @@ function App(){
           }}>
           <div style={{fontSize:28,animation:"blink .8s infinite"}}>📹</div>
           <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:900,color:"white",letterSpacing:.5}}>⚠️ REVISIÓN DE CÁMARAS PENDIENTE</div>
+            <div style={{fontSize:13,fontWeight:900,color:"white",letterSpacing:.5}}>📹 REVISIÓN DE CÁMARAS PENDIENTE</div>
             <div style={{fontSize:11,color:"#cffafe",marginTop:2,fontWeight:700}}>
-              {screen==="camaras"?"Realiza la revisión para cerrar esta alerta":"Toca aquí para atender la revisión"}
+              {screen==="camaras"?"Registra la revisión para cerrar esta alerta":"Toca aquí para realizar la revisión"}
             </div>
           </div>
           {screen!=="camaras"&&(
@@ -4495,7 +5150,7 @@ function App(){
 
       {/* ── BANNER PERSISTENTE OTs URGENTES ── */}
       {(()=>{
-        const otsUrg=activeOTs.filter(o=>o.tipo!=="cam_revision"&&o.tipo!=="cam_escalamiento"&&o._ts&&(Date.now()-o._ts)>5*60*1000);
+        const otsUrg=activeOTs.filter(o=>o.tipo!=="cam_revision"&&o.tipo!=="cam_escalamiento");
         if(otsUrg.length===0) return null;
         const masAntigua=otsUrg.reduce((a,b)=>(a._ts||0)<(b._ts||0)?a:b);
         const min=Math.floor((Date.now()-(masAntigua._ts||Date.now()))/60000);
@@ -4532,7 +5187,7 @@ function App(){
           <div style={{
             background:'linear-gradient(160deg,#060f1a 0%,#0a1628 60%,#0d1e35 100%)',
             borderBottom:'1px solid var(--border)',
-            padding:'14px 16px 12px',
+            padding:'10px 14px 10px',
             flexShrink:0,
             position:'relative',
             overflow:'hidden',
@@ -4542,17 +5197,17 @@ function App(){
             <div style={{position:'absolute',bottom:-30,left:-20,width:120,height:120,borderRadius:'50%',background:'#a855f705',filter:'blur(30px)',pointerEvents:'none'}}/>
 
             {/* Fila 1: logo + notifs */}
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
                 <div style={{
-                  width:36,height:36,borderRadius:10,
+                  width:32,height:32,borderRadius:9,
                   background:'linear-gradient(135deg,#0ea5e9,#6366f1)',
                   display:'flex',alignItems:'center',justifyContent:'center',
-                  fontSize:18,flexShrink:0,
-                  boxShadow:'0 0 14px #0ea5e940'
+                  fontSize:16,flexShrink:0,
+                  boxShadow:'0 0 12px #0ea5e940'
                 }}>⚡</div>
                 <div>
-                  <div style={{fontSize:15,fontWeight:900,letterSpacing:.5,lineHeight:1}}>
+                  <div style={{fontSize:14,fontWeight:900,letterSpacing:.5,lineHeight:1}}>
                     RECORRIDO <span style={{color:'var(--accent)'}}>MULTI</span>
                   </div>
                   <div style={{fontSize:8,color:'var(--muted)',fontWeight:700,letterSpacing:2,marginTop:1}}>
@@ -4572,7 +5227,7 @@ function App(){
             <div style={{
               background:'rgba(14,165,233,0.06)',
               border:'1px solid rgba(14,165,233,0.15)',
-              borderRadius:12,padding:'10px 12px',
+              borderRadius:10,padding:'8px 10px',
               display:'flex',alignItems:'center',gap:10,
             }}>
               {/* Avatar */}
@@ -4632,7 +5287,7 @@ function App(){
             )}
 
             {/* Fila 3: KPI strip */}
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginTop:10}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:5,marginTop:8}}>
               {[
                 {icon:'📅',val:hoyH.length,lbl:'Hoy',c:'#a855f7'},
                 {icon:'🔧',val:otsPendientes.length,lbl:'OTs',c:otsPendientes.length>0?'#ef4444':'#22c55e',click:true},
@@ -4714,24 +5369,25 @@ function App(){
               </div>
             )}
 
-            {/* ── REVISIÓN CÁMARAS ── */}
-            {activeOTs.filter(o=>o.tipo==="cam_revision").length>0&&(
+            {/* ── REVISIÓN CÁMARAS PENDIENTE — solo Monitoreo/Vicente ── */}
+            {camPendiente&&(usuario.rol==="Monitoreo"||usuario.nombre==="Vicente")&&(
               <div style={{marginBottom:12}}>
-                <div className="label-sec" style={{color:"#06b6d4"}}>📹 REVISIÓN DE CÁMARAS · {activeOTs.filter(o=>o.tipo==="cam_revision").length} PENDIENTE{activeOTs.filter(o=>o.tipo==="cam_revision").length>1?"S":""}</div>
-                {activeOTs.filter(o=>o.tipo==="cam_revision").map(o=>(
-                  usuario.rol==="Monitoreo"
-                    ? <MonitoreoCamOT key={o._fbKey} ot={o} usuario={usuario} clock={clock} fb={window._fb} openMod={openMod} hoy={hoy}/>
-                    : (
-                      <div key={o._fbKey} style={{background:"#071a22",border:"1px solid #06b6d440",borderRadius:12,padding:"12px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:12}}>
-                        <span style={{fontSize:22}}>📹</span>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12,fontWeight:900,color:"#06b6d4"}}>{o.ot_id} · Revisión de Cámaras</div>
-                          <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>Generada: {o.hora} · {o.fecha}</div>
-                        </div>
-                        <span style={{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,background:"#06b6d420",color:"#06b6d4"}}>EN CURSO</span>
-                      </div>
-                    )
-                ))}
+                <div onClick={()=>setScreen("camaras")} style={{
+                  background:"#071a22",border:"2px solid #06b6d4",borderRadius:14,
+                  padding:"14px 16px",cursor:"pointer",
+                  display:"flex",alignItems:"center",gap:12,
+                  animation:"blink 2s infinite",
+                }}>
+                  <span style={{fontSize:24,flexShrink:0}}>📹</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:900,color:"#06b6d4"}}>REVISIÓN DE CÁMARAS PENDIENTE</div>
+                    <div style={{fontSize:10,color:"#a5f3fc",marginTop:2}}>Toca para atender la revisión perimetral</div>
+                  </div>
+                  <div style={{background:"#06b6d420",borderRadius:10,padding:"8px 12px",textAlign:"center",flexShrink:0}}>
+                    <div style={{fontSize:9,color:"#06b6d4",fontWeight:800}}>ATENDER</div>
+                    <div style={{fontSize:18,color:"#06b6d4"}}>›</div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -4834,6 +5490,144 @@ function App(){
                 );
               })}
             </div>
+
+            {/* ══ MI PROGRESO HOY ══ */}
+            {(()=>{
+              // Solo mostrar si el usuario tiene acceso a algún módulo de recorrido
+              const progModulos=[
+                {
+                  id:"cajero", label:"Cajeros", icon:"🏧",
+                  lista:listaCajeros,
+                  modLabel:"Cajero",
+                  color:"#0ea5e9",
+                },
+                {
+                  id:"entrada", label:"Entradas", icon:"🚗",
+                  lista:listaEntradas,
+                  modLabel:"Entrada",
+                  color:"#22c55e",
+                },
+                {
+                  id:"salida", label:"Salidas", icon:"🚦",
+                  lista:listaSalidas,
+                  modLabel:"Salida",
+                  color:"#f97316",
+                },
+                {
+                  id:"limpieza_cajeros", label:"Limpieza Cajeros", icon:"🧹",
+                  lista:listaLimCajeros,
+                  modLabel:"Limpieza",
+                  filtroExtra:(h)=>listaLimCajeros.includes(h.UBICACION),
+                  color:"#fbbf24",
+                },
+                {
+                  id:"limpieza_salidas", label:"Limpieza Salidas", icon:"🧹",
+                  lista:listaLimSalidas,
+                  modLabel:"Limpieza",
+                  filtroExtra:(h)=>listaLimSalidas.includes(h.UBICACION),
+                  color:"#fbbf24",
+                },
+              ].filter(m=>{
+                const mod=MODS.find(x=>x.id===m.id.replace("_cajeros","").replace("_salidas",""));
+                return mod&&canAccess(mod,usuario)&&m.lista.length>0;
+              });
+
+              if(progModulos.length===0) return null;
+
+              // Calcular revisados hoy (únicos) por módulo para ESTE usuario
+              const getRevisados=(m)=>{
+                const regs=hoyH.filter(h=>
+                  h.MODULO===m.modLabel&&
+                  h.USUARIO===usuario.nombre&&
+                  (m.filtroExtra?m.filtroExtra(h):m.lista.includes(h.UBICACION))
+                );
+                return new Set(regs.map(h=>h.UBICACION));
+              };
+
+              // Solo mostrar si hay al menos un módulo con progreso o con pendientes
+              const progresos=progModulos.map(m=>({...m,hechos:getRevisados(m)}));
+              const hayActividad=progresos.some(p=>p.hechos.size>0);
+              const todosCompletos=progresos.every(p=>p.hechos.size>=p.lista.length);
+
+              return(
+                <div style={{marginBottom:20}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                    <div className="label-sec" style={{margin:0}}>📊 MI PROGRESO HOY</div>
+                    {hayActividad&&(
+                      <span style={{fontSize:9,color:todosCompletos?"#22c55e":"var(--muted)",fontWeight:800,
+                        background:todosCompletos?"#22c55e15":"var(--card)",
+                        border:`1px solid ${todosCompletos?"#22c55e30":"var(--border)"}`,
+                        padding:"2px 8px",borderRadius:10}}>
+                        {todosCompletos?"✅ COMPLETO":`${progresos.reduce((s,p)=>s+p.hechos.size,0)}/${progresos.reduce((s,p)=>s+p.lista.length,0)}`}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",display:"flex",flexDirection:"column",gap:10}}>
+                    {progresos.map((m,i)=>{
+                      const total=m.lista.length;
+                      const hechos=m.hechos.size;
+                      const pct=total>0?Math.round((hechos/total)*100):0;
+                      const completo=hechos>=total;
+                      const sinEmpezar=hechos===0;
+                      const color=completo?"#22c55e":hechos>0?m.color:"var(--muted)";
+
+                      // Cuáles faltan
+                      const faltan=m.lista.filter(eq=>!m.hechos.has(eq));
+
+                      return(
+                        <div key={i}>
+                          {/* Fila título + contador */}
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:5}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <span style={{fontSize:14}}>{m.icon}</span>
+                              <span style={{fontSize:11,fontWeight:800,color:completo?"#22c55e":sinEmpezar?"var(--muted)":"var(--text)"}}>{m.label}</span>
+                            </div>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              {completo&&<span style={{fontSize:10}}>✅</span>}
+                              <span style={{fontSize:12,fontWeight:900,color}}>
+                                {hechos}<span style={{fontSize:9,color:"var(--muted)",fontWeight:700}}>/{total}</span>
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Barra de progreso */}
+                          <div style={{height:6,background:"var(--border)",borderRadius:4,overflow:"hidden",marginBottom:faltan.length>0&&!completo&&hechos>0?5:0}}>
+                            <div style={{
+                              height:"100%",
+                              width:`${pct}%`,
+                              background:completo?"#22c55e":`linear-gradient(90deg,${m.color},${m.color}cc)`,
+                              borderRadius:4,
+                              transition:"width .5s ease",
+                              minWidth:pct>0?4:0,
+                            }}/>
+                          </div>
+
+                          {/* Chips de los que faltan (solo si hay avance parcial) */}
+                          {!completo&&hechos>0&&faltan.length>0&&(
+                            <div style={{display:"flex",flexWrap:"wrap",gap:3,marginTop:4}}>
+                              {faltan.slice(0,5).map((eq,j)=>(
+                                <span key={j} style={{fontSize:8,color:"var(--muted)",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:6,padding:"1px 5px"}}>
+                                  {eq}
+                                </span>
+                              ))}
+                              {faltan.length>5&&(
+                                <span style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>+{faltan.length-5} más</span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Sin empezar */}
+                          {sinEmpezar&&(
+                            <div style={{fontSize:8,color:"var(--muted)",marginTop:2}}>Sin registros hoy</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ── EN LÍNEA ── */}
             {onlineU.filter(Boolean).length>0&&(
@@ -4946,7 +5740,7 @@ function App(){
                       </div>
                       <div className="t-val" style={{
                         color:timerOn?"#22c55e":form.timer_val?"#0ea5e9":"var(--text,#e8f0fe)",
-                        fontSize:42,fontWeight:900,fontVariantNumeric:"tabular-nums",letterSpacing:2,lineHeight:1
+                        fontSize:"clamp(30px,9vw,42px)",fontWeight:900,fontVariantNumeric:"tabular-nums",letterSpacing:1,lineHeight:1
                       }}>
                         {(timer/1000).toFixed(2)}s
                       </div>
@@ -5048,15 +5842,121 @@ function App(){
 
             {modulo?.id==='limpieza'&&(
               <>
-                <Sel label="Categoría" items={["Cajeros","Salidas"]} active={form.lim_cat} onSelect={v=>{setF('lim_cat',v);setF('lim_loc',null);}}/>
-                {form.lim_cat&&<SelCnt
-                  label="Equipo"
-                  items={form.lim_cat==="Cajeros"?listaLimCajeros:listaLimSalidas}
-                  active={form.lim_loc}
-                  onSelect={v=>setF('lim_loc',v)}
-                  counts={history.filter(h=>h.MODULO==="Limpieza"&&h.FECHA===hoy&&h.UBICACION&&(form.lim_cat==="Cajeros"?listaLimCajeros:listaLimSalidas).includes(h.UBICACION)).reduce((a,h)=>{a[h.UBICACION]=(a[h.UBICACION]||0)+1;return a;},{})}
-                />}
-                <Sel label="Estado" items={["LIMPIO"]} active={form.lim_estado} onSelect={v=>setF('lim_estado',v)}/>
+                <Sel label="Categoría" items={["Cajeros","Salidas"]} active={form.lim_cat} onSelect={v=>{setF('lim_cat',v);setF('lim_loc',null);setF('lim_estado',null);setF('lim_obs','');}}/>
+
+                {form.lim_cat&&(()=>{
+                  const listaActual=form.lim_cat==="Cajeros"?listaLimCajeros:listaLimSalidas;
+                  const regsHoyLista=history.filter(h=>h.MODULO==="Limpieza"&&h.FECHA===hoy&&h.UBICACION&&listaActual.includes(h.UBICACION));
+                  // Conteo total del equipo hoy
+                  const countsHoy=regsHoyLista.reduce((a,h)=>{a[h.UBICACION]=(a[h.UBICACION]||0)+1;return a;},{});
+                  // Conteo solo del usuario actual hoy
+                  const countsMios=regsHoyLista.filter(h=>h.USUARIO===usuario.nombre).reduce((a,h)=>{a[h.UBICACION]=(a[h.UBICACION]||0)+1;return a;},{});
+                  // Último estado por ubicación (de toda la historia, no solo hoy)
+                  const lastStatus={};
+                  listaActual.forEach(loc=>{
+                    const regsLoc=history.filter(h=>h.MODULO==="Limpieza"&&h.UBICACION===loc).sort((a,b)=>(b._ts||0)-(a._ts||0));
+                    if(regsLoc[0]&&regsLoc[0].RESULTADO&&regsLoc[0].RESULTADO!=="LIMPIO"){
+                      lastStatus[loc]=regsLoc[0].RESULTADO;
+                    }
+                  });
+                  return(
+                    <>
+                      <SelCnt
+                        label="Ubicación"
+                        items={listaActual}
+                        active={form.lim_loc}
+                        onSelect={v=>{setF('lim_loc',v);setF('lim_estado',null);setF('lim_obs','');}}
+                        counts={countsHoy}
+                        countsMios={countsMios}
+                        lastStatus={lastStatus}
+                      />
+
+                      {/* Propuesta 3: tiempo desde última limpieza */}
+                      {form.lim_loc&&(()=>{
+                        const regsLoc=history.filter(h=>h.MODULO==="Limpieza"&&h.UBICACION===form.lim_loc).sort((a,b)=>(b._ts||0)-(a._ts||0));
+                        const ultima=regsLoc[0];
+                        if(!ultima) return(
+                          <div style={{background:"#1a0d00",border:"1px solid #f9731640",borderRadius:10,padding:"9px 12px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+                            <span style={{fontSize:16}}>🔴</span>
+                            <div>
+                              <div style={{fontSize:11,fontWeight:900,color:"#f97316"}}>Sin registro hoy</div>
+                              <div style={{fontSize:9,color:"var(--muted)"}}>Primera limpieza del día</div>
+                            </div>
+                          </div>
+                        );
+                        const diffMs=Date.now()-(ultima._ts||0);
+                        const diffMin=Math.floor(diffMs/60000);
+                        const diffH=Math.floor(diffMin/60);
+                        const diffM=diffMin%60;
+                        const label=diffH>0?`${diffH}h ${diffM}m`:`${diffMin} min`;
+                        const color=diffMin<60?"#22c55e":diffMin<180?"#f59e0b":"#ef4444";
+                        const emoji=diffMin<60?"🟢":diffMin<180?"🟡":"🔴";
+                        return(
+                          <div style={{background:`${color}10`,border:`1px solid ${color}40`,borderRadius:10,padding:"9px 12px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <span style={{fontSize:16}}>{emoji}</span>
+                              <div>
+                                <div style={{fontSize:11,fontWeight:900,color}}>Última limpieza hace {label}</div>
+                                <div style={{fontSize:9,color:"var(--muted)"}}>por {ultima.USUARIO} · {ultima.HORA}</div>
+                              </div>
+                            </div>
+                            <div style={{textAlign:"right"}}>
+                              <div style={{fontSize:13,fontWeight:900,color}}>{countsHoy[form.lim_loc]||0}</div>
+                              <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>HOY</div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  );
+                })()}
+
+                {/* Propuesta 2: estados ampliados */}
+                {form.lim_cat&&form.lim_loc&&(
+                  <>
+                    <div className="label-sec">Estado</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:14}}>
+                      {[
+                        {v:"LIMPIO",icon:"✅",desc:"Limpieza completada sin novedad",color:"#22c55e"},
+                        {v:"PENDIENTE",icon:"⏳",desc:"No se pudo realizar — queda pendiente",color:"#f59e0b"},
+                        {v:"REQUIERE ATENCIÓN",icon:"⚠️",desc:"Problema que requiere intervención",color:"#ef4444"},
+                      ].map(op=>{
+                        const sel=form.lim_estado===op.v;
+                        return(
+                          <button key={op.v} onClick={()=>{setF('lim_estado',sel?null:op.v);if(op.v==="LIMPIO")setF('lim_obs','');}}
+                            style={{
+                              padding:"12px 14px",borderRadius:12,cursor:"pointer",
+                              border:`${sel?"2px":"1px"} solid ${sel?op.color:op.color+"50"}`,
+                              background:sel?`${op.color}18`:"var(--card)",
+                              display:"flex",alignItems:"center",gap:10,textAlign:"left",
+                            }}>
+                            <span style={{fontSize:20,flexShrink:0}}>{op.icon}</span>
+                            <div style={{flex:1}}>
+                              <div style={{fontSize:12,fontWeight:900,color:sel?op.color:"var(--text)"}}>{op.v}</div>
+                              <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>{op.desc}</div>
+                            </div>
+                            {sel&&<span style={{fontSize:14,color:op.color,flexShrink:0}}>✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Observación — solo para PENDIENTE y REQUIERE ATENCIÓN */}
+                    {form.lim_estado&&form.lim_estado!=="LIMPIO"&&(
+                      <div style={{marginBottom:14}}>
+                        <div className="label-sec">Observación <span style={{color:"var(--muted)",fontWeight:600,fontSize:9}}>(opcional)</span></div>
+                        <textarea
+                          className="inp"
+                          rows={2}
+                          placeholder={form.lim_estado==="PENDIENTE"?"¿Por qué no se pudo realizar? (área ocupada, falta producto...)":"¿Qué requiere atención? (derrame, daño, obstáculo...)"}
+                          value={form.lim_obs||""}
+                          onChange={e=>setF('lim_obs',e.target.value)}
+                          style={{marginBottom:0,fontSize:13,resize:"none"}}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
               </>
             )}
 
@@ -5118,48 +6018,489 @@ function App(){
       )}
 
       {screen==="success"&&(
-        <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:"24px",background:"var(--bg)"}}>
-          <div style={{fontSize:72,marginBottom:8,animation:"pop .4s ease"}}>✅</div>
-          <div style={{fontSize:22,fontWeight:900,color:"#22c55e",marginBottom:4}}>REGISTRADO</div>
-          <div style={{fontSize:11,color:"var(--muted)",fontWeight:700,marginBottom:20}}>🟢 SINCRONIZADO · Todos lo ven ahora</div>
+        <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column",background:"var(--bg)"}}>
 
-          {lastRecord&&(
-            <div style={{width:"100%",maxWidth:340,background:"var(--card)",border:"1px solid #22c55e40",borderRadius:16,padding:"16px",marginBottom:24,borderLeft:"4px solid #22c55e"}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-                <span style={{fontSize:28}}>{lastRecord.modulo?.icon||"📋"}</span>
-                <div>
-                  <div style={{fontSize:14,fontWeight:900,color:"#22c55e"}}>{lastRecord.modulo?.label}</div>
-                  <div style={{fontSize:10,color:"var(--muted)",fontWeight:700}}>📅 {lastRecord.fecha} · 🕒 {lastRecord.hora}</div>
+          {/* ── MODO RÁFAGA: cajero / entrada / salida ── */}
+          {["cajero","entrada","salida"].includes(lastRecord?.modulo?.id)?(
+            <div style={{height:"100%",display:"flex",flexDirection:"column"}}>
+
+              {/* Header */}
+              <div style={{
+                background:`linear-gradient(135deg,#0a0e1a,#111827)`,
+                borderBottom:`3px solid ${lastRecord?.modulo?.color||"#0ea5e9"}`,
+                padding:"14px 16px",flexShrink:0,
+              }}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{
+                      width:36,height:36,borderRadius:10,
+                      background:`${lastRecord?.modulo?.color||"#0ea5e9"}20`,
+                      border:`1px solid ${lastRecord?.modulo?.color||"#0ea5e9"}40`,
+                      display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,
+                    }}>{lastRecord?.modulo?.icon}</div>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:900,color:lastRecord?.modulo?.color||"var(--accent)"}}>
+                        MODO RÁFAGA · {lastRecord?.modulo?.label?.toUpperCase()}
+                      </div>
+                      <div style={{fontSize:9,color:"var(--muted)",fontWeight:700}}>
+                        {rafagaRecorrido.length} equipo{rafagaRecorrido.length!==1?"s":""} revisado{rafagaRecorrido.length!==1?"s":""}
+                        {rafagaRecorrido.some(r=>r.fallas.length>0) &&
+                          ` · ⚠️ ${rafagaRecorrido.reduce((s,r)=>s+r.fallas.length,0)} falla${rafagaRecorrido.reduce((s,r)=>s+r.fallas.length,0)!==1?"s":""}`}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={()=>{setLastRecord(null);setRafagaRecorrido([]);setScreen("home");}}
+                    style={{background:"#ffffff15",border:"1px solid #ffffff25",borderRadius:8,padding:"6px 10px",color:"white",fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                    SALIR
+                  </button>
                 </div>
               </div>
-              {lastRecord.loc&&(
-                <div style={{display:"flex",gap:8,alignItems:"center",background:"var(--bg)",borderRadius:10,padding:"8px 12px"}}>
-                  <span style={{fontSize:14}}>📍</span>
-                  <span style={{fontSize:12,fontWeight:800,color:"var(--text)"}}>{lastRecord.loc}</span>
+
+              <div style={{flex:1,overflowY:"auto",padding:"16px"}}>
+
+                {/* Último registrado */}
+                {(()=>{
+                  const ultimo=rafagaRecorrido[rafagaRecorrido.length-1];
+                  const sinFallas=ultimo?.fallas?.length===0;
+                  const mc=lastRecord?.modulo?.color||"#0ea5e9";
+                  return(
+                    <div style={{
+                      background:sinFallas?"#0d1a0d":"#1a0d0d",
+                      border:`2px solid ${sinFallas?"#22c55e":"#ef4444"}`,
+                      borderRadius:14,padding:"14px 16px",marginBottom:16,
+                      display:"flex",alignItems:"center",gap:12,animation:"pop .3s ease",
+                    }}>
+                      <div style={{fontSize:26}}>{sinFallas?"✅":"⚠️"}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:900,color:sinFallas?"#22c55e":"#ef4444"}}>
+                          {sinFallas?"Todo en orden":"Fallas detectadas"}
+                        </div>
+                        <div style={{fontSize:14,fontWeight:900,color:"var(--text)",marginTop:2}}>{ultimo?.loc}</div>
+                        {!sinFallas&&(
+                          <div style={{fontSize:10,color:"#fca5a5",marginTop:3}}>
+                            {ultimo.fallas.join(" · ")}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{textAlign:"center",flexShrink:0}}>
+                        <div style={{fontSize:22,fontWeight:900,color:mc}}>{rafagaRecorrido.length}</div>
+                        <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>TOTAL</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Mapa de progreso */}
+                {(()=>{
+                  const modId=lastRecord?.modulo?.id;
+                  const listaTotal=modId==="cajero"?listaCajeros:modId==="entrada"?listaEntradas:listaSalidas;
+                  const hechasSet=new Set(rafagaRecorrido.map(r=>r.loc));
+                  const faltan=listaTotal.filter(u=>!hechasSet.has(u));
+                  const mc=lastRecord?.modulo?.color||"#0ea5e9";
+                  const totalFallas=rafagaRecorrido.reduce((s,r)=>s+r.fallas.length,0);
+                  return(
+                    <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",marginBottom:16}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <div style={{fontSize:10,fontWeight:800,color:"var(--muted)",letterSpacing:1}}>PROGRESO SESIÓN</div>
+                        <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                          {totalFallas>0&&<span style={{fontSize:10,color:"#ef4444",fontWeight:800}}>⚠️ {totalFallas} falla{totalFallas!==1?"s":""}</span>}
+                          <span style={{fontSize:10,fontWeight:900,color:mc}}>{hechasSet.size}/{listaTotal.length}</span>
+                        </div>
+                      </div>
+                      {/* Barra */}
+                      <div style={{height:6,background:"var(--border)",borderRadius:4,overflow:"hidden",marginBottom:12}}>
+                        <div style={{height:"100%",width:`${Math.round((hechasSet.size/Math.max(listaTotal.length,1))*100)}%`,background:`linear-gradient(90deg,${mc},${mc}cc)`,borderRadius:4,transition:"width .4s"}}/>
+                      </div>
+                      {/* Revisados */}
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:faltan.length>0?10:0}}>
+                        {rafagaRecorrido.map((r,i)=>{
+                          const ok=r.fallas.length===0;
+                          return(
+                            <div key={i} style={{
+                              display:"flex",alignItems:"center",gap:4,
+                              background:ok?"#22c55e15":"#ef444415",
+                              border:`1px solid ${ok?"#22c55e40":"#ef444440"}`,
+                              borderRadius:20,padding:"3px 9px",
+                            }}>
+                              <span style={{fontSize:10}}>{ok?"✅":"⚠️"}</span>
+                              <span style={{fontSize:10,fontWeight:800,color:ok?"#22c55e":"#ef4444"}}>{r.loc}</span>
+                              {!ok&&<span style={{fontSize:9,color:"#ef4444",fontWeight:700}}>({r.fallas.length})</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Faltan */}
+                      {faltan.length>0&&(
+                        <>
+                          <div style={{fontSize:9,fontWeight:800,color:"var(--muted)",letterSpacing:1,marginBottom:6}}>FALTAN</div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                            {faltan.map((u,i)=>(
+                              <div key={i} style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:20,padding:"3px 9px"}}>
+                                <span style={{fontSize:10,color:"var(--muted)"}}>{u}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Botones */}
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  <button
+                    onClick={()=>{
+                      // Resetear solo la ubicación y checklist, mantener módulo
+                      const modId=lastRecord?.modulo?.id;
+                      const chkItems=modId==="cajero"?CC:modId==="entrada"?CE:CS;
+                      const reset={};
+                      chkItems.forEach(c=>{reset[c.id]=null;});
+                      reset[modId]=null;
+                      reset.obs="";
+                      setForm(f=>({...f,...reset}));
+                      setModulo(lastRecord.modulo);
+                      setScreen("form");
+                    }}
+                    style={{
+                      width:"100%",padding:"18px",
+                      background:`linear-gradient(135deg,${lastRecord?.modulo?.color||"#0ea5e9"},${lastRecord?.modulo?.color||"#0ea5e9"}bb)`,
+                      border:"none",borderRadius:14,color:"white",fontWeight:900,fontSize:15,
+                      cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:12,
+                      boxShadow:`0 4px 20px ${lastRecord?.modulo?.color||"#0ea5e9"}40`,
+                    }}>
+                    <span style={{fontSize:22}}>⚡</span>
+                    SIGUIENTE EQUIPO
+                  </button>
+
+                  <button
+                    onClick={()=>{setLastRecord(null);setRafagaRecorrido([]);setScreen("home");}}
+                    style={{width:"100%",padding:"13px",background:"transparent",border:"1px solid var(--border)",borderRadius:14,color:"var(--muted)",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+                    ← TERMINAR SESIÓN · {rafagaRecorrido.length} equipo{rafagaRecorrido.length!==1?"s":""}
+                    {rafagaRecorrido.reduce((s,r)=>s+r.fallas.length,0)>0&&
+                      ` · ⚠️ ${rafagaRecorrido.reduce((s,r)=>s+r.fallas.length,0)} falla${rafagaRecorrido.reduce((s,r)=>s+r.fallas.length,0)!==1?"s":""}`}
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+          ):(
+
+          <>{/* ── MODO RÁFAGA: limpieza ── */}
+          {lastRecord?.modulo?.id==="limpieza"?(
+            <div style={{height:"100%",display:"flex",flexDirection:"column"}}>
+
+              {/* Header */}
+              <div style={{background:"linear-gradient(135deg,#1a1400,#2d2000)",borderBottom:"2px solid #fbbf24",padding:"14px 16px",flexShrink:0}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#fbbf2430,#fbbf2410)",border:"1px solid #fbbf2440",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🧹</div>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:900,color:"#fbbf24"}}>MODO RÁFAGA · LIMPIEZA</div>
+                      <div style={{fontSize:9,color:"#fde68a",fontWeight:700}}>
+                        {rafagaLimpieza.length} registro{rafagaLimpieza.length!==1?"s":""} · {lastRecord.form?.lim_cat||""}
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={()=>{setLastRecord(null);setRafagaLimpieza([]);setScreen("home");}}
+                    style={{background:"#ffffff15",border:"1px solid #ffffff25",borderRadius:8,padding:"6px 10px",color:"white",fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                    SALIR
+                  </button>
+                </div>
+              </div>
+
+              <div style={{flex:1,overflowY:"auto",padding:"16px"}}>
+
+                {/* Último registrado */}
+                {(()=>{
+                  const ultimo=rafagaLimpieza[rafagaLimpieza.length-1];
+                  const estadoColor=ultimo?.estado==="LIMPIO"?"#22c55e":ultimo?.estado==="PENDIENTE"?"#f59e0b":"#ef4444";
+                  const estadoIcon=ultimo?.estado==="LIMPIO"?"✅":ultimo?.estado==="PENDIENTE"?"⏳":"⚠️";
+                  return(
+                    <div style={{background:`${estadoColor}10`,border:`2px solid ${estadoColor}`,borderRadius:14,padding:"14px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12,animation:"pop .3s ease"}}>
+                      <div style={{fontSize:26}}>{estadoIcon}</div>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:900,color:estadoColor}}>Registrado</div>
+                        <div style={{fontSize:14,fontWeight:900,color:"var(--text)",marginTop:2}}>{lastRecord.loc}</div>
+                        {ultimo?.obs&&<div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>{ultimo.obs}</div>}
+                      </div>
+                      <div style={{textAlign:"center"}}>
+                        <div style={{fontSize:22,fontWeight:900,color:"#fbbf24"}}>{rafagaLimpieza.length}</div>
+                        <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>TOTAL</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Mapa de progreso de la sesión */}
+                {rafagaLimpieza.length>0&&(()=>{
+                  const listaTotal=lastRecord.form?.lim_cat==="Cajeros"?listaLimCajeros:listaLimSalidas;
+                  const hechas=new Set(rafagaLimpieza.map(r=>r.loc));
+                  const pendientes=listaTotal.filter(u=>!hechas.has(u));
+                  return(
+                    <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",marginBottom:16}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                        <div style={{fontSize:10,fontWeight:800,color:"var(--muted)",letterSpacing:1}}>PROGRESO SESIÓN</div>
+                        <div style={{fontSize:10,fontWeight:900,color:"#fbbf24"}}>{hechas.size}/{listaTotal.length}</div>
+                      </div>
+                      {/* Barra de progreso */}
+                      <div style={{height:6,background:"var(--border)",borderRadius:4,overflow:"hidden",marginBottom:12}}>
+                        <div style={{height:"100%",width:`${Math.round((hechas.size/listaTotal.length)*100)}%`,background:"linear-gradient(90deg,#fbbf24,#f97316)",borderRadius:4,transition:"width .4s"}}/>
+                      </div>
+                      {/* Hechas */}
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:pendientes.length>0?10:0}}>
+                        {rafagaLimpieza.map((r,i)=>{
+                          const c=r.estado==="LIMPIO"?"#22c55e":r.estado==="PENDIENTE"?"#f59e0b":"#ef4444";
+                          const ico=r.estado==="LIMPIO"?"✅":r.estado==="PENDIENTE"?"⏳":"⚠️";
+                          return(
+                            <div key={i} style={{display:"flex",alignItems:"center",gap:4,background:`${c}15`,border:`1px solid ${c}40`,borderRadius:20,padding:"3px 9px"}}>
+                              <span style={{fontSize:10}}>{ico}</span>
+                              <span style={{fontSize:10,fontWeight:800,color:c}}>{r.loc}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {/* Pendientes de la sesión */}
+                      {pendientes.length>0&&(
+                        <>
+                          <div style={{fontSize:9,fontWeight:800,color:"var(--muted)",letterSpacing:1,marginBottom:6}}>FALTAN</div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                            {pendientes.map((u,i)=>(
+                              <div key={i} style={{background:"var(--bg)",border:"1px solid var(--border)",borderRadius:20,padding:"3px 9px"}}>
+                                <span style={{fontSize:10,color:"var(--muted)"}}>{u}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Botones */}
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  <button
+                    onClick={()=>{
+                      setForm(f=>({...f,lim_loc:null,lim_estado:null,lim_obs:""}));
+                      setModulo(lastRecord.modulo);
+                      setScreen("form");
+                    }}
+                    style={{width:"100%",padding:"18px",background:"linear-gradient(135deg,#d97706,#f59e0b)",border:"none",borderRadius:14,color:"white",fontWeight:900,fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:12,boxShadow:"0 4px 20px #f59e0b40"}}>
+                    <span style={{fontSize:22}}>⚡</span>
+                    SIGUIENTE UBICACIÓN
+                  </button>
+
+                  <button
+                    onClick={()=>{
+                      setForm(f=>({...f,lim_cat:null,lim_loc:null,lim_estado:null,lim_obs:""}));
+                      setModulo(lastRecord.modulo);
+                      setScreen("form");
+                    }}
+                    style={{width:"100%",padding:"14px",background:"var(--card)",border:"2px solid #fbbf2440",borderRadius:14,color:"#fbbf24",fontWeight:900,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                    <span style={{fontSize:16}}>🔄</span>
+                    CAMBIAR CATEGORÍA
+                  </button>
+
+                  <button
+                    onClick={()=>{setLastRecord(null);setRafagaLimpieza([]);setScreen("home");}}
+                    style={{width:"100%",padding:"13px",background:"transparent",border:"1px solid var(--border)",borderRadius:14,color:"var(--muted)",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+                    ← TERMINAR SESIÓN · {rafagaLimpieza.length} registro{rafagaLimpieza.length!==1?"s":""}
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+          ):lastRecord?.modulo?.id==="indicador"?(
+            <div style={{height:"100%",display:"flex",flexDirection:"column"}}>
+
+              {/* Header ráfaga */}
+              <div style={{background:"linear-gradient(135deg,#1a0a2e,#2e1065)",borderBottom:"2px solid #a855f7",padding:"14px 16px",flexShrink:0}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:36,height:36,borderRadius:10,background:"linear-gradient(135deg,#a855f730,#a855f710)",border:"1px solid #a855f740",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>⏱</div>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:900,color:"#a855f7"}}>MODO RÁFAGA · INDICADOR</div>
+                      <div style={{fontSize:9,color:"#c4b5fd",fontWeight:700}}>
+                        {rafagaRegistros.length} registro{rafagaRegistros.length!==1?"s":""} · {lastRecord.form?.ind_cat||""}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={()=>{setLastRecord(null);setRafagaRegistros([]);setScreen("home");}}
+                    style={{background:"#ffffff15",border:"1px solid #ffffff25",borderRadius:8,padding:"6px 10px",color:"white",fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                    SALIR
+                  </button>
+                </div>
+              </div>
+
+              <div style={{flex:1,overflowY:"auto",padding:"16px"}}>
+
+                {/* Último registrado — confirmación */}
+                <div style={{background:"#0d1a0d",border:"2px solid #22c55e",borderRadius:14,padding:"14px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12,animation:"pop .3s ease"}}>
+                  <div style={{fontSize:28}}>✅</div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:900,color:"#22c55e"}}>Registrado</div>
+                    <div style={{fontSize:14,fontWeight:900,color:"var(--text)",marginTop:2}}>{lastRecord.loc}</div>
+                    <div style={{fontSize:11,color:"#22c55e",fontWeight:800,marginTop:2}}>⏱ {lastRecord.form?.timer_val}s</div>
+                  </div>
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontSize:22,fontWeight:900,color:"#a855f7"}}>{rafagaRegistros.length}</div>
+                    <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>TOTAL</div>
+                  </div>
+                </div>
+
+                {/* Tabla de tiempos de la sesión */}
+                {rafagaRegistros.length>1&&(
+                  <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",marginBottom:16}}>
+                    <div style={{fontSize:10,fontWeight:800,color:"var(--muted)",letterSpacing:1,marginBottom:10}}>SESIÓN ACTUAL</div>
+                    {rafagaRegistros.map((r,i)=>{
+                      const best=Math.min(...rafagaRegistros.map(x=>parseFloat(x.tiempo)));
+                      const worst=Math.max(...rafagaRegistros.map(x=>parseFloat(x.tiempo)));
+                      const t=parseFloat(r.tiempo);
+                      const isBest=t===best&&rafagaRegistros.filter(x=>parseFloat(x.tiempo)===best).length===1;
+                      const isWorst=t===worst&&rafagaRegistros.length>1;
+                      const prom=rafagaRegistros.reduce((s,x)=>s+parseFloat(x.tiempo),0)/rafagaRegistros.length;
+                      const barW=Math.round((t/worst)*100);
+                      return(
+                        <div key={i} style={{marginBottom:8}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <span style={{fontSize:9,fontWeight:800,color:"var(--muted)",width:16,textAlign:"right"}}>{i+1}</span>
+                              <span style={{fontSize:11,fontWeight:800,color:"var(--text)"}}>{r.loc}</span>
+                              {isBest&&<span style={{fontSize:8,background:"#22c55e20",color:"#22c55e",padding:"1px 5px",borderRadius:8,fontWeight:800}}>MEJOR</span>}
+                              {isWorst&&rafagaRegistros.length>2&&<span style={{fontSize:8,background:"#f9731620",color:"#f97316",padding:"1px 5px",borderRadius:8,fontWeight:800}}>MAYOR</span>}
+                            </div>
+                            <span style={{fontSize:12,fontWeight:900,color:isBest?"#22c55e":t>prom?"#f97316":"var(--accent)"}}>{r.tiempo}s</span>
+                          </div>
+                          <div style={{height:3,background:"var(--border)",borderRadius:2,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${barW}%`,background:isBest?"#22c55e":t>prom?"#f97316":"#a855f7",borderRadius:2}}/>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {/* Promedio */}
+                    <div style={{borderTop:"1px solid var(--border)",marginTop:10,paddingTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontSize:10,fontWeight:800,color:"var(--muted)"}}>PROMEDIO SESIÓN</span>
+                      <span style={{fontSize:14,fontWeight:900,color:"#a855f7"}}>
+                        {(rafagaRegistros.reduce((s,r)=>s+parseFloat(r.tiempo),0)/rafagaRegistros.length).toFixed(2)}s
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Botones de acción */}
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {/* SIGUIENTE EQUIPO — mismo módulo, misma categoría, reset cronómetro */}
+                  <button
+                    onClick={()=>{
+                      // Mantener categoría, limpiar equipo y tiempo
+                      const catActual=lastRecord.form?.ind_cat;
+                      setTimer(0);setTimerOn(false);
+                      if(tRef.current)clearInterval(tRef.current);
+                      setForm(f=>({...f,ind_loc:null,timer_val:null}));
+                      setModulo(lastRecord.modulo);
+                      setScreen("form");
+                    }}
+                    style={{
+                      width:"100%",padding:"18px",
+                      background:"linear-gradient(135deg,#a855f7,#7c3aed)",
+                      border:"none",borderRadius:14,
+                      color:"white",fontWeight:900,fontSize:15,
+                      cursor:"pointer",
+                      display:"flex",alignItems:"center",justifyContent:"center",gap:12,
+                      boxShadow:"0 4px 20px #a855f740",
+                    }}>
+                    <span style={{fontSize:22}}>⚡</span>
+                    SIGUIENTE EQUIPO
+                  </button>
+
+                  {/* CAMBIAR CATEGORÍA */}
+                  <button
+                    onClick={()=>{
+                      setTimer(0);setTimerOn(false);
+                      if(tRef.current)clearInterval(tRef.current);
+                      setForm(f=>({...f,ind_cat:null,ind_loc:null,timer_val:null}));
+                      setModulo(lastRecord.modulo);
+                      setScreen("form");
+                    }}
+                    style={{
+                      width:"100%",padding:"14px",
+                      background:"var(--card)",
+                      border:"2px solid #a855f740",
+                      borderRadius:14,color:"#a855f7",
+                      fontWeight:900,fontSize:13,cursor:"pointer",
+                      display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+                    }}>
+                    <span style={{fontSize:16}}>🔄</span>
+                    CAMBIAR CATEGORÍA
+                  </button>
+
+                  {/* TERMINAR SESIÓN */}
+                  <button
+                    onClick={()=>{setLastRecord(null);setRafagaRegistros([]);setScreen("home");}}
+                    style={{
+                      width:"100%",padding:"13px",
+                      background:"transparent",
+                      border:"1px solid var(--border)",
+                      borderRadius:14,color:"var(--muted)",
+                      fontWeight:900,fontSize:13,cursor:"pointer",
+                    }}>
+                    ← TERMINAR SESIÓN · {rafagaRegistros.length} registro{rafagaRegistros.length!==1?"s":""}
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+          ):(
+            /* ── PANTALLA DE ÉXITO NORMAL (otros módulos) ── */
+            <div style={{height:"100%",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:"24px"}}>
+              <div style={{fontSize:56,marginBottom:6,animation:"pop .4s ease"}}>✅</div>
+              <div style={{fontSize:20,fontWeight:900,color:"#22c55e",marginBottom:4}}>REGISTRADO</div>
+              <div style={{fontSize:11,color:"var(--muted)",fontWeight:700,marginBottom:20}}>🟢 SINCRONIZADO · Todos lo ven ahora</div>
+
+              {lastRecord&&(
+                <div style={{width:"100%",maxWidth:340,background:"var(--card)",border:"1px solid #22c55e40",borderRadius:16,padding:"16px",marginBottom:24,borderLeft:"4px solid #22c55e"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                    <span style={{fontSize:28}}>{lastRecord.modulo?.icon||"📋"}</span>
+                    <div>
+                      <div style={{fontSize:14,fontWeight:900,color:"#22c55e"}}>{lastRecord.modulo?.label}</div>
+                      <div style={{fontSize:10,color:"var(--muted)",fontWeight:700}}>📅 {lastRecord.fecha} · 🕒 {lastRecord.hora}</div>
+                    </div>
+                  </div>
+                  {lastRecord.loc&&(
+                    <div style={{display:"flex",gap:8,alignItems:"center",background:"var(--bg)",borderRadius:10,padding:"8px 12px"}}>
+                      <span style={{fontSize:14}}>📍</span>
+                      <span style={{fontSize:12,fontWeight:800,color:"var(--text)"}}>{lastRecord.loc}</span>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          <div style={{width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:10}}>
-            {lastRecord?.modulo&&(
-              <button
-                onClick={()=>{if(lastRecord.modulo.id==="camaras"){setScreen("camaras");}else{openMod(lastRecord.modulo);}}}
-                style={{width:"100%",padding:"16px",background:"var(--accent)",border:"none",borderRadius:14,color:"white",fontWeight:900,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-                <span style={{fontSize:20}}>{lastRecord.modulo.icon}</span>
-                NUEVO REGISTRO · {lastRecord.modulo.label.toUpperCase()}
-              </button>
-            )}
-            <button
-              onClick={()=>{
-                const dest=lastRecord?.modulo?.id==="camaras"?"camaras":"home";
-                setLastRecord(null);
-                setScreen(dest==="camaras"?"camaras":"home");
-              }}
-              style={{width:"100%",padding:"14px",background:"transparent",border:"2px solid var(--border)",borderRadius:14,color:"var(--muted)",fontWeight:900,fontSize:13,cursor:"pointer"}}>
-              ← MENÚ PRINCIPAL
-            </button>
-          </div>
+              <div style={{width:"100%",maxWidth:340,display:"flex",flexDirection:"column",gap:10}}>
+                {lastRecord?.modulo&&(
+                  <button
+                    onClick={()=>{if(lastRecord.modulo.id==="camaras"){setScreen("camaras");}else{openMod(lastRecord.modulo);}}}
+                    style={{width:"100%",padding:"16px",background:"var(--accent)",border:"none",borderRadius:14,color:"white",fontWeight:900,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+                    <span style={{fontSize:20}}>{lastRecord.modulo.icon}</span>
+                    NUEVO REGISTRO · {lastRecord.modulo.label.toUpperCase()}
+                  </button>
+                )}
+                <button
+                  onClick={()=>{
+                    const dest=lastRecord?.modulo?.id==="camaras"?"camaras":"home";
+                    setLastRecord(null);
+                    setScreen(dest==="camaras"?"camaras":"home");
+                  }}
+                  style={{width:"100%",padding:"14px",background:"transparent",border:"2px solid var(--border)",borderRadius:14,color:"var(--muted)",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+                  ← MENÚ PRINCIPAL
+                </button>
+              </div>
+            </div>
+          )}</>
+          )}
         </div>
       )}
 
