@@ -11,9 +11,9 @@ localStorage.setItem("app_version",APP_VERSION);
 document.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('keydown',e=>{if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&['I','J','C','K'].includes(e.key.toUpperCase()))||(e.ctrlKey&&['U','S'].includes(e.key.toUpperCase()))){e.preventDefault();return false;}});
 </script>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -267,6 +267,20 @@ body{background:var(--bg);color:var(--text);font-size:13px;}
 </head>
 <body>
 <div id="root"></div>
+<script>
+window.onerror=function(msg,src,line,col,err){
+  if(document.getElementById('root').children.length===0){
+    document.getElementById('root').innerHTML='<div style="background:#1a0808;color:#ef4444;padding:24px;font-family:monospace;font-size:13px;position:fixed;inset:0;overflow:auto"><b>ERROR DE CARGA</b><br><br>'+msg+'<br><br>Archivo: '+(src||'?').split('/').pop()+'<br>Linea: '+(line||'?')+(err&&err.stack?'<br><br>'+err.stack.replace(/</g,'&lt;'):'')+'</div>';
+  }
+};
+window.addEventListener('unhandledrejection',function(e){
+  if(document.getElementById('root').children.length===0){
+    var m=e.reason&&e.reason.message?e.reason.message:String(e.reason);
+    document.getElementById('root').innerHTML='<div style="background:#1a0808;color:#ef4444;padding:24px;font-family:monospace;font-size:13px;position:fixed;inset:0;overflow:auto"><b>ERROR PROMESA</b><br><br>'+m+'</div>';
+  }
+});
+</script>
+
 <script type="text/babel">
 const{useState,useEffect,useRef,useCallback}=React;
 
@@ -356,8 +370,8 @@ const SALIDAS=[
   // Universal
   "Salida Universal",
 ];
-const LIMPIEZA_CAJEROS=["Siman","Hooligan's","Katrin","Rosti","Chilis","Universal"];
-const LIMPIEZA_SALIDAS=["Zapote","Arturo Calle","Rosti","Universal"];
+const LIMPIEZA_CAJEROS=["Siman","Hooligan's","Katrin","Cajero Rosti","Chilis","Cajero Universal"];
+const LIMPIEZA_SALIDAS=["Zapote","Arturo Calle","Salida Rosti","Salida Universal"];
 
 // Grupos de zona para mostrar separadores en los selectores
 const GRUPOS_CAJEROS={
@@ -384,17 +398,17 @@ const GRUPOS_SALIDAS={
 };
 const GRUPOS_LIM_CAJEROS={
   "Sótano":["Siman"],
-  "Zona Hooligan's":["Hooligan's"],
-  "Zona Katrin":["Katrin"],
-  "Zona Rosti":["Rosti"],
-  "Zona Chilis":["Chilis"],
-  "Zona Universal":["Universal"],
+  "Hooligan's":["Hooligan's"],
+  "Katrin":["Katrin"],
+  "Rosti":["Cajero Rosti"],
+  "Chilis":["Chilis"],
+  "Universal":["Cajero Universal"],
 };
 const GRUPOS_LIM_SALIDAS={
   "Zapote":["Zapote"],
   "Arturo Calle":["Arturo Calle"],
-  "Rosti":["Rosti"],
-  "Universal":["Universal"],
+  "Rosti":["Salida Rosti"],
+  "Universal":["Salida Universal"],
 };
 const MODS=[
   {id:"cajero",label:"Cajero",icon:"🏧",color:"#0ea5e9"},
@@ -457,6 +471,7 @@ function canAccess(m,u){
   if(u.rol==="Monitoreo") return m.id==="ot"||m.id==="almuerzo"||m.id==="camaras";
   if(m.id==="almuerzo") return ALM_VIS.includes(u.nombre);
   if(["cajero","entrada","salida"].includes(m.id)) return ["Vicente","Geovanny","Christopher"].includes(u.nombre);
+  if(m.id==="limpieza") return !["Christopher"].includes(u.nombre);
   return true;
 }
 
@@ -845,66 +860,385 @@ function AlmuerzoScreen({vales,soloLec,onVolver,fb,hoy,onRegreso,vpData}){
   const[clock,setClock]=useState("");
   const[saving,setSaving]=useState(null);
   const[tab,setTab]=useState("almuerzo");
-  useEffect(()=>{const t=()=>setClock(new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'}));t();const id=setInterval(t,1000);return()=>clearInterval(id);},[]);
+  const[vistaTab,setVistaTab]=useState("activo"); // activo | cola | historial
+  // Propuesta 2: motivo de tardanza
+  const[motivoModal,setMotivoModal]=useState(null); // {vale, min}
+  const[motivoSel,setMotivoSel]=useState("");
+  const[motivoText,setMotivoText]=useState("");
+  // Propuesta 3: cola de turnos
+  const[cola,setCola]=useState([]); // nombres en orden de salida
+  const[colaEdit,setColaEdit]=useState(false);
+  const[dragIdx,setDragIdx]=useState(null);
+
+  useEffect(()=>{
+    const t=()=>setClock(new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+    t();const id=setInterval(t,1000);return()=>clearInterval(id);
+  },[]);
+
+  // Forzar re-render cada 30s para actualizar cronómetros
+  const[tick,setTick]=useState(0);
+  useEffect(()=>{const id=setInterval(()=>setTick(t=>t+1),15000);return()=>clearInterval(id);},[]);
+
   const vpList=vpData||VP;
   const personas=tab==="cafe"?vpList.filter(p=>p.cafe):vpList;
   const getV=(n,t)=>vales.find(v=>v.persona===n&&v.fecha===hoy&&v.tipo===t&&!v.regreso);
   const TC=tab==="almuerzo"?"#f97316":"#06b6d4";
-  const regSal=async n=>{if(!fb)return;setSaving(n+tab);const h=new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'});await fb.push(fb.ref(fb.db,"vales"),{persona:n,fecha:hoy,tipo:tab,salida:h,regreso:null,_ts:Date.now()});setSaving(null);};
-  const regReg=async(v,min)=>{if(!fb)return;setSaving(v.persona+tab);const h=new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'});const[sh,sm,ss]=v.salida.split(":").map(Number);const[rh,rm,rs]=h.split(":").map(Number);const ok=((rh*60+rm)*60+(rs||0)-(sh*60+sm)*60-(ss||0))<=min*60;const{_fbKey,...rest}=v;await fb.set(fb.ref(fb.db,`vales/${_fbKey}`),{...rest,regreso:h,aTiempo:ok});setSaving(null);};
-  const hist=vales.filter(v=>v.fecha===hoy&&v.regreso&&v.tipo===tab);
-  const aT=hist.filter(v=>v.aTiempo).length;const tard=hist.filter(v=>!v.aTiempo).length;
+
+  // Calcular minutos fuera de una persona
+  const minsFuera=(salida)=>{
+    if(!salida||!clock)return 0;
+    const[sh,sm,ss]=(salida||"0:0:0").split(":").map(Number);
+    const[ch,cm,cs]=clock.split(":").map(Number);
+    return Math.max(0,Math.floor(((ch*3600+cm*60+cs)-(sh*3600+sm*60+ss))/60));
+  };
+
+  const regSal=async n=>{
+    if(!fb)return;
+    setSaving(n+tab);
+    const h=new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    await fb.push(fb.ref(fb.db,"vales"),{persona:n,fecha:hoy,tipo:tab,salida:h,regreso:null,_ts:Date.now()});
+    // Avanzar cola si estaba programado
+    setCola(prev=>prev.filter(x=>x!==n));
+    setSaving(null);
+  };
+
+  const regRegConMotivo=async(v,min,motivo,obs)=>{
+    if(!fb)return;
+    setSaving(v.persona+tab);
+    const h=new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const[sh,sm,ss]=(v.salida||"0:0:0").split(":").map(Number);
+    const[rh,rm,rs]=h.split(":").map(Number);
+    const segs=(rh*3600+rm*60+(rs||0))-(sh*3600+sm*60+(ss||0));
+    const ok=segs<=min*60;
+    const{_fbKey,...rest}=v;
+    await fb.set(fb.ref(fb.db,`vales/${_fbKey}`),{
+      ...rest,regreso:h,aTiempo:ok,
+      ...(motivo?{motivo,obsMotivo:obs||""}:{}),
+    });
+    setSaving(null);
+  };
+
+  const handleRegreso=(v,min)=>{
+    const mins=minsFuera(v.salida);
+    if(mins>min&&!soloLec){
+      // Mostrar modal de motivo
+      setMotivoModal({vale:v,min});
+      setMotivoSel("");
+      setMotivoText("");
+    } else {
+      regRegConMotivo(v,min,null,null);
+    }
+  };
+
+  const hist=vales.filter(v=>v.fecha===hoy&&v.regreso&&v.tipo===tab).sort((a,b)=>b._ts-a._ts);
+  const aT=hist.filter(v=>v.aTiempo).length;
+  const tard=hist.filter(v=>!v.aTiempo).length;
+  const fueraAhora=personas.filter(p=>getV(p.nombre,tab));
+
+  // Siguiente en cola
+  const siguienteEnCola=cola.find(n=>!getV(n,tab)&&!vales.some(v=>v.persona===n&&v.fecha===hoy&&v.tipo===tab&&v.regreso));
+
+  // Estimación de horarios en cola
+  const estimarCola=()=>{
+    const ahora=clock?clock.split(":").map(Number):[0,0,0];
+    let t=ahora[0]*60+ahora[1];
+    return cola.map(n=>{
+      const p=personas.find(x=>x.nombre===n);
+      const min=p?(tab==="almuerzo"?p.minA:p.minC):65;
+      const yaFuera=getV(n,tab);
+      const yaVolvio=vales.some(v=>v.persona===n&&v.fecha===hoy&&v.tipo===tab&&v.regreso);
+      const est=`${String(Math.floor(t/60)).padStart(2,"0")}:${String(t%60).padStart(2,"0")}`;
+      if(!yaFuera&&!yaVolvio) t+=min+5;
+      return{nombre:n,est,yaFuera:!!yaFuera,yaVolvio,min};
+    });
+  };
+
+  const MOTIVOS=["Autorizado por coordinador","Problema médico/personal","Fila o espera larga","Otro"];
+
   return(
-    <div className="fi" style={{height:'100%',display:'flex',flexDirection:'column'}}>
-      <div style={{background:'var(--card)',borderBottom:'3px solid #e879f9',flexShrink:0}}>
-        <div style={{background:'#ef444418',borderBottom:'1px solid #ef444430',padding:'10px 14px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-          <button onClick={onVolver} style={{background:'#ef4444',border:'none',color:'white',fontSize:13,fontWeight:900,padding:'10px 16px',borderRadius:12,cursor:'pointer'}}>← SALIR</button>
-          <div style={{fontWeight:900,fontSize:13}}>🍽 ALMUERZOS VALET</div>
-          <div style={{fontSize:12,fontWeight:900,color:'#e879f9'}}>{clock}</div>
+    <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column"}}>
+
+      {/* ── Modal motivo tardanza ── */}
+      {motivoModal&&(
+        <div style={{position:"absolute",inset:0,background:"#000000d8",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+          <div style={{background:"var(--card)",border:"2px solid #f97316",borderRadius:18,padding:20,width:"100%",maxWidth:320}}>
+            <div style={{fontSize:22,textAlign:"center",marginBottom:6}}>⏰</div>
+            <div style={{fontSize:14,fontWeight:900,color:"#f97316",textAlign:"center",marginBottom:4}}>Regreso tarde</div>
+            <div style={{fontSize:11,color:"var(--muted)",textAlign:"center",marginBottom:14}}>
+              {motivoModal.vale.persona} superó los {motivoModal.min} min. ¿Motivo?
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:12}}>
+              {MOTIVOS.map(m=>(
+                <button key={m} onClick={()=>setMotivoSel(m)}
+                  style={{padding:"10px 12px",borderRadius:10,border:`1.5px solid ${motivoSel===m?"#f97316":"var(--border)"}`,background:motivoSel===m?"#f9731618":"var(--bg)",color:motivoSel===m?"#f97316":"var(--muted)",fontWeight:700,fontSize:11,cursor:"pointer",textAlign:"left"}}>
+                  {motivoSel===m?"✓ ":""}{m}
+                </button>
+              ))}
+            </div>
+            <textarea className="inp" rows={2} placeholder="Observación adicional (opcional)..."
+              value={motivoText} onChange={e=>setMotivoText(e.target.value)}
+              style={{marginBottom:12,fontSize:12,resize:"none"}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{regRegConMotivo(motivoModal.vale,motivoModal.min,"Sin motivo","");setMotivoModal(null);}}
+                style={{flex:1,padding:"11px",background:"var(--border)",border:"none",borderRadius:11,color:"var(--muted)",fontWeight:900,fontSize:12,cursor:"pointer"}}>
+                Omitir
+              </button>
+              <button onClick={()=>{regRegConMotivo(motivoModal.vale,motivoModal.min,motivoSel||"Sin motivo",motivoText);setMotivoModal(null);}}
+                style={{flex:1,padding:"11px",background:"#f97316",border:"none",borderRadius:11,color:"white",fontWeight:900,fontSize:12,cursor:"pointer"}}>
+                Guardar
+              </button>
+            </div>
+          </div>
         </div>
-        <div style={{display:'flex'}}>
-          <button className="tab-btn" onClick={()=>setTab("almuerzo")} style={{color:tab==="almuerzo"?'#f97316':'var(--muted)',borderBottomColor:tab==="almuerzo"?'#f97316':'transparent'}}>🍽 ALMUERZO</button>
-          <button className="tab-btn" onClick={()=>setTab("cafe")} style={{color:tab==="cafe"?'#06b6d4':'var(--muted)',borderBottomColor:tab==="cafe"?'#06b6d4':'transparent'}}>☕ CAFÉ</button>
+      )}
+
+      {/* ── Header ── */}
+      <div style={{background:"var(--card)",borderBottom:"3px solid #e879f9",flexShrink:0}}>
+        <div style={{background:"#ef444418",borderBottom:"1px solid #ef444430",padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <button onClick={onVolver} style={{background:"#ef4444",border:"none",color:"white",fontSize:13,fontWeight:900,padding:"10px 16px",borderRadius:12,cursor:"pointer"}}>← SALIR</button>
+          <div style={{fontWeight:900,fontSize:13}}>🍽 ALMUERZOS VALET</div>
+          <div style={{fontSize:12,fontWeight:900,color:"#e879f9"}}>{clock}</div>
+        </div>
+        {/* Tabs tipo / vista */}
+        <div style={{display:"flex",borderBottom:"1px solid var(--border)"}}>
+          <button className="tab-btn" onClick={()=>setTab("almuerzo")} style={{color:tab==="almuerzo"?"#f97316":"var(--muted)",borderBottomColor:tab==="almuerzo"?"#f97316":"transparent"}}>🍽 ALMUERZO</button>
+          <button className="tab-btn" onClick={()=>setTab("cafe")} style={{color:tab==="cafe"?"#06b6d4":"var(--muted)",borderBottomColor:tab==="cafe"?"#06b6d4":"transparent"}}>☕ CAFÉ</button>
+        </div>
+        <div style={{display:"flex"}}>
+          {["activo","cola","historial"].map(v=>(
+            <button key={v} className="tab-btn" onClick={()=>setVistaTab(v)}
+              style={{flex:1,fontSize:10,color:vistaTab===v?"var(--accent)":"var(--muted)",borderBottomColor:vistaTab===v?"var(--accent)":"transparent",padding:"8px 4px"}}>
+              {v==="activo"?"⏱ ACTIVO":v==="cola"?"📋 TURNO":"📊 HISTORIAL"}
+            </button>
+          ))}
         </div>
       </div>
+
       <div className="scrollable">
-        <div className="label-sec">📊 RESUMEN · {hoy}</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
-          <div style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,padding:'12px 8px',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:TC}}>{hist.length}</div><div style={{fontSize:9,color:'var(--muted)',fontWeight:700,marginTop:2}}>REGISTROS</div></div>
-          <div style={{background:'#22c55e12',border:'1px solid #22c55e40',borderRadius:12,padding:'12px 8px',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'#22c55e'}}>{aT}</div><div style={{fontSize:9,color:'var(--muted)',fontWeight:700,marginTop:2}}>A TIEMPO</div></div>
-          <div style={{background:'#ef444412',border:'1px solid #ef444440',borderRadius:12,padding:'12px 8px',textAlign:'center'}}><div style={{fontSize:22,fontWeight:900,color:'#ef4444'}}>{tard}</div><div style={{fontSize:9,color:'var(--muted)',fontWeight:700,marginTop:2}}>TARDE</div></div>
-        </div>
-        <div className="label-sec">PERSONAL</div>
-        {personas.map(p=>{
-          const min=tab==="almuerzo"?p.minA:p.minC;
-          const v=getV(p.nombre,tab);const fuera=!!v;const sv=saving===p.nombre+tab;
-          const comp=vales.some(x=>x.persona===p.nombre&&x.fecha===hoy&&x.tipo===tab&&x.regreso);
-          if(comp&&!fuera)return null;
-          return(
-            <div key={p.nombre} style={{borderRadius:14,marginBottom:9,overflow:'hidden',border:fuera?`2px solid ${TC}`:'1px solid var(--border)',background:fuera?`${TC}12`:'var(--card)'}}>
-              <div style={{padding:'16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <div style={{fontWeight:900,fontSize:15,color:fuera?TC:'var(--text)'}}>{p.nombre}</div>
-                <div>
-                  {!soloLec?(
-                    !v?
-                      <button onClick={()=>regSal(p.nombre)} disabled={sv} style={{background:TC,color:'white',border:'none',padding:'11px 16px',borderRadius:12,fontWeight:900,fontSize:12,cursor:'pointer'}}>{sv?'...':tab==="almuerzo"?'SALIDA 🍽':'SALIDA ☕'}</button>:
-                      <button onClick={()=>regReg(v,min)} disabled={sv} style={{background:'#22c55e',color:'white',border:'none',padding:'11px 16px',borderRadius:12,fontWeight:900,fontSize:12,cursor:'pointer'}}>{sv?'...':tab==="almuerzo"?'VUELVE 🍽':'VUELVE ☕'}</button>
-                  ):(
-                    <span style={{fontSize:11,fontWeight:800,padding:'6px 12px',borderRadius:20,color:fuera?TC:'#22c55e',background:fuera?`${TC}20`:'#22c55e15'}}>{fuera?'⏳ FUERA':'✅ EN PUESTO'}</span>
-                  )}
+
+        {/* ══ VISTA ACTIVO ══ */}
+        {vistaTab==="activo"&&(
+          <>
+            {/* KPIs */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:7,marginBottom:14}}>
+              <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:11,padding:"10px 6px",textAlign:"center"}}>
+                <div style={{fontSize:20,fontWeight:900,color:TC}}>{fueraAhora.length}</div>
+                <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginTop:1}}>FUERA</div>
+              </div>
+              <div style={{background:"#22c55e12",border:"1px solid #22c55e40",borderRadius:11,padding:"10px 6px",textAlign:"center"}}>
+                <div style={{fontSize:20,fontWeight:900,color:"#22c55e"}}>{aT}</div>
+                <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginTop:1}}>A TIEMPO</div>
+              </div>
+              <div style={{background:"#ef444412",border:"1px solid #ef444440",borderRadius:11,padding:"10px 6px",textAlign:"center"}}>
+                <div style={{fontSize:20,fontWeight:900,color:"#ef4444"}}>{tard}</div>
+                <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginTop:1}}>TARDE</div>
+              </div>
+            </div>
+
+            {/* Siguiente en cola */}
+            {siguienteEnCola&&cola.length>0&&(
+              <div style={{background:"#0ea5e910",border:"2px solid #0ea5e9",borderRadius:12,padding:"10px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:18}}>👉</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:10,fontWeight:800,color:"var(--accent)"}}>SIGUIENTE EN TURNO</div>
+                  <div style={{fontSize:13,fontWeight:900,color:"var(--text)"}}>{siguienteEnCola}</div>
+                </div>
+                {!soloLec&&(
+                  <button onClick={()=>regSal(siguienteEnCola)} disabled={!!saving}
+                    style={{background:TC,border:"none",color:"white",padding:"9px 14px",borderRadius:10,fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                    {tab==="almuerzo"?"SALIDA 🍽":"SALIDA ☕"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ── Personas fuera ahora ── */}
+            {fueraAhora.length>0&&(
+              <>
+                <div className="label-sec" style={{color:"#f97316"}}>⏱ FUERA AHORA · {fueraAhora.length}</div>
+                {fueraAhora.map(p=>{
+                  const min=tab==="almuerzo"?p.minA:p.minC;
+                  const v=getV(p.nombre,tab);
+                  const mins=minsFuera(v.salida);
+                  const pct=Math.min(100,Math.round((mins/min)*100));
+                  const exc=mins>min;
+                  const barC=pct<70?"#22c55e":pct<100?"#f59e0b":"#ef4444";
+                  const sv=saving===p.nombre+tab;
+                  return(
+                    <div key={p.nombre} style={{borderRadius:14,marginBottom:9,overflow:"hidden",border:`${exc?"2px":"1px"} solid ${exc?"#ef4444":TC}`,background:exc?"#1a0808":`${TC}0a`,animation:exc?"blink 2s infinite":"none"}}>
+                      <div style={{padding:"12px 14px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                          <div>
+                            <div style={{fontWeight:900,fontSize:14,color:exc?"#ef4444":TC}}>{p.nombre}</div>
+                            <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>Salió: {v.salida} · máx {min} min</div>
+                          </div>
+                          <div style={{textAlign:"right"}}>
+                            <div style={{fontSize:18,fontWeight:900,color:barC,fontVariantNumeric:"tabular-nums"}}>{mins}min</div>
+                            {exc&&<div style={{fontSize:8,color:"#ef4444",fontWeight:800}}>+{mins-min} TARDE</div>}
+                          </div>
+                        </div>
+                        {/* Barra progreso */}
+                        <div style={{height:6,background:"var(--border)",borderRadius:4,overflow:"hidden",marginBottom:8}}>
+                          <div style={{height:"100%",width:`${pct}%`,background:barC,borderRadius:4,transition:"width 1s"}}/>
+                        </div>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                          <span style={{fontSize:9,color:barC,fontWeight:800}}>{pct}% del tiempo permitido</span>
+                          {!soloLec&&(
+                            <button onClick={()=>handleRegreso(v,min)} disabled={sv}
+                              style={{background:"#22c55e",color:"white",border:"none",padding:"9px 14px",borderRadius:10,fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                              {sv?"...":`VUELVE ${tab==="almuerzo"?"🍽":"☕"}`}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
+            {/* ── Personas en puesto ── */}
+            {!soloLec&&(
+              <>
+                <div className="label-sec">✅ EN PUESTO</div>
+                {personas.filter(p=>!getV(p.nombre,tab)&&!vales.some(x=>x.persona===p.nombre&&x.fecha===hoy&&x.tipo===tab&&x.regreso)).map(p=>{
+                  const sv=saving===p.nombre+tab;
+                  return(
+                    <div key={p.nombre} style={{borderRadius:12,marginBottom:7,border:"1px solid var(--border)",background:"var(--card)",padding:"11px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontWeight:800,fontSize:13,color:"var(--text)"}}>{p.nombre}</div>
+                        <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>máx {tab==="almuerzo"?p.minA:p.minC} min</div>
+                      </div>
+                      <button onClick={()=>regSal(p.nombre)} disabled={sv}
+                        style={{background:TC,color:"white",border:"none",padding:"10px 14px",borderRadius:10,fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                        {sv?"...":`SALIDA ${tab==="almuerzo"?"🍽":"☕"}`}
+                      </button>
+                    </div>
+                  );
+                })}
+                {/* Solo lectura: mostrar todos */}
+              </>
+            )}
+            {soloLec&&personas.map(p=>{
+              const v=getV(p.nombre,tab);
+              const fuera=!!v;
+              return(
+                <div key={p.nombre} style={{borderRadius:12,marginBottom:7,border:`1px solid ${fuera?TC:"var(--border)"}`,background:fuera?`${TC}0a`:"var(--card)",padding:"11px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{fontWeight:800,fontSize:13,color:fuera?TC:"var(--text)"}}>{p.nombre}</div>
+                  <span style={{fontSize:10,fontWeight:800,color:fuera?TC:"#22c55e",background:fuera?`${TC}15`:"#22c55e15",padding:"4px 10px",borderRadius:20}}>{fuera?"⏳ FUERA":"✅ EN PUESTO"}</span>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {/* ══ VISTA COLA / TURNO ══ */}
+        {vistaTab==="cola"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div className="label-sec" style={{margin:0}}>📋 ORDEN DE TURNO · {tab==="almuerzo"?"ALMUERZOS":"CAFÉS"}</div>
+              {!soloLec&&<button onClick={()=>setColaEdit(e=>!e)}
+                style={{fontSize:10,fontWeight:800,background:colaEdit?"var(--accent)":"var(--card)",border:`1px solid ${colaEdit?"var(--accent)":"var(--border)"}`,color:colaEdit?"white":"var(--muted)",padding:"5px 12px",borderRadius:8,cursor:"pointer"}}>
+                {colaEdit?"✓ LISTO":"✏ EDITAR"}
+              </button>}
+            </div>
+
+            {/* Agregar personas a la cola */}
+            {colaEdit&&!soloLec&&(
+              <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"12px",marginBottom:12}}>
+                <div style={{fontSize:9,fontWeight:800,color:"var(--muted)",marginBottom:8}}>AGREGAR AL TURNO:</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {personas.filter(p=>!cola.includes(p.nombre)).map(p=>(
+                    <button key={p.nombre} onClick={()=>setCola(prev=>[...prev,p.nombre])}
+                      style={{padding:"5px 10px",borderRadius:20,border:"1px solid var(--border)",background:"var(--bg)",color:"var(--muted)",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                      + {p.nombre.split(" ")[0]}
+                    </button>
+                  ))}
                 </div>
               </div>
-              {fuera&&!soloLec&&<div style={{background:`${TC}18`,padding:'6px 16px',borderTop:`1px solid ${TC}30`}}><div style={{fontSize:10,color:TC,fontWeight:700}}>Salió a las {v.salida}</div></div>}
-            </div>
-          );
-        })}
-        {hist.length>0&&(
+            )}
+
+            {cola.length===0&&(
+              <div style={{textAlign:"center",color:"var(--muted)",padding:"30px 0",fontSize:12}}>
+                Sin turno programado.<br/>
+                {!soloLec&&"Toca EDITAR para agregar personas."}
+              </div>
+            )}
+
+            {/* Lista del turno con estimaciones */}
+            {estimarCola().map((item,i)=>{
+              const p=personas.find(x=>x.nombre===item.nombre);
+              const statusC=item.yaVolvio?"#22c55e":item.yaFuera?TC:"var(--muted)";
+              return(
+                <div key={item.nombre} style={{background:"var(--card)",border:`1px solid ${item.yaFuera&&!item.yaVolvio?TC:"var(--border)"}`,borderRadius:12,padding:"12px 14px",marginBottom:8,display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:26,height:26,borderRadius:"50%",background:item.yaVolvio?"#22c55e18":item.yaFuera?`${TC}18`:"var(--border)",border:`2px solid ${statusC}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:900,color:statusC,flexShrink:0}}>
+                    {item.yaVolvio?"✓":item.yaFuera?"⏱":i+1}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:12,fontWeight:900,color:statusC}}>{item.nombre}</div>
+                    <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>
+                      {item.yaVolvio?"Regresó"
+                        :item.yaFuera?"Fuera ahora"
+                        :`Estimado: ~${item.est} · ${item.min} min`}
+                    </div>
+                  </div>
+                  {colaEdit&&!soloLec&&(
+                    <div style={{display:"flex",gap:4}}>
+                      <button onClick={()=>setCola(prev=>{const a=[...prev];if(i>0){[a[i-1],a[i]]=[a[i],a[i-1]];}return a;})}
+                        disabled={i===0}
+                        style={{background:"var(--border)",border:"none",borderRadius:7,padding:"5px 8px",cursor:"pointer",opacity:i===0?0.3:1,fontSize:11}}>↑</button>
+                      <button onClick={()=>setCola(prev=>{const a=[...prev];if(i<a.length-1){[a[i],a[i+1]]=[a[i+1],a[i]];}return a;})}
+                        disabled={i===cola.length-1}
+                        style={{background:"var(--border)",border:"none",borderRadius:7,padding:"5px 8px",cursor:"pointer",opacity:i===cola.length-1?0.3:1,fontSize:11}}>↓</button>
+                      <button onClick={()=>setCola(prev=>prev.filter((_,j)=>j!==i))}
+                        style={{background:"#ef444415",border:"1px solid #ef444430",borderRadius:7,padding:"5px 8px",cursor:"pointer",color:"#ef4444",fontSize:11}}>✕</button>
+                    </div>
+                  )}
+                  {!colaEdit&&!item.yaVolvio&&!item.yaFuera&&!soloLec&&i===0&&(
+                    <button onClick={()=>regSal(item.nombre)}
+                      style={{background:TC,border:"none",color:"white",padding:"8px 12px",borderRadius:10,fontWeight:900,fontSize:10,cursor:"pointer",flexShrink:0}}>
+                      SALIDA
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ══ VISTA HISTORIAL ══ */}
+        {vistaTab==="historial"&&(
           <div>
-            <div className="label-sec">📋 HISTORIAL · {tab==="almuerzo"?"ALMUERZO":"CAFÉ"}</div>
+            <div className="label-sec">📊 HISTORIAL · {tab==="almuerzo"?"ALMUERZO":"CAFÉ"} · {hoy}</div>
+            {hist.length===0&&<div style={{color:"var(--muted)",textAlign:"center",padding:"24px 0",fontSize:12}}>Sin registros hoy</div>}
             {hist.map((v,i)=>(
-              <div key={i} style={{background:v.aTiempo?'#22c55e12':'#ef444412',border:`1px solid ${v.aTiempo?'#22c55e40':'#ef444440'}`,borderRadius:10,padding:'10px 14px',marginBottom:7,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <div><div style={{fontWeight:900,fontSize:12}}>{v.persona}</div><div style={{fontSize:10,color:'var(--muted)'}}>🚶 {v.salida} → ✅ {v.regreso}</div></div>
-                <div style={{fontSize:22}}>{v.aTiempo?'✅':'🔴'}</div>
+              <div key={i} style={{background:v.aTiempo?"#22c55e0c":"#ef44440c",border:`1px solid ${v.aTiempo?"#22c55e35":"#ef444435"}`,borderLeft:`4px solid ${v.aTiempo?"#22c55e":"#ef4444"}`,borderRadius:10,padding:"11px 13px",marginBottom:7}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:900,fontSize:12,color:v.aTiempo?"#22c55e":"#ef4444"}}>{v.aTiempo?"✅":"🔴"} {v.persona}</div>
+                    <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>🚶 {v.salida} → ✅ {v.regreso}</div>
+                    {v.motivo&&v.motivo!=="Sin motivo"&&(
+                      <div style={{fontSize:9,color:"#f97316",marginTop:3,background:"#f9731610",border:"1px solid #f9731630",borderRadius:6,padding:"2px 7px",display:"inline-block"}}>
+                        ⚠️ {v.motivo}{v.obsMotivo?` · ${v.obsMotivo}`:""}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0,marginLeft:8}}>
+                    {(()=>{
+                      const p=personas.find(x=>x.nombre===v.persona);
+                      const max=p?(tab==="almuerzo"?p.minA:p.minC):65;
+                      const[sh,sm]=(v.salida||"0:0").split(":").map(Number);
+                      const[rh,rm]=(v.regreso||"0:0").split(":").map(Number);
+                      const mins=(rh*60+rm)-(sh*60+sm);
+                      return(
+                        <>
+                          <div style={{fontSize:13,fontWeight:900,color:v.aTiempo?"#22c55e":"#ef4444"}}>{mins}min</div>
+                          <div style={{fontSize:8,color:"var(--muted)"}}>máx {max}min</div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -964,6 +1298,8 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
   const[adminCamEstado,setAdminCamEstado]=useState(null);
   // Version control states (must be at component level — not inside JSX)
   const[verInput,setVerInput]=useState("");
+  const[expandTec,setExpandTec]=useState(null); // técnico expandido en tab Técnicos
+  const[cfgPreview,setCfgPreview]=useState(false); // mostrar preview del selector
   const[msgInput,setMsgInput]=useState("");
   const[verSending,setVerSending]=useState(false);
   const[busquedaActividad,setBusquedaActividad]=useState("");
@@ -986,7 +1322,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
   const[nuevoVP,setNuevoVP]=useState({nombre:"",minA:65,minC:15,cafe:true});
   const[anuncioEdit,setAnuncioEdit]=useState({texto:"",urgente:false,activo:false});
   const[cfgSaving,setCfgSaving]=useState(false);
-  const[camConfig,setCamConfig]=useState({intervalo:40,escalamiento:10,horaInicio:9,horaFin:21.5});
+  const[camConfig,setCamConfig]=useState({intervalo:30,escalamiento:10,horaInicio:9,horaFin:21.5});
   // ── Valet
   const[valetClock,setValetClock]=useState("");
   const[valetTab,setValetTab]=useState("almuerzo");
@@ -1504,6 +1840,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
     {id:"dash",icon:"📊",label:"Dashboard"},
     {id:"estado",icon:"🚦",label:"Estado"},
     {id:"camaras_admin",icon:"📹",label:"Cámaras"},
+    {id:"tecnicos",icon:"🧑‍💼",label:"Técnicos"},
     {id:"usuarios",icon:"👥",label:"Usuarios"},
     {id:"permisos",icon:"🛡",label:"Permisos"},
     {id:"config",icon:"⚙️",label:"Config"},
@@ -1958,6 +2295,164 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
           );
         })()}
 
+        {/* ════════════════ TÉCNICOS ════════════════ */}
+        {tab==="tecnicos"&&(()=>{
+          const PROG_MODS=[
+            {id:"cajero",label:"Cajeros",icon:"🏧",lista:cfgListas.cajeros||CAJEROS,modLabel:"Cajero",color:"#0ea5e9"},
+            {id:"entrada",label:"Entradas",icon:"🚗",lista:cfgListas.entradas||ENTRADAS,modLabel:"Entrada",color:"#22c55e"},
+            {id:"salida",label:"Salidas",icon:"🚦",lista:cfgListas.salidas||SALIDAS,modLabel:"Salida",color:"#f97316"},
+            {id:"lim_caj",label:"Lim.Caj",icon:"🧹",lista:cfgListas.limCajeros||LIMPIEZA_CAJEROS,modLabel:"Limpieza",filtro:(h)=>(cfgListas.limCajeros||LIMPIEZA_CAJEROS).includes(h.UBICACION),color:"#fbbf24"},
+            {id:"lim_sal",label:"Lim.Sal",icon:"🧹",lista:cfgListas.limSalidas||LIMPIEZA_SALIDAS,modLabel:"Limpieza",filtro:(h)=>(cfgListas.limSalidas||LIMPIEZA_SALIDAS).includes(h.UBICACION),color:"#fbbf24"},
+          ];
+
+          const getTecProgreso=(nombre)=>PROG_MODS.map(m=>{
+            const regs=hoyH.filter(h=>h.USUARIO===nombre&&h.MODULO===m.modLabel&&(m.filtro?m.filtro(h):m.lista.includes(h.UBICACION)));
+            const hechos=new Set(regs.map(h=>h.UBICACION)).size;
+            return{...m,hechos,pct:m.lista.length>0?Math.round((hechos/m.lista.length)*100):0};
+          });
+
+          const getTec7dias=(nombre)=>{
+            const dias=[];
+            for(let i=6;i>=0;i--){
+              const d=new Date();d.setDate(d.getDate()-i);
+              const f=d.toLocaleDateString("es");
+              dias.push({f,n:history.filter(h=>h.USUARIO===nombre&&h.FECHA===f).length,d:d.toLocaleDateString("es",{weekday:"short"})});
+            }
+            return dias;
+          };
+
+          const tecnicos=usuarios.filter(u=>u.nombre!=="Vicente");
+
+          return(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+              <div className="label-sec" style={{margin:0}}>🧑‍💼 TÉCNICOS · {tecnicos.length}</div>
+              <div style={{display:"flex",gap:5,fontSize:9}}>
+                <span style={{background:"#22c55e18",color:"#22c55e",border:"1px solid #22c55e30",padding:"2px 8px",borderRadius:10,fontWeight:800}}>🟢 {onlineU.length}</span>
+                <span style={{background:"var(--card)",color:"var(--muted)",border:"1px solid var(--border)",padding:"2px 8px",borderRadius:10,fontWeight:800}}>{tecnicos.length-onlineU.length} offline</span>
+              </div>
+            </div>
+
+            {tecnicos.sort((a,b)=>(onlineU.includes(b.nombre)?1:0)-(onlineU.includes(a.nombre)?1:0)).map(u=>{
+              const enLinea=onlineU.includes(u.nombre);
+              const color=u.color||CU[u.nombre]||AA;
+              const icon=u.icon||IU[u.nombre]||"👤";
+              const regsHoy=hoyH.filter(h=>h.USUARIO===u.nombre).length;
+              const regsTotal=history.filter(h=>h.USUARIO===u.nombre).length;
+              const conFallas=hoyH.filter(h=>h.USUARIO===u.nombre&&Object.keys(h).some(k=>h[k]==="NO")).length;
+              const progMods=getTecProgreso(u.nombre);
+              const hechosTotal=progMods.reduce((s,m)=>s+m.hechos,0);
+              const listaTotal=progMods.reduce((s,m)=>s+m.lista.length,0);
+              const pctGlobal=listaTotal>0?Math.round((hechosTotal/listaTotal)*100):0;
+              const dias7=getTec7dias(u.nombre);
+              const max7=Math.max(...dias7.map(d=>d.n),1);
+              const ulSesion=sesiones.find(s=>s.nombre===u.nombre);
+              const isExpanded=expandTec===u.nombre;
+
+              return(
+              <div key={u.nombre} style={{background:"var(--card)",border:`1.5px solid ${enLinea?color+"60":"var(--border)"}`,borderRadius:14,marginBottom:10,overflow:"hidden",transition:"all .2s"}}>
+
+                {/* ── Cabecera siempre visible ── */}
+                <div style={{padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}
+                  onClick={()=>setExpandTec(isExpanded?null:u.nombre)}>
+                  <div style={{width:42,height:42,borderRadius:11,background:`${color}18`,border:`2px solid ${color}50`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{icon}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
+                      <span style={{fontSize:13,fontWeight:900,color}}>{u.nombre}</span>
+                      {enLinea&&<span style={{width:6,height:6,borderRadius:"50%",background:"#22c55e",animation:"blink 2s infinite",display:"inline-block"}}/>}
+                      {!u.activo&&<span style={{fontSize:8,background:"#ef444420",color:"#ef4444",border:"1px solid #ef444430",borderRadius:8,padding:"1px 5px",fontWeight:800}}>INACTIVO</span>}
+                    </div>
+                    <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>{u.rol} · {regsHoy} hoy · {regsTotal} total</div>
+                  </div>
+                  {/* Cobertura hoy */}
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{fontSize:15,fontWeight:900,color:pctGlobal===100?"#22c55e":pctGlobal>0?color:"var(--muted)"}}>{regsHoy>0?pctGlobal+"%":"—"}</div>
+                    <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>cobertura</div>
+                  </div>
+                  <span style={{fontSize:10,color:"var(--muted)",marginLeft:4}}>{isExpanded?"▲":"▼"}</span>
+                </div>
+
+                {/* ── Barras mini de progreso (siempre) ── */}
+                {regsHoy>0&&(
+                  <div style={{display:"flex",gap:3,padding:"0 14px 10px"}}>
+                    {progMods.map((m,i)=>(
+                      <div key={i} title={`${m.label}: ${m.hechos}/${m.lista.length}`}
+                        style={{flex:1,height:4,background:"var(--border)",borderRadius:2,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${m.pct}%`,background:m.pct===100?"#22c55e":m.color,borderRadius:2}}/>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* ── Panel expandido ── */}
+                {isExpanded&&(
+                  <div style={{borderTop:"1px solid var(--border)",padding:"14px"}}>
+
+                    {/* Progreso detallado por módulo */}
+                    <div style={{fontSize:9,fontWeight:800,color:"var(--muted)",letterSpacing:1,marginBottom:8}}>COBERTURA HOY</div>
+                    {progMods.map((m,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                        <span style={{fontSize:11,width:14,textAlign:"center"}}>{m.icon}</span>
+                        <span style={{fontSize:10,color:"var(--muted)",width:60,flexShrink:0}}>{m.label}</span>
+                        <div style={{flex:1,height:5,background:"var(--border)",borderRadius:3,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${m.pct}%`,background:m.pct===100?"#22c55e":m.color,borderRadius:3}}/>
+                        </div>
+                        <span style={{fontSize:9,fontWeight:900,color:m.pct===100?"#22c55e":m.hechos>0?m.color:"var(--muted)",width:32,textAlign:"right"}}>{m.hechos}/{m.lista.length}</span>
+                      </div>
+                    ))}
+
+                    {/* Tendencia 7 días */}
+                    <div style={{fontSize:9,fontWeight:800,color:"var(--muted)",letterSpacing:1,margin:"12px 0 8px"}}>ACTIVIDAD 7 DÍAS</div>
+                    <div style={{display:"flex",alignItems:"flex-end",gap:4,height:36,marginBottom:12}}>
+                      {dias7.map((d,i)=>(
+                        <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                          <div style={{width:"100%",height:Math.round((d.n/max7)*30)+2,background:d.f===hoy?color:"#a855f7",borderRadius:3,minHeight:2,opacity:d.f===hoy?1:0.5}}/>
+                          <div style={{fontSize:7,color:d.f===hoy?color:"var(--muted)",fontWeight:700}}>{d.f===hoy?"hoy":d.d}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Último login + fallas */}
+                    <div style={{display:"flex",gap:8,marginBottom:12}}>
+                      {ulSesion&&<div style={{flex:1,background:"var(--bg)",borderRadius:9,padding:"8px 10px"}}>
+                        <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginBottom:2}}>ÚLTIMO LOGIN</div>
+                        <div style={{fontSize:10,fontWeight:800,color:"var(--text)"}}>{ulSesion.fecha}</div>
+                        <div style={{fontSize:9,color:"var(--muted)"}}>{ulSesion.hora}</div>
+                      </div>}
+                      <div style={{flex:1,background:"var(--bg)",borderRadius:9,padding:"8px 10px"}}>
+                        <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginBottom:2}}>FALLAS HOY</div>
+                        <div style={{fontSize:14,fontWeight:900,color:conFallas>0?"#f97316":"#22c55e"}}>{conFallas}</div>
+                      </div>
+                      <div style={{flex:1,background:"var(--bg)",borderRadius:9,padding:"8px 10px"}}>
+                        <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginBottom:2}}>ESTADO</div>
+                        <div style={{fontSize:10,fontWeight:900,color:enLinea?"#22c55e":"var(--muted)"}}>{enLinea?"🟢 Online":"⚫ Offline"}</div>
+                      </div>
+                    </div>
+
+                    {/* Acciones rápidas */}
+                    <div style={{fontSize:9,fontWeight:800,color:"var(--muted)",letterSpacing:1,marginBottom:8}}>ACCIONES</div>
+                    <div style={{display:"flex",gap:7,marginBottom:8}}>
+                      <input style={{flex:1,background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"9px",color:"white",fontSize:12,outline:"none"}} type={showPw[u.nombre]?"text":"password"} placeholder="Nueva contraseña..." value={editPw[u.nombre]||""} onChange={e=>setEditPw(p=>({...p,[u.nombre]:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&cambiarPw(u.nombre)}/>
+                      <button onClick={()=>setShowPw(p=>({...p,[u.nombre]:!p[u.nombre]}))} style={{...BTN,padding:"9px",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,color:"var(--muted)",fontSize:13}}>{showPw[u.nombre]?"🙈":"👁"}</button>
+                      <button onClick={()=>cambiarPw(u.nombre)} disabled={saving==="pw_"+u.nombre} style={{padding:"9px 13px",background:"var(--accent)",color:"white",border:"none",borderRadius:8,fontWeight:900,fontSize:11,cursor:"pointer",opacity:saving==="pw_"+u.nombre?0.5:1}}>🔑</button>
+                    </div>
+                    {u.nombre!=="Vicente"&&(
+                      <div style={{display:"flex",gap:7}}>
+                        <button onClick={()=>setConfirm({icon:u.activo?"🔒":"🔓",titulo:u.activo?`Desactivar ${u.nombre}`:`Activar ${u.nombre}`,label:u.activo?"No podrá iniciar sesión":"Podrá volver a ingresar",color:u.activo?"#f97316":"#22c55e",accion:u.activo?"DESACTIVAR":"ACTIVAR",fn:()=>toggleUsuario(u)})} style={{flex:1,padding:"9px",background:u.activo?"#f9731615":"#22c55e15",border:`1px solid ${u.activo?"#f9731640":"#22c55e40"}`,borderRadius:8,color:u.activo?"#f97316":"#22c55e",fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                          {u.activo?"🔒 DESACTIVAR":"🔓 ACTIVAR"}
+                        </button>
+                        <button onClick={()=>setConfirm({icon:"🗑",titulo:`Eliminar a ${u.nombre}`,label:"Irreversible",color:"#ef4444",accion:"ELIMINAR",fn:()=>eliminarUsuario(u)})} style={{padding:"9px 13px",background:"#ef444412",border:"1px solid #ef444435",borderRadius:8,color:"#ef4444",fontWeight:900,fontSize:11,cursor:"pointer"}}>🗑</button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              );
+            })}
+          </div>
+          );
+        })()}
+
         {/* ════════════════ USUARIOS ════════════════ */}
         {tab==="usuarios"&&(
           <div>
@@ -2310,10 +2805,28 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                 <div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                     <div style={{fontSize:13,fontWeight:900,color:AA}}>{icono} {titulo} · {lista.length} equipos</div>
-                    <button onClick={()=>guardarLista(clave,lista)} disabled={cfgSaving} style={{padding:"8px 14px",background:"#22c55e",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:11,cursor:"pointer",opacity:cfgSaving?0.5:1}}>
-                      {cfgSaving?"⏳":"💾 GUARDAR"}
-                    </button>
+                    <div style={{display:"flex",gap:6}}>
+                      <button onClick={()=>setCfgPreview(p=>!p)} style={{padding:"8px 12px",background:cfgPreview?"#a855f720":"var(--card)",border:`1px solid ${cfgPreview?"#a855f7":"var(--border)"}`,borderRadius:10,color:cfgPreview?"#a855f7":"var(--muted)",fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                        👁 {cfgPreview?"OCULTAR":"PREVIA"}
+                      </button>
+                      <button onClick={()=>guardarLista(clave,lista)} disabled={cfgSaving} style={{padding:"8px 14px",background:"#22c55e",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:11,cursor:"pointer",opacity:cfgSaving?0.5:1}}>
+                        {cfgSaving?"⏳":"💾 GUARDAR"}
+                      </button>
+                    </div>
                   </div>
+                  {/* Vista previa del selector como lo verán los técnicos */}
+                  {cfgPreview&&(
+                    <div style={{background:"#0a0f1a",border:"2px solid #a855f7",borderRadius:12,padding:"14px",marginBottom:14}}>
+                      <div style={{fontSize:9,fontWeight:800,color:"#a855f7",letterSpacing:1,marginBottom:8}}>👁 VISTA PREVIA — Así lo verán los técnicos:</div>
+                      <div style={{fontSize:9,fontWeight:800,color:"var(--muted)",letterSpacing:1,marginBottom:6,textTransform:"uppercase"}}>Ubicación</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                        {[...lista].sort((a,b)=>a.localeCompare(b,"es")).map((item,i)=>(
+                          <span key={i} style={{padding:"7px 11px",borderRadius:20,fontSize:11,fontWeight:700,background:"var(--card)",border:"1px solid var(--border)",color:"var(--muted)"}}>{item}</span>
+                        ))}
+                      </div>
+                      <div style={{fontSize:8,color:"#a855f7",marginTop:8}}>El orden real agrupa por zona según la configuración de grupos.</div>
+                    </div>
+                  )}
                   {lista.map((item,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"center",gap:8,background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:"8px 10px",marginBottom:6}}>
                       <span style={{fontSize:11,color:"var(--muted)",fontWeight:700,width:20,textAlign:"center"}}>{i+1}</span>
@@ -2429,37 +2942,32 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
             {cfgSec==="camaras"&&(
               <div>
                 <div style={{fontSize:13,fontWeight:900,color:"#06b6d4",marginBottom:14}}>📹 CONFIGURACIÓN DE CÁMARAS</div>
-                {/* Aviso: intervalo fijo */}
-                <div style={{background:"#0ea5e910",border:"1px solid #0ea5e930",borderRadius:12,padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:20}}>⏱</span>
-                  <div>
-                    <div style={{fontSize:12,fontWeight:900,color:"var(--accent)"}}>Intervalo fijo: 30 minutos</div>
-                    <div style={{fontSize:10,color:"var(--muted)",marginTop:2,lineHeight:1.5}}>El cronómetro se reinicia cada 30 min automáticamente, sin importar si se atendió o no. La revisión pendiente queda activa hasta que Monitoreo la registre.</div>
-                  </div>
-                </div>
-                {/* Solo horario es configurable */}
+                {/* Intervalo + horario — todos configurables */}
                 {[
-                  {k:"horaInicio",l:"🌅 Hora inicio monitoreo",unit:"h",min:6,max:12,step:0.5},
-                  {k:"horaFin",l:"🌙 Hora fin monitoreo",unit:"h",min:18,max:23.5,step:0.5},
-                ].map(({k,l,unit,min,max,step})=>(
+                  {k:"intervalo",l:"⏱ Intervalo entre revisiones",isMin:true,min:10,max:60,step:5},
+                  {k:"horaInicio",l:"🌅 Hora inicio monitoreo",isMin:false,min:6,max:12,step:0.5},
+                  {k:"horaFin",l:"🌙 Hora fin monitoreo",isMin:false,min:18,max:23.5,step:0.5},
+                ].map(({k,l,isMin,min,max,step})=>(
                   <div key={k} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"14px",marginBottom:10}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                       <span style={{fontSize:11,fontWeight:700}}>{l}</span>
                       <span style={{fontSize:15,fontWeight:900,color:"#06b6d4"}}>
-                        {`${String(Math.floor(camConfig[k])).padStart(2,"0")}:${camConfig[k]%1===0.5?"30":"00"}`}
+                        {isMin
+                          ? `${camConfig[k]} min`
+                          : `${String(Math.floor(camConfig[k])).padStart(2,"0")}:${camConfig[k]%1===0.5?"30":"00"}`}
                       </span>
                     </div>
                     <input type="range" min={min} max={max} step={step} value={camConfig[k]}
                       onChange={e=>setCamConfig(p=>({...p,[k]:parseFloat(e.target.value)}))}
                       style={{width:"100%",accentColor:"#06b6d4"}}/>
                     <div style={{display:"flex",justifyContent:"space-between",marginTop:2}}>
-                      <span style={{fontSize:8,color:"var(--muted)"}}>{min}{unit}</span>
-                      <span style={{fontSize:8,color:"var(--muted)"}}>{max}{unit}</span>
+                      <span style={{fontSize:8,color:"var(--muted)"}}>{min}{isMin?" min":"h"}</span>
+                      <span style={{fontSize:8,color:"var(--muted)"}}>{max}{isMin?" min":"h"}</span>
                     </div>
                   </div>
                 ))}
                 <div style={{background:"#06b6d410",border:"1px solid #06b6d430",borderRadius:10,padding:"10px",marginBottom:14,fontSize:10,color:"var(--muted)",lineHeight:1.6}}>
-                  ⏱ Revisión cada <b style={{color:"#06b6d4"}}>30 min</b> · 
+                  ⏱ Revisión cada <b style={{color:"#06b6d4"}}>{camConfig.intervalo} min</b> · 
                   🌅 De <b style={{color:"#06b6d4"}}>{String(Math.floor(camConfig.horaInicio)).padStart(2,"0")}:{camConfig.horaInicio%1===0.5?"30":"00"}</b> a <b style={{color:"#06b6d4"}}>{String(Math.floor(camConfig.horaFin)).padStart(2,"0")}:{camConfig.horaFin%1===0.5?"30":"00"}</b>
                 </div>
                 <button
@@ -2962,88 +3470,146 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
         )}
 
         {/* ════════════════ ALERTAS ════════════════ */}
-        {tab==="alertas"&&(
+        {tab==="alertas"&&(()=>{
+          // Evaluar todas las reglas en tiempo real
+          const REGLAS=[
+            {
+              id:"fallas",
+              icon:"⚠️",
+              titulo:"Fallas detectadas",
+              desc:`${nosHoy} fallas hoy`,
+              activa:nosHoy>=alertaConfig.umbralFallas,
+              color:"#ef4444",
+              detalle:`Umbral configurado: ${alertaConfig.umbralFallas} falla${alertaConfig.umbralFallas!==1?"s":""}`,
+              config:{k:"umbralFallas",l:"Máx. fallas permitidas",min:1,max:20},
+            },
+            {
+              id:"ots",
+              icon:"🔧",
+              titulo:"OTs abiertas",
+              desc:`${activeOTs.filter(o=>o.tipo!=="cam_revision").length} órdenes abiertas`,
+              activa:activeOTs.filter(o=>o.tipo!=="cam_revision").length>=alertaConfig.umbralOTs,
+              color:"#f97316",
+              detalle:`Umbral configurado: ${alertaConfig.umbralOTs} OT${alertaConfig.umbralOTs!==1?"s":""}`,
+              config:{k:"umbralOTs",l:"Máx. OTs simultáneas",min:1,max:10},
+            },
+            {
+              id:"inactividad",
+              icon:"⏱",
+              titulo:"Inactividad del equipo",
+              desc:(()=>{
+                const ahora=Date.now();
+                const inact=usuarios.filter(u=>u.nombre!=="Vicente"&&onlineU.includes(u.nombre)).filter(u=>{
+                  const ulReg=hoyH.filter(h=>h.USUARIO===u.nombre).sort((a,b)=>(b._ts||0)-(a._ts||0))[0];
+                  const mins=ulReg?Math.floor((ahora-(ulReg._ts||0))/60000):999;
+                  return mins>=alertaConfig.umbralInactividad;
+                });
+                return inact.length>0?`${inact.map(u=>u.nombre).join(", ")} sin actividad`:"Todos activos";
+              })(),
+              activa:(()=>{
+                const ahora=Date.now();
+                return usuarios.filter(u=>u.nombre!=="Vicente"&&onlineU.includes(u.nombre)).some(u=>{
+                  const ulReg=hoyH.filter(h=>h.USUARIO===u.nombre).sort((a,b)=>(b._ts||0)-(a._ts||0))[0];
+                  const mins=ulReg?Math.floor((ahora-(ulReg._ts||0))/60000):999;
+                  return mins>=alertaConfig.umbralInactividad;
+                });
+              })(),
+              color:"#a855f7",
+              detalle:`Umbral: ${alertaConfig.umbralInactividad} min sin registrar`,
+              config:{k:"umbralInactividad",l:"Minutos sin registro",min:15,max:240},
+            },
+            {
+              id:"sinactividad",
+              icon:"📋",
+              titulo:"Sin actividad hoy",
+              desc:hoyH.length===0?"No hay registros":"Hay registros del día",
+              activa:hoyH.length===0,
+              color:"#06b6d4",
+              detalle:"Se activa si no hay ningún registro en todo el día",
+              config:null,
+            },
+            {
+              id:"camaras",
+              icon:"📹",
+              titulo:"Revisión de cámaras pendiente",
+              desc:"Estado del sistema de cámaras",
+              activa:false, // cam state not available in AdminPanel scope
+              color:"#06b6d4",
+              detalle:"Revisar módulo de Cámaras para el estado actual",
+              config:null,
+            },
+          ];
+
+          const alertasActivas=REGLAS.filter(r=>r.activa).length;
+
+          return(
           <div>
-            <div className="label-sec">🔔 CONFIGURACIÓN DE ALERTAS</div>
-            <div style={{background:"#f59e0b0c",border:"1px solid #f59e0b30",borderRadius:12,padding:"14px",marginBottom:14}}>
-              <div style={{fontSize:11,fontWeight:800,color:AA,marginBottom:12}}>⚙️ UMBRALES DE ALERTA</div>
-              {[
-                {k:"umbralFallas",l:"🔴 Fallas (NO) para generar alerta",min:1,max:20},
-                {k:"umbralOTs",l:"🔧 OTs abiertas máximas permitidas",min:1,max:10},
-                {k:"umbralInactividad",l:"⏱ Minutos sin registro para alerta",min:15,max:240},
-              ].map(({k,l,min,max})=>(
-                <div key={k} style={{marginBottom:14}}>
-                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                    <span style={{fontSize:10,fontWeight:700,color:"var(--text)"}}>{l}</span>
-                    <span style={{fontSize:13,fontWeight:900,color:AA}}>{alertaConfig[k]}</span>
-                  </div>
-                  <input type="range" min={min} max={max} value={alertaConfig[k]} onChange={e=>setAlertaConfig(p=>({...p,[k]:parseInt(e.target.value)}))} style={{width:"100%",accentColor:AA}}/>
-                  <div style={{display:"flex",justifyContent:"space-between"}}>
-                    <span style={{fontSize:8,color:"var(--muted)"}}>{min}</span>
-                    <span style={{fontSize:8,color:"var(--muted)"}}>{max}</span>
-                  </div>
+            {/* Banner de estado global */}
+            <div style={{
+              background:alertasActivas>0?"linear-gradient(135deg,#1a0808,#2d0e0e)":"linear-gradient(135deg,#051a0d,#072d12)",
+              border:`1.5px solid ${alertasActivas>0?"#ef4444":"#22c55e"}`,
+              borderRadius:14,padding:"14px 16px",marginBottom:16,
+              display:"flex",alignItems:"center",gap:12,
+            }}>
+              <span style={{fontSize:28}}>{alertasActivas>0?"🚨":"✅"}</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:900,color:alertasActivas>0?"#ef4444":"#22c55e"}}>
+                  {alertasActivas>0?`${alertasActivas} alerta${alertasActivas!==1?"s":""} activa${alertasActivas!==1?"s":""}`:"Todo en orden"}
                 </div>
-              ))}
-              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-                <span style={{fontSize:11,fontWeight:700}}>Alertas activas</span>
-                <button onClick={()=>setAlertaConfig(p=>({...p,activa:!p.activa}))} style={{padding:"6px 14px",background:alertaConfig.activa?"#22c55e20":"#ef444420",border:`1px solid ${alertaConfig.activa?"#22c55e50":"#ef444450"}`,borderRadius:20,color:alertaConfig.activa?"#22c55e":"#ef4444",fontWeight:900,fontSize:11,cursor:"pointer"}}>
-                  {alertaConfig.activa?"🟢 ACTIVAS":"🔴 DESACTIVADAS"}
-                </button>
+                <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>
+                  Alertas configuradas: {REGLAS.length} · Activas: {alertasActivas}
+                </div>
               </div>
-              <button onClick={()=>guardarAlertaConfig(alertaConfig)} style={{width:"100%",padding:"12px",background:AA,border:"none",borderRadius:10,fontWeight:900,fontSize:12,cursor:"pointer",color:"#000"}}>
-                💾 GUARDAR CONFIGURACIÓN
+              <button onClick={()=>setAlertaConfig(p=>({...p,activa:!p.activa}))}
+                style={{padding:"6px 12px",background:alertaConfig.activa?"#22c55e20":"#ef444420",border:`1px solid ${alertaConfig.activa?"#22c55e50":"#ef444450"}`,borderRadius:20,color:alertaConfig.activa?"#22c55e":"#ef4444",fontWeight:900,fontSize:10,cursor:"pointer",flexShrink:0}}>
+                {alertaConfig.activa?"🔔 ON":"🔕 OFF"}
               </button>
             </div>
-            <div className="label-sec">📊 ESTADO ACTUAL DE ALERTAS</div>
-            {[
-              {
-                activa:nosHoy>=alertaConfig.umbralFallas,
-                icon:"🔴",label:"Fallas detectadas hoy",
-                valor:`${nosHoy} fallas`,
-                umbral:`Umbral: ${alertaConfig.umbralFallas}`,
-                color:"#ef4444",
-              },
-              {
-                activa:activeOTs.length>=alertaConfig.umbralOTs,
-                icon:"🔧",label:"OTs abiertas",
-                valor:`${activeOTs.length} órdenes`,
-                umbral:`Umbral: ${alertaConfig.umbralOTs}`,
-                color:"#f97316",
-              },
-              {
-                activa:hoyH.length===0,
-                icon:"⏱",label:"Sin registros hoy",
-                valor:hoyH.length===0?"Sin actividad":"Con actividad",
-                umbral:"Se esperan registros",
-                color:"#a855f7",
-              },
-            ].map((al,i)=>(
-              <div key={i} style={{background:al.activa?`${al.color}12`:"var(--card)",border:`1px solid ${al.activa?al.color+"50":"var(--border)"}`,borderRadius:12,padding:"14px",marginBottom:10,borderLeft:`4px solid ${al.activa?al.color:"var(--border)"}`}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:22}}>{al.activa?al.icon:"✅"}</span>
+
+            {/* Reglas */}
+            <div className="label-sec">📋 REGLAS DE ALERTA</div>
+            {REGLAS.map((r,i)=>(
+              <div key={r.id} style={{background:r.activa?`${r.color}10`:"var(--card)",border:`1px solid ${r.activa?r.color+"50":"var(--border)"}`,borderLeft:`4px solid ${r.activa?r.color:"var(--border)"}`,borderRadius:12,padding:"12px 14px",marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:r.config?10:0}}>
+                  <span style={{fontSize:20,flexShrink:0}}>{r.activa?r.icon:"✅"}</span>
                   <div style={{flex:1}}>
-                    <div style={{fontSize:12,fontWeight:900,color:al.activa?al.color:"var(--text)"}}>{al.label}</div>
-                    <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>{al.valor} · {al.umbral}</div>
+                    <div style={{fontSize:12,fontWeight:900,color:r.activa?r.color:"var(--text)"}}>{r.titulo}</div>
+                    <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>{r.desc}</div>
+                    <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>{r.detalle}</div>
                   </div>
-                  <span style={{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,background:al.activa?`${al.color}20`:"#22c55e18",color:al.activa?al.color:"#22c55e",border:`1px solid ${al.activa?al.color+"40":"#22c55e30"}`}}>
-                    {al.activa?"⚠️ ALERTA":"OK"}
+                  <span style={{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,flexShrink:0,
+                    background:r.activa?`${r.color}20`:"#22c55e18",
+                    color:r.activa?r.color:"#22c55e",
+                    border:`1px solid ${r.activa?r.color+"40":"#22c55e30"}`}}>
+                    {r.activa?"⚠️ ALERTA":"OK"}
                   </span>
                 </div>
+                {/* Slider de umbral si aplica */}
+                {r.config&&(
+                  <div style={{paddingLeft:30}}>
+                    <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                      <span style={{fontSize:9,color:"var(--muted)"}}>{r.config.l}</span>
+                      <span style={{fontSize:12,fontWeight:900,color:AA}}>{alertaConfig[r.config.k]}</span>
+                    </div>
+                    <input type="range" min={r.config.min} max={r.config.max} value={alertaConfig[r.config.k]}
+                      onChange={e=>setAlertaConfig(p=>({...p,[r.config.k]:parseInt(e.target.value)}))}
+                      style={{width:"100%",accentColor:r.color}}/>
+                    <div style={{display:"flex",justifyContent:"space-between"}}>
+                      <span style={{fontSize:8,color:"var(--muted)"}}>{r.config.min}</span>
+                      <span style={{fontSize:8,color:"var(--muted)"}}>{r.config.max}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
-            <div className="label-sec" style={{marginTop:8}}>🗂 BITÁCORA DE ADMINISTRADOR</div>
-            {bitacora.length===0&&<div style={{color:"var(--muted)",fontSize:11,padding:"10px 0"}}>Sin acciones registradas</div>}
-            {bitacora.map((b,i)=>(
-              <div key={b._fbKey||i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:"1px solid var(--border)",alignItems:"flex-start"}}>
-                <div style={{flexShrink:0,fontSize:8,fontWeight:800,padding:"3px 7px",borderRadius:8,background:"#f59e0b18",color:AA,marginTop:2,whiteSpace:"nowrap"}}>{b.accion}</div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:11,fontWeight:700}}>{b.detalle}</div>
-                  <div style={{fontSize:9,color:"var(--muted)"}}>{b.fecha} · {b.hora}</div>
-                </div>
-              </div>
-            ))}
+
+            <button onClick={()=>guardarAlertaConfig(alertaConfig)}
+              style={{width:"100%",padding:"13px",background:AA,border:"none",borderRadius:12,fontWeight:900,fontSize:13,cursor:"pointer",color:"#000",marginTop:4,marginBottom:16}}>
+              💾 GUARDAR CONFIGURACIÓN
+            </button>
           </div>
-        )}
+          );
+        })()}
 
         {/* ════════════════ REPORTE ════════════════ */}
         {tab==="reporte"&&(
@@ -3206,7 +3772,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
           const diffMin=Math.floor(diffMs/60000);
           const diffSeg=Math.floor((diffMs%60000)/1000);
           const countdown=siguiente?`${String(diffMin).padStart(2,"0")}:${String(diffSeg).padStart(2,"0")}`:"--:--";
-          const pct=siguiente?Math.min(100,Math.round(((30*60*1000-diffMs)/(30*60*1000))*100)):0;
+          const pct=siguiente?Math.min(100,Math.round((((camConfig.intervalo||30)*60*1000-diffMs)/((camConfig.intervalo||30)*60*1000))*100)):0;
 
           // Tiempo promedio de respuesta
           const conTiempos=hoyRevs.filter(r=>r.horaAlerta&&r.horaAtencion);
@@ -3246,7 +3812,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                     if(!fb)return;
                     const{db,ref,set}=fb;
                     await set(ref(db,"cam_estado"),{
-                      siguiente:Date.now()+30*60*1000,
+                      siguiente:Date.now()+(camConfig.intervalo||30)*60*1000,
                       pendiente:false,ts:Date.now()
                     });
                     logBitacora("CAM TIMER","Timer reiniciado manualmente desde admin");
@@ -3467,896 +4033,293 @@ function CambiarPw({usuario,passwords,onVolver}){
   );
 }
 
-// ============================================================
-// DASHBOARD EJECUTIVO (sin top técnico, con estadísticas de limpieza)
-// ============================================================
+// ── Dashboard Ejecutivo mejorado ──────────────────────────────
 function DashboardEjecutivo({history, hoyH, ayerH, hoy, ayer, diaTab, setDiaTab, activeOTs, selMod, setSelMod}){
   const datos = diaTab==="hoy"?hoyH:ayerH;
   const label = diaTab==="hoy"?hoy:ayer;
-  
+  const [showOTs, setShowOTs] = useState(false);
+
+  // ── KPIs
   const totalRegistros = datos.length;
-  const totalOTsAbiertas = activeOTs.length;
+  const otsAbiertas = activeOTs.filter(o=>o.tipo!=="cam_revision"&&o.tipo!=="cam_escalamiento").length;
+  const otsCerradas = datos.filter(r=>r.MODULO==="Orden Trabajo (OT)"&&r.ACCION==="CERRAR ORDEN DE TRABAJO").length;
+  const todasOTs = datos.filter(r=>r.MODULO==="Orden Trabajo (OT)");
   const totalNOs = datos.reduce((acc,h)=>{
-    if(h.MODULO !== "Orden Trabajo (OT)"){
+    if(!["Orden Trabajo (OT)","Limpieza","Indicador","Almuerzo/Valet"].includes(h.MODULO)){
       ALLCHK.forEach(c=>{if(h[fk(c.label)]==="NO") acc++;});
     }
     return acc;
   },0);
-  const otsCerradas = datos.filter(r => r.MODULO === "Orden Trabajo (OT)" && r.ACCION === "CERRAR ORDEN DE TRABAJO").length;
-  
-  const totalItemsRevisados = datos.reduce((acc,h)=>{
+  const totalItems = datos.reduce((acc,h)=>{
     if(["Cajero","Entrada","Salida"].includes(h.MODULO)){
-      ALLCHK.forEach(c=>{
-        if(h[fk(c.label)]==="SI" || h[fk(c.label)]==="NO") acc++;
-      });
+      ALLCHK.forEach(c=>{if(h[fk(c.label)]==="SI"||h[fk(c.label)]==="NO") acc++;});
     }
     return acc;
   },0);
-  const porcentajeOK = totalItemsRevisados > 0 ? Math.round(((totalItemsRevisados - totalNOs) / totalItemsRevisados) * 100) : 100;
-  
-  const tasaResolucion = totalOTsAbiertas + otsCerradas > 0 ? Math.round((otsCerradas / (totalOTsAbiertas + otsCerradas)) * 100) : 0;
-  
-  // Estadísticas de limpieza
-  const limpiezas = datos.filter(r => r.MODULO === "Limpieza");
-  const totalLimpiezas = limpiezas.length;
-  
-  // Calcular frecuencia de limpieza por ubicación
-  const limpiezasPorUbicacion = {};
-  limpiezas.forEach(l => {
-    const ubicacion = l.UBICACION;
-    if(ubicacion && ubicacion !== "General"){
-      limpiezasPorUbicacion[ubicacion] = (limpiezasPorUbicacion[ubicacion] || 0) + 1;
+  const pctOK = totalItems>0?Math.round(((totalItems-totalNOs)/totalItems)*100):100;
+  const deltaPct = ayerH.length>0?Math.round(((totalRegistros-ayerH.length)/ayerH.length)*100):null;
+
+  // ── Top fallas
+  const fallaMap={};
+  datos.forEach(h=>{
+    if(["Cajero","Entrada","Salida"].includes(h.MODULO)){
+      ALLCHK.forEach(c=>{
+        if(h[fk(c.label)]==="NO"){
+          const key=`${h.MODULO} · ${h.UBICACION}`;
+          fallaMap[key]=(fallaMap[key]||0)+1;
+        }
+      });
     }
   });
-  
-  // Promedio de limpieza (veces por ubicación)
-  const ubicacionesConLimpieza = Object.keys(limpiezasPorUbicacion).length;
-  const promedioLimpieza = ubicacionesConLimpieza > 0 
-    ? (totalLimpiezas / ubicacionesConLimpieza).toFixed(1) 
-    : 0;
-  
-  // Determinar si el promedio es aceptable (más de 1.5 veces por ubicación en el día)
-  const promedioAceptable = promedioLimpieza >= 1.5;
-  const estadoLimpieza = promedioAceptable ? "✅ ACEPTABLE" : "⚠️ REQUIERE ATENCIÓN";
-  const estadoColor = promedioAceptable ? "#22c55e" : "#f97316";
-  
-  const [showOTs, setShowOTs] = useState(true);
-  const todasOTs = datos.filter(r => r.MODULO === "Orden Trabajo (OT)");
-  
-  const pm = MODS.filter(m=>m.id !== "ot" && m.id !== "almuerzo").map(m=>({
-    ...m,
-    n: datos.filter(h=>h.MODULO===m.label).length,
-    registros: datos.filter(h=>h.MODULO===m.label)
-  })).filter(m=>m.n>0);
-  const maxN = pm.length ? Math.max(...pm.map(x=>x.n)) : 1;
-  
-  const getDetalleRevision = (registro) => {
-    if(registro.MODULO === "Limpieza") return "🧹 Limpieza realizada";
-    if(registro.MODULO === "Indicador") return `⏱ Tiempo: ${registro.RESULTADO}`;
-    if(registro.MODULO === "Orden Trabajo (OT)"){
-      if(registro.ACCION === "ABRIR ORDEN DE TRABAJO") return `🔧 OT ${registro.ORDEN_ID}: ${registro.NOTAS || registro.UBICACION}`;
-      if(registro.ACCION === "CERRAR ORDEN DE TRABAJO") return `✅ OT ${registro.ORDEN_ID} cerrada: ${registro.NOTAS || "Solucionada"}`;
-    }
-    if(registro.MODULO === "Cajero" || registro.MODULO === "Entrada" || registro.MODULO === "Salida"){
-      const itemsNO = [];
-      ALLCHK.forEach(c => {
-        if(registro[fk(c.label)] === "NO") itemsNO.push(c.label);
-      });
-      if(itemsNO.length > 0) return `⚠️ Fallas: ${itemsNO.join(", ")}`;
-      return "✅ Todo en orden";
-    }
-    return registro.NOTAS && registro.NOTAS !== "-" ? registro.NOTAS : "Revisión completada";
-  };
+  const topFallas=Object.entries(fallaMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
-  const getIconoEstado = (registro) => {
-    if(registro.MODULO === "Limpieza") return "🧹";
-    if(registro.MODULO === "Indicador") return "⏱";
-    if(registro.MODULO === "Orden Trabajo (OT)"){
-      if(registro.ACCION === "ABRIR ORDEN DE TRABAJO") return "🔧";
-      return "✅";
+  // ── Por técnico
+  const actByUser={};
+  datos.forEach(h=>{
+    if(!actByUser[h.USUARIO]) actByUser[h.USUARIO]={total:0,fallas:0};
+    actByUser[h.USUARIO].total++;
+    if(["Cajero","Entrada","Salida"].includes(h.MODULO)){
+      ALLCHK.forEach(c=>{if(h[fk(c.label)]==="NO") actByUser[h.USUARIO].fallas++;});
     }
-    let tieneNO = false;
-    ALLCHK.forEach(c => {
-      if(registro[fk(c.label)] === "NO") tieneNO = true;
-    });
-    if(tieneNO) return "⚠️";
-    return "✅";
-  };
+  });
+  const userList=Object.entries(actByUser).sort((a,b)=>b[1].total-a[1].total);
+  const maxUserRegs=userList.length?Math.max(...userList.map(x=>x[1].total)):1;
 
-  const getColorEstado = (registro) => {
-    if(registro.MODULO === "Orden Trabajo (OT)"){
-      if(registro.ACCION === "ABRIR ORDEN DE TRABAJO") return "#ef4444";
-      return "#22c55e";
-    }
-    let tieneNO = false;
-    ALLCHK.forEach(c => {
-      if(registro[fk(c.label)] === "NO") tieneNO = true;
-    });
-    if(tieneNO) return "#ef4444";
-    if(registro.MODULO === "Limpieza") return "#fbbf24";
-    if(registro.MODULO === "Indicador") return "#a855f7";
-    return "#22c55e";
-  };
+  // ── Por hora
+  const porHora={};
+  datos.forEach(h=>{
+    if(h.HORA){const hr=parseInt(h.HORA.split(":")[0]);if(!isNaN(hr)) porHora[hr]=(porHora[hr]||0)+1;}
+  });
+  const horas=Object.keys(porHora).map(Number).sort((a,b)=>a-b);
+  const maxHora=horas.length?Math.max(...horas.map(h=>porHora[h])):1;
+  const allHoras=horas.length?Array.from({length:horas[horas.length-1]-horas[0]+1},(_,i)=>horas[0]+i):[];
+
+  // ── Limpieza
+  const limpiezas=datos.filter(r=>r.MODULO==="Limpieza");
+  const limByLoc={};
+  limpiezas.forEach(l=>{if(l.UBICACION) limByLoc[l.UBICACION]=(limByLoc[l.UBICACION]||0)+1;});
+  const locsLimpiadas=Object.keys(limByLoc).length;
+  const totalLists=[...LIMPIEZA_CAJEROS,...LIMPIEZA_SALIDAS];
+  const locsFaltantes=totalLists.filter(l=>!limByLoc[l]);
+
+  // ── Módulos
+  const pm=MODS.filter(m=>m.id!=="ot"&&m.id!=="almuerzo").map(m=>({...m,n:datos.filter(h=>h.MODULO===m.label).length})).filter(m=>m.n>0);
+  const maxN=pm.length?Math.max(...pm.map(x=>x.n)):1;
 
   return(
     <div style={{marginTop:14}}>
-      <div style={{display:'flex',background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,marginBottom:12,overflow:'hidden'}}>
-        <button onClick={()=>setDiaTab("hoy")} style={{flex:1,padding:'11px',border:'none',fontWeight:900,fontSize:12,cursor:'pointer',background:diaTab==="hoy"?'var(--accent)':'transparent',color:diaTab==="hoy"?'white':'var(--muted)'}}>📅 HOY · {hoyH.length}</button>
-        <button onClick={()=>setDiaTab("ayer")} style={{flex:1,padding:'11px',border:'none',fontWeight:900,fontSize:12,cursor:'pointer',background:diaTab==="ayer"?'#a855f7':'transparent',color:diaTab==="ayer"?'white':'var(--muted)'}}>🗓 AYER · {ayerH.length}</button>
+      {/* Tabs */}
+      <div style={{display:"flex",background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,marginBottom:14,overflow:"hidden"}}>
+        <button onClick={()=>setDiaTab("hoy")} style={{flex:1,padding:"11px",border:"none",fontWeight:900,fontSize:12,cursor:"pointer",background:diaTab==="hoy"?"var(--accent)":"transparent",color:diaTab==="hoy"?"white":"var(--muted)"}}>📅 HOY · {hoyH.length}</button>
+        <button onClick={()=>setDiaTab("ayer")} style={{flex:1,padding:"11px",border:"none",fontWeight:900,fontSize:12,cursor:"pointer",background:diaTab==="ayer"?"#a855f7":"transparent",color:diaTab==="ayer"?"white":"var(--muted)"}}>🗓 AYER · {ayerH.length}</button>
       </div>
+      <div className="label-sec">📊 DASHBOARD · {label}</div>
 
-      <div className="label-sec">📊 DASHBOARD EJECUTIVO · {label}</div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:16}}>
-        <div className="ejecutivo-kpi">
-          <div className="ejecutivo-numero" style={{fontSize:28}}>{totalRegistros}</div>
-          <div className="ejecutivo-label">TOTAL REGISTROS</div>
+      {/* KPI 2×2 */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:14}}>
+        <div style={{background:"linear-gradient(135deg,#1a0e2e,#120828)",border:"1px solid #a855f730",borderRadius:14,padding:"14px 12px",textAlign:"center"}}>
+          <div style={{fontSize:26,fontWeight:900,color:"#a855f7",lineHeight:1}}>{totalRegistros}</div>
+          <div style={{fontSize:8,color:"var(--muted)",fontWeight:800,letterSpacing:.5,marginTop:3,textTransform:"uppercase"}}>Registros</div>
+          {deltaPct!==null&&diaTab==="hoy"&&<div style={{fontSize:9,fontWeight:800,color:deltaPct>=0?"#22c55e":"#ef4444",marginTop:4}}>{deltaPct>=0?"▲":"▼"} {Math.abs(deltaPct)}% vs ayer</div>}
         </div>
-        <div className="ejecutivo-kpi" style={{borderColor:totalOTsAbiertas > 0 ? '#ef4444' : '#22c55e'}}>
-          <div className="ejecutivo-numero" style={{fontSize:28,color:totalOTsAbiertas > 0 ? '#ef4444' : '#22c55e'}}>{totalOTsAbiertas}</div>
-          <div className="ejecutivo-label">OTs ABIERTAS</div>
+        <div style={{background:pctOK>=90?"linear-gradient(135deg,#0d2218,#071a10)":"linear-gradient(135deg,#1a1000,#2d1a00)",border:`1px solid ${pctOK>=90?"#22c55e30":"#f9731630"}`,borderRadius:14,padding:"14px 12px",textAlign:"center"}}>
+          <div style={{fontSize:26,fontWeight:900,color:pctOK>=90?"#22c55e":pctOK>=70?"#f59e0b":"#ef4444",lineHeight:1}}>{pctOK}%</div>
+          <div style={{fontSize:8,color:"var(--muted)",fontWeight:800,letterSpacing:.5,marginTop:3,textTransform:"uppercase"}}>Tasa OK</div>
+          <div style={{fontSize:9,color:"var(--muted)",marginTop:3}}>{totalNOs} falla{totalNOs!==1?"s":""}</div>
         </div>
-        <div className="ejecutivo-kpi">
-          <div className="ejecutivo-numero" style={{fontSize:28,color:'#f97316'}}>{totalNOs}</div>
-          <div className="ejecutivo-label">TOTAL FALLAS (NO)</div>
-          <div className="ejecutivo-tendencia" style={{background:porcentajeOK >= 90 ? '#22c55e20' : '#f9731620', color:porcentajeOK >= 90 ? '#22c55e' : '#f97316'}}>
-            ✅ {porcentajeOK}% OK
-          </div>
+        <div style={{background:otsAbiertas>0?"linear-gradient(135deg,#1a0808,#2d0e0e)":"linear-gradient(135deg,#0d2218,#071a10)",border:`1px solid ${otsAbiertas>0?"#ef444430":"#22c55e30"}`,borderRadius:14,padding:"14px 12px",textAlign:"center"}}>
+          <div style={{fontSize:26,fontWeight:900,color:otsAbiertas>0?"#ef4444":"#22c55e",lineHeight:1}}>{otsAbiertas}</div>
+          <div style={{fontSize:8,color:"var(--muted)",fontWeight:800,letterSpacing:.5,marginTop:3,textTransform:"uppercase"}}>OTs Abiertas</div>
+          <div style={{fontSize:9,color:"#22c55e",marginTop:3}}>{otsCerradas} cerrada{otsCerradas!==1?"s":""}</div>
         </div>
-        <div className="ejecutivo-kpi">
-          <div className="ejecutivo-numero" style={{fontSize:28,color:'#a855f7'}}>{tasaResolucion}%</div>
-          <div className="ejecutivo-label">TASA RESOLUCIÓN OTs</div>
-        </div>
-      </div>
-
-      {/* PROMEDIO DE LIMPIEZA */}
-      <div className="limpieza-stats">
-        <div className="stat-label" style={{marginBottom:8}}>🧹 ESTADÍSTICAS DE LIMPIEZA</div>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-          <div>
-            <div className="stat-label">TOTAL LIMPIEZAS HOY</div>
-            <div className="stat-number" style={{fontSize:22}}>{totalLimpiezas}</div>
-          </div>
-          <div style={{textAlign:'right'}}>
-            <div className="stat-label">UBICACIONES LIMPIADAS</div>
-            <div className="stat-number" style={{fontSize:22,color:estadoColor}}>{ubicacionesConLimpieza}</div>
-          </div>
-        </div>
-        <div style={{background:'var(--border)',borderRadius:8,padding:'10px',marginTop:4}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span style={{fontSize:12,fontWeight:700,color:'var(--text)'}}>📊 Promedio de limpieza por ubicación:</span>
-            <span style={{fontSize:18,fontWeight:900,color:estadoColor}}>{promedioLimpieza} veces</span>
-          </div>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}}>
-            <span style={{fontSize:11,color:'var(--muted)'}}>Meta recomendada: 1.5+ veces por ubicación/día</span>
-            <span style={{fontSize:11,fontWeight:800,color:estadoColor}}>{estadoLimpieza}</span>
-          </div>
+        <div style={{background:"linear-gradient(135deg,#1a1400,#2d2000)",border:"1px solid #fbbf2430",borderRadius:14,padding:"14px 12px",textAlign:"center"}}>
+          <div style={{fontSize:26,fontWeight:900,color:"#fbbf24",lineHeight:1}}>{locsLimpiadas}</div>
+          <div style={{fontSize:8,color:"var(--muted)",fontWeight:800,letterSpacing:.5,marginTop:3,textTransform:"uppercase"}}>Locs. limpias</div>
+          <div style={{fontSize:9,color:"var(--muted)",marginTop:3}}>de {totalLists.length} · {limpiezas.length} reg.</div>
         </div>
       </div>
 
-      {/* SECCIÓN DE ÓRDENES DE TRABAJO */}
-      {todasOTs.length > 0 && (
-        <div style={{marginBottom:16}}>
-          <div onClick={()=>setShowOTs(!showOTs)} className="section-header" style={{background:'var(--card)',borderColor:'var(--accent)',borderLeft:'4px solid var(--accent)'}}>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <span style={{fontSize:16}}>🔧</span>
-              <span style={{fontSize:13,fontWeight:900,color:'var(--accent)'}}>ÓRDENES DE TRABAJO</span>
-              <span style={{fontSize:11,color:'var(--muted)',background:'var(--border)',padding:'2px 6px',borderRadius:10}}>{todasOTs.length}</span>
-            </div>
-            <span style={{fontSize:16,color:'var(--accent)',transition:'transform .2s',transform:showOTs?'rotate(180deg)':'rotate(0deg)'}}>▼</span>
-          </div>
-          
-          {showOTs && (
-            <div className="ot-subsection">
-              {todasOTs.map((ot,idx)=>(
-                <div key={idx} className="timeline-item" style={{borderLeftColor:ot.ACCION==="ABRIR ORDEN DE TRABAJO"?'#ef4444':'#22c55e',background:ot.ACCION==="ABRIR ORDEN DE TRABAJO"?'#1e1111':'#0d1e0d'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <span style={{fontSize:14}}>{ot.ACCION==="ABRIR ORDEN DE TRABAJO"?'🔧':'✅'}</span>
-                      <span style={{fontSize:12,fontWeight:900,color:ot.ACCION==="ABRIR ORDEN DE TRABAJO"?'#f87171':'#22c55e'}}>{ot.ORDEN_ID}</span>
-                    </div>
-                    <span className={ot.ACCION==="ABRIR ORDEN DE TRABAJO"?"badge-warning":"badge-ok"}>{ot.HORA}</span>
+      {/* Por técnico */}
+      {userList.length>0&&(
+        <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:800,color:"var(--muted)",letterSpacing:1,marginBottom:10}}>👥 ACTIVIDAD POR TÉCNICO</div>
+          {userList.map(([nombre,data],i)=>{
+            const c=CU[nombre]||"#0ea5e9";
+            const barW=Math.round((data.total/maxUserRegs)*100);
+            return(
+              <div key={i} style={{marginBottom:i<userList.length-1?9:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:13}}>{IU[nombre]||"👤"}</span>
+                    <span style={{fontSize:11,fontWeight:800,color:c}}>{nombre}</span>
+                    {data.fallas>0&&<span style={{fontSize:8,background:"#ef444420",color:"#ef4444",border:"1px solid #ef444430",borderRadius:8,padding:"1px 5px",fontWeight:800}}>⚠️ {data.fallas}</span>}
                   </div>
-                  <div style={{fontSize:12,color:'var(--text)',marginBottom:4}}>📍 {ot.UBICACION}</div>
-                  <div style={{fontSize:10,color:'#94a3b8'}}>👤 {ot.USUARIO}</div>
-                  {ot.NOTAS && ot.NOTAS !== "-" && <div style={{fontSize:10,color:'var(--muted)',marginTop:4,fontStyle:'italic'}}>📝 {ot.NOTAS}</div>}
+                  <span style={{fontSize:12,fontWeight:900,color:c}}>{data.total}</span>
                 </div>
-              ))}
-            </div>
-          )}
+                <div style={{height:5,background:"var(--border)",borderRadius:3,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${barW}%`,background:data.fallas>0?`linear-gradient(90deg,${c},#ef4444)`:c,borderRadius:3}}/>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* MÓDULOS */}
-      {pm.map(m=>{
-        const pct = Math.min((m.n/maxN)*100,100);
-        const isOpen = selMod === m.label;
-        return(
-          <div key={m.id} style={{marginBottom:12}}>
-            <div onClick={()=>setSelMod(isOpen?null:m.label)} style={{background:isOpen?`${m.color}12`:'var(--card)',border:`2px solid ${isOpen?m.color:'var(--border)'}`,borderRadius:14,padding:'12px 14px',cursor:'pointer',transition:'all .2s'}}>
-              <div style={{display:'flex',alignItems:'center',gap:10}}>
-                <div style={{width:44,height:44,borderRadius:12,background:`${m.color}25`,border:`1px solid ${m.color}50`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{m.icon}</div>
-                <div style={{flex:1}}>
-                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
-                    <span style={{fontSize:14,fontWeight:800,color:isOpen?m.color:'var(--text)'}}>{m.label}</span>
-                    <span style={{fontSize:22,fontWeight:900,color:m.color}}>{m.n}</span>
-                  </div>
-                  <div style={{background:'var(--border)',borderRadius:10,height:8}}><div style={{height:'100%',borderRadius:10,background:`linear-gradient(90deg,${m.color},${m.color}99)`,width:`${pct}%`}}></div></div>
+      {/* Histograma por hora */}
+      {allHoras.length>1&&(
+        <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:800,color:"var(--muted)",letterSpacing:1,marginBottom:10}}>🕐 ACTIVIDAD POR HORA</div>
+          <div style={{display:"flex",alignItems:"flex-end",gap:3,height:50}}>
+            {allHoras.map(h=>{
+              const n=porHora[h]||0;
+              const barH=n>0?Math.max(4,Math.round((n/maxHora)*44)):2;
+              const isNow=new Date().getHours()===h&&diaTab==="hoy";
+              return(
+                <div key={h} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                  <div style={{width:"100%",height:barH,background:isNow?"var(--accent)":n>0?"#a855f7":"var(--border)",borderRadius:2,opacity:n>0?1:0.3}}/>
+                  <div style={{fontSize:7,color:isNow?"var(--accent)":"var(--muted)",fontWeight:isNow?900:400}}>{h}</div>
                 </div>
-              </div>
-            </div>
-            
-            {isOpen && m.registros.length > 0 && (
-              <div className="fi" style={{marginTop:6,padding:'8px',background:`${m.color}06`,borderRadius:12}}>
-                {m.registros.map((r,idx)=>(
-                  <div key={idx} className="timeline-item" style={{borderLeftColor:getColorEstado(r),marginBottom:8}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                      <div style={{display:'flex',alignItems:'center',gap:8}}>
-                        <span style={{fontSize:16}}>{getIconoEstado(r)}</span>
-                        <span style={{fontSize:13,fontWeight:800,color:getColorEstado(r)}}>{r.UBICACION}</span>
-                      </div>
-                      <div style={{display:'flex',alignItems:'center',gap:6}}>
-                        <span className={getIconoEstado(r)==="⚠️"?"badge-no":"badge-ok"}>{r.HORA}</span>
-                        <span style={{fontSize:10,color:'var(--muted)'}}>👤 {r.USUARIO}</span>
-                      </div>
-                    </div>
-                    <div style={{fontSize:11,color:'var(--text)',marginBottom:4}}>{getDetalleRevision(r)}</div>
-                    {r.NOTAS && r.NOTAS !== "-" && r.NOTAS !== "OK" && !(r.MODULO === "Cajero" || r.MODULO === "Entrada" || r.MODULO === "Salida") && (
-                      <div style={{fontSize:10,color:'var(--muted)',fontStyle:'italic',marginTop:4,paddingTop:4,borderTop:'1px solid var(--border)'}}>📝 {r.NOTAS}</div>
-                    )}
-                    {(r.MODULO === "Cajero" || r.MODULO === "Entrada" || r.MODULO === "Salida") && (()=>{
-                      const itemsNO = [];
-                      const itemsSI = [];
-                      ALLCHK.forEach(c => {
-                        if(r[fk(c.label)] === "NO") itemsNO.push(c.label);
-                        else if(r[fk(c.label)] === "SI") itemsSI.push(c.label);
-                      });
-                      if(itemsNO.length > 0 || itemsSI.length > 0) return(
-                        <div style={{marginTop:6,display:'flex',flexWrap:'wrap',gap:4}}>
-                          {itemsNO.map(item=>(
-                            <span key={item} style={{background:'#ef444420',color:'#ef4444',padding:'2px 8px',borderRadius:12,fontSize:9,fontWeight:700}}>❌ {item}</span>
-                          ))}
-                          {itemsSI.slice(0,3).map(item=>(
-                            <span key={item} style={{background:'#22c55e20',color:'#22c55e',padding:'2px 8px',borderRadius:12,fontSize:9,fontWeight:700}}>✅ {item}</span>
-                          ))}
-                          {itemsSI.length > 3 && <span style={{fontSize:9,color:'var(--muted)'}}>+{itemsSI.length-3}</span>}
-                        </div>
-                      );
-                      return null;
-                    })()}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ============================================================
-// APP PRINCIPAL
-// ============================================================
-
-// ══════════════════════════════════════════════════════
-// PANEL MONITOREO — Vista principal para rol Monitoreo
-// Incluye: módulos habituales + OTs de cámaras + almuerzos
-// ══════════════════════════════════════════════════════
-
-
-// ══════════════════════════════════════════════════════
-// ══════════════════════════════════════════════════════
-// PANTALLA MÓDULO CÁMARAS PERIMETRALES
-// ══════════════════════════════════════════════════════
-function CamarasModScreen({usuario, activeOTs, camRevisiones, camSiguiente, camConfig, clock, fb, openMod, hoy, onVolver, camPendienteGlobal}){
-  const CC="#06b6d4";
-  const esAdmin = usuario?.nombre==="Vicente";
-
-  // Estado local
-  const[countdown,setCountdown]=useState("--:--");
-  const[pct,setPct]=useState(0);
-  const[sigTs,setSigTs]=useState(null);
-  const[segsRestantes,setSegsRestantes]=useState(9999);
-  const[saving,setSaving]=useState(false);
-  const[step,setStep]=useState(null);          // null | "ok" | "falla"
-  const[revManual,setRevManual]=useState(false);
-  const[notaAnomalia,setNotaAnomalia]=useState(""); // descripción de la anomalía
-  const[filtroHist,setFiltroHist]=useState("hoy");  // "hoy" | "semana" | "todo"
-
-  const pendiente = !!camPendienteGlobal;
-  // Sync sigTs desde prop del padre
-  useEffect(()=>{ if(camSiguiente) setSigTs(camSiguiente); },[camSiguiente]);
-
-  // Countdown cada segundo
-  useEffect(()=>{
-    if(!sigTs)return;
-    const tick=()=>{
-      const diff=Math.max(0,Math.floor((sigTs-Date.now())/1000));
-      setSegsRestantes(diff);
-      const m=Math.floor(diff/60), s=diff%60;
-      setCountdown(diff===0?"00:00":`${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`);
-      const total=30*60*1000; // intervalo fijo 30 min
-      setPct(Math.min(100,Math.round(((total-Math.max(0,sigTs-Date.now()))/total)*100)));
-    };
-    tick();
-    const id=setInterval(tick,1000);
-    return()=>clearInterval(id);
-  },[sigTs,camConfig]);
-
-  // ── KPIs
-  const histHoy=camRevisiones.filter(r=>r.fecha===hoy);
-  const totalOK=histHoy.filter(r=>r.estado==="ok").length;
-  const totalAnom=histHoy.filter(r=>r.estado==="anomalia").length;
-
-  // Racha: días consecutivos sin anomalías (hacia atrás desde hoy)
-  const rachaOK=(()=>{
-    if(histHoy.some(r=>r.estado==="anomalia")) return 0;
-    const fechasUnicas=[...new Set(camRevisiones.map(r=>r.fecha))].sort((a,b)=>{
-      const pa=a.split("/").reverse().join("-"), pb=b.split("/").reverse().join("-");
-      return pb.localeCompare(pa);
-    });
-    let dias=0;
-    for(const f of fechasUnicas){
-      if(f===hoy){if(histHoy.length>0&&!histHoy.some(r=>r.estado==="anomalia")) dias++;continue;}
-      const del=camRevisiones.filter(r=>r.fecha===f);
-      if(del.length===0) break;
-      if(del.some(r=>r.estado==="anomalia")) break;
-      dias++;
-    }
-    return dias;
-  })();
-
-  // Tiempo promedio de respuesta del día (minutos)
-  const tiempoPromResp=(()=>{
-    const conTiempos=histHoy.filter(r=>r.horaAlerta&&r.horaAtencion);
-    if(!conTiempos.length) return null;
-    const total=conTiempos.reduce((s,r)=>{
-      const[ah,am,as2]=(r.horaAlerta||"0:0:0").split(":").map(Number);
-      const[bh,bm,bs2]=(r.horaAtencion||"0:0:0").split(":").map(Number);
-      return s+Math.max(0,(bh*3600+bm*60+bs2)-(ah*3600+am*60+as2));
-    },0);
-    return Math.round(total/conTiempos.length/60);
-  })();
-
-  // ── Historial filtrado
-  const histFiltrado=(()=>{
-    if(filtroHist==="hoy") return histHoy;
-    if(filtroHist==="semana"){
-      const hace7=Date.now()-7*24*60*60*1000;
-      return camRevisiones.filter(r=>r.ts&&r.ts>=hace7);
-    }
-    return camRevisiones.slice(0,60);
-  })();
-
-  // Semáforo de tiempo de respuesta
-  const colorTiempo=(mins)=>{
-    const esc=camConfig?.escalamiento||10;
-    if(mins<=Math.floor(esc/3)) return "#22c55e";
-    if(mins<=Math.floor(esc*2/3)) return "#f97316";
-    return "#ef4444";
-  };
-
-  // ── Guardar revisión
-  const guardarRevision=async(opcion)=>{
-    const _fb=fb||window._fb;
-    if(!_fb)return;
-    setSaving(true);
-    try{
-      const ahora=new Date();
-      const hora=ahora.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-      const fecha=ahora.toLocaleDateString("es");
-      const{db,ref,push,get}=_fb;
-      let horaAlerta=hora;
-      try{
-        const snap=await get(ref(db,"cam_estado"));
-        const d=snap.val();
-        if(d&&d.horaAlerta) horaAlerta=d.horaAlerta;
-      }catch(e){}
-      const nota=opcion==="ok"
-        ?`Revisión OK — Alerta: ${horaAlerta} · Atendida: ${hora}`
-        :`Anomalía — Alerta: ${horaAlerta} · Atendida: ${hora}${notaAnomalia.trim()?` — Detalle: ${notaAnomalia.trim()}`:""}`;
-      await push(ref(db,"cam_revisiones"),{
-        estado:opcion==="ok"?"ok":"anomalia",
-        horaAlerta,horaAtencion:hora,
-        notas:opcion==="ok"?"":notaAnomalia.trim(),
-        fecha,usuario:usuario.nombre,ts:Date.now()
-      });
-      await push(ref(db,"registros"),{
-        USUARIO:usuario.nombre,ROL:usuario.rol||"Monitoreo",
-        FECHA:fecha,HORA:hora,
-        MODULO:"Cámaras Perimetrales",
-        ACCION:opcion==="ok"?"REVISIÓN OK":"ANOMALÍA DETECTADA",
-        UBICACION:"Cámaras Perimetrales",
-        NOTAS:nota,_ts:Date.now()
-      });
-      if(window._camArrancar) window._camArrancar();
-      if(opcion!=="ok"){
-        setSaving(false);setRevManual(false);setStep(null);setNotaAnomalia("");
-        const otMod=MODS.find(m=>m.id==="ot");
-        if(otMod&&openMod) setTimeout(()=>openMod(otMod),50);
-        return;
-      }
-    }catch(e){alert("Error al guardar. Intente de nuevo.");}
-    setSaving(false);setRevManual(false);setStep(null);setNotaAnomalia("");
-  };
-
-  return(
-    <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column",position:"relative"}}>
-
-      {/* ══ MODAL REVISIÓN ══ */}
-      {revManual&&(
-        <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,background:"#000000e8",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20,overflowY:"auto"}}>
-          <div style={{width:"100%",maxWidth:360,background:"#0d1520",border:`2px solid ${step==="falla"?"#ef4444":step==="ok"?"#22c55e":CC}`,borderRadius:20,padding:22}}>
-            <div style={{textAlign:"center",marginBottom:16}}>
-              <div style={{fontSize:32,marginBottom:4}}>📹</div>
-              <div style={{fontSize:15,fontWeight:900,color:CC}}>REVISIÓN DE CÁMARAS</div>
-              <div style={{fontSize:10,color:"#5a7a9a",marginTop:3}}>{hoy} · {clock} · {usuario.nombre}</div>
-            </div>
-
-            {/* Paso 1 — elegir estado */}
-            {!step&&(
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
-                <button onClick={()=>setStep("ok")}
-                  style={{padding:"16px",background:"#22c55e20",border:"2px solid #22c55e",borderRadius:14,color:"#22c55e",fontWeight:900,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-                  <span style={{fontSize:22}}>✅</span> Todo en orden — Sin novedad
-                </button>
-                <button onClick={()=>setStep("falla")}
-                  style={{padding:"16px",background:"#ef444420",border:"2px solid #ef4444",borderRadius:14,color:"#ef4444",fontWeight:900,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-                  <span style={{fontSize:22}}>⚠️</span> Se detectó una anomalía
-                </button>
-                <button onClick={()=>{setRevManual(false);setStep(null);setNotaAnomalia("");}}
-                  style={{padding:"10px",background:"transparent",border:"1px solid #2a4060",borderRadius:12,color:"#5a7a9a",fontWeight:700,fontSize:11,cursor:"pointer"}}>
-                  CANCELAR
-                </button>
-              </div>
-            )}
-
-            {/* Paso 2 — OK: confirmar */}
-            {step==="ok"&&(
-              <div>
-                <div style={{background:"#22c55e12",border:"1px solid #22c55e40",borderRadius:12,padding:"14px",marginBottom:14,textAlign:"center"}}>
-                  <div style={{fontSize:28,marginBottom:4}}>✅</div>
-                  <div style={{fontSize:13,fontWeight:900,color:"#22c55e"}}>Sin novedad</div>
-                  <div style={{fontSize:10,color:"#94a3b8",marginTop:4}}>Se registrará la revisión en el historial.</div>
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={()=>setStep(null)} style={{flex:1,padding:"12px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>← ATRÁS</button>
-                  <button onClick={()=>guardarRevision("ok")} disabled={saving}
-                    style={{flex:2,padding:"12px",background:"#22c55e",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:13,cursor:"pointer",opacity:saving?0.5:1}}>
-                    {saving?"⏳ GUARDANDO...":"✅ CONFIRMAR"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Paso 2 — ANOMALÍA: campo de descripción + confirmación */}
-            {step==="falla"&&(
-              <div>
-                <div style={{background:"#ef444412",border:"1px solid #ef444440",borderRadius:12,padding:"12px",marginBottom:12}}>
-                  <div style={{fontSize:12,fontWeight:900,color:"#ef4444",marginBottom:8}}>⚠️ DESCRIBE LA ANOMALÍA</div>
-                  <textarea
-                    rows={3}
-                    placeholder="¿Qué se observó? (cámara sin imagen, imagen borrosa, movimiento sospechoso, etc.)"
-                    value={notaAnomalia}
-                    onChange={e=>setNotaAnomalia(e.target.value)}
-                    style={{width:"100%",background:"#0c1018",border:"1px solid #ef444440",borderRadius:8,padding:"10px",color:"white",fontSize:12,outline:"none",resize:"none",fontFamily:"inherit",lineHeight:1.5}}
-                  />
-                  <div style={{fontSize:9,color:"#ef4444aa",marginTop:4}}>Opcional pero recomendado — ayuda a los técnicos a priorizar.</div>
-                </div>
-                {/* Anomalías recientes como referencia */}
-                {camRevisiones.filter(r=>r.estado==="anomalia"&&r.notas).slice(0,2).map((r,i)=>(
-                  <div key={i} style={{background:"#1a0d0d",border:"1px solid #ef444425",borderRadius:8,padding:"7px 10px",marginBottom:6,cursor:"pointer"}} onClick={()=>setNotaAnomalia(r.notas)}>
-                    <div style={{fontSize:8,color:"#ef4444aa",fontWeight:700,marginBottom:2}}>ANOMALÍA RECIENTE — toca para copiar</div>
-                    <div style={{fontSize:10,color:"#fca5a5"}}>{r.notas}</div>
-                  </div>
-                ))}
-                <div style={{background:"#1a0e00",border:"1px solid #f9731430",borderRadius:10,padding:"9px 12px",marginBottom:12,fontSize:10,color:"#fca5a5",lineHeight:1.5}}>
-                  🔧 Se abrirá una OT urgente para los técnicos.
-                </div>
-                <div style={{display:"flex",gap:8}}>
-                  <button onClick={()=>setStep(null)} style={{flex:1,padding:"12px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>← ATRÁS</button>
-                  <button onClick={()=>guardarRevision("falla")} disabled={saving}
-                    style={{flex:2,padding:"12px",background:"#ef4444",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:13,cursor:"pointer",opacity:saving?0.5:1}}>
-                    {saving?"⏳ GUARDANDO...":"⚠️ CONFIRMAR ANOMALÍA"}
-                  </button>
-                </div>
-              </div>
-            )}
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* ══ HEADER ══ */}
-      <div style={{background:"var(--card)",borderBottom:`3px solid ${CC}`,flexShrink:0}}>
-        <div style={{background:`${CC}10`,borderBottom:`1px solid ${CC}25`,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <button onClick={onVolver} style={{background:"#ef4444",border:"none",color:"white",fontSize:13,fontWeight:900,padding:"10px 16px",borderRadius:12,cursor:"pointer"}}>← SALIR</button>
-          <div style={{textAlign:"center"}}>
-            <div style={{fontWeight:900,fontSize:14,color:CC}}>📹 CÁMARAS PERIMETRALES</div>
-            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700}}>{hoy}</div>
-          </div>
-          <div style={{fontSize:14,fontWeight:900,color:CC}}>{clock}</div>
-        </div>
-      </div>
-
-      <div className="scrollable">
-
-        {/* ══ TIMER CARD ══ */}
-        <div style={{background:pendiente?"#1a0808":`${CC}08`,border:`2px solid ${pendiente?"#ef4444":`${CC}30`}`,borderRadius:16,padding:"18px 20px",marginBottom:14,textAlign:"center"}}>
-          {/* Vicente puede ver el countdown Y atender revisiones pendientes */}
-          <div style={{fontSize:11,fontWeight:800,color:pendiente?"#ef4444":"var(--muted)",marginBottom:6,letterSpacing:1}}>
-            {pendiente?"🔴 REVISIÓN PENDIENTE":esAdmin?"📹 SISTEMA DE MONITOREO":"PRÓXIMA REVISIÓN EN"}
-          </div>
-
-          {/* Countdown grande — SIEMPRE visible */}
-          <div style={{fontSize:"clamp(34px,10vw,50px)",fontWeight:900,color:pendiente?"#ef4444":pct>80?"#f97316":CC,letterSpacing:2,fontVariantNumeric:"tabular-nums",lineHeight:1}}>{countdown}</div>
-          <div style={{fontSize:10,color:"var(--muted)",marginTop:6}}>
-            Cada 30 min · {String(Math.floor(camConfig?.horaInicio||9)).padStart(2,"0")}:{(camConfig?.horaInicio||9)%1===0.5?"30":"00"} – {String(Math.floor(camConfig?.horaFin||21.5)).padStart(2,"0")}:{(camConfig?.horaFin||21.5)%1===0.5?"30":"00"}
-          </div>
-          {pendiente&&(
-            <div style={{fontSize:11,fontWeight:800,color:"#fca5a5",marginTop:6}}>🔴 Revisión pendiente desde las {window._camHoraAlerta||"--:--"}</div>
-          )}
-
-          {/* Barra de progreso — siempre visible */}
-          <div style={{marginTop:10,height:5,background:"var(--border)",borderRadius:4,overflow:"hidden"}}>
-            <div style={{height:"100%",width:`${pct}%`,background:pendiente?"#ef4444":pct>80?"#f97316":CC,borderRadius:4,transition:"width 1s"}}/>
-          </div>
-          <div style={{fontSize:9,color:"var(--muted)",marginTop:4}}>{pct}% del ciclo transcurrido</div>
-
-          {/* Botón de revisión — solo cuando hay pendiente */}
-          {pendiente&&(
-            <button onClick={()=>{setRevManual(true);setStep(null);setNotaAnomalia("");}}
-              style={{width:"100%",padding:"14px",background:"#ef444418",border:"2px solid #ef4444",borderRadius:12,color:"#ef4444",fontWeight:900,fontSize:13,cursor:"pointer",marginTop:14,display:"flex",alignItems:"center",justifyContent:"center",gap:10,animation:"blink 1.5s infinite"}}>
-              <span style={{fontSize:20}}>🔴</span> ATENDER REVISIÓN PENDIENTE
-            </button>
-          )}
-        </div>
-
-
-
-        {/* Recordatorio escalado si hay pendiente sin atender por más de 5 min */}
-        {pendiente&&(()=>{
-          const _fb2=fb||window._fb;
-          if(!_fb2||!camSiguiente)return null;
-          // El tick pone siguiente = ts + 30min cuando vence
-          // Así que el tiempo sin atender = 30min - segsRestantes del nuevo ciclo
-          // Pero más simple: usar el horaAlerta guardado — aquí no tenemos ese dato local
-          // Mostramos el recordatorio simplemente si hay pendiente > 0 segs
-          const minSinAtender=Math.floor((30*60*1000-Math.max(0,(camSiguiente-Date.now())))/60000);
-          if(minSinAtender<2)return null; // dar 2 min de gracia
-          const urgencia=minSinAtender>=10?"CRÍTICO":minSinAtender>=5?"URGENTE":"RECORDATORIO";
-          const uc=minSinAtender>=10?"#ef4444":minSinAtender>=5?"#f97316":"#f59e0b";
-          return(
-            <div style={{background:`${uc}12`,border:`2px solid ${uc}`,borderRadius:14,padding:"12px 14px",marginBottom:14,animation:"blink 1.5s infinite"}}>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <span style={{fontSize:22}}>⏰</span>
+      {/* Top fallas */}
+      {topFallas.length>0&&(
+        <div style={{background:"var(--card)",border:"1px solid #ef444425",borderRadius:14,padding:"14px",marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:800,color:"#ef4444",letterSpacing:1,marginBottom:10}}>⚠️ TOP FALLAS</div>
+          {topFallas.map(([loc,n],i)=>{
+            const maxF=topFallas[0][1];
+            return(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:i<topFallas.length-1?7:0}}>
+                <span style={{fontSize:10,fontWeight:900,color:"#ef4444",width:14,textAlign:"right",flexShrink:0}}>{n}</span>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:11,fontWeight:900,color:uc}}>{urgencia} — {minSinAtender} min sin atender</div>
-                  <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>Registra la revisión para cerrar esta alerta</div>
+                  <div style={{fontSize:10,fontWeight:700,color:"var(--text)",marginBottom:2}}>{loc}</div>
+                  <div style={{height:3,background:"var(--border)",borderRadius:2,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${Math.round((n/maxF)*100)}%`,background:"#ef4444",borderRadius:2}}/>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })()}
-
-        {/* ══ KPIs DEL DÍA ══ */}
-        <div className="label-sec">📊 HOY · {hoy}</div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:8}}>
-          <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"14px 10px",textAlign:"center"}}>
-            <div style={{fontSize:28,fontWeight:900,color:CC}}>{histHoy.length}</div>
-            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>REVISIONES</div>
-          </div>
-          <div style={{background:totalAnom>0?"#ef444410":"#22c55e10",border:`1px solid ${totalAnom>0?"#ef444430":"#22c55e30"}`,borderRadius:12,padding:"14px 10px",textAlign:"center"}}>
-            <div style={{fontSize:28,fontWeight:900,color:totalAnom>0?"#ef4444":"#22c55e"}}>{totalAnom>0?totalAnom:totalOK}</div>
-            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>{totalAnom>0?`ANOMALÍA${totalAnom>1?"S":""}`:histHoy.length>0?"TODO OK":"SIN DATOS"}</div>
-          </div>
+            );
+          })}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:14}}>
-          <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
-            <div style={{fontSize:22,fontWeight:900,color:rachaOK>0?"#22c55e":"var(--muted)"}}>{rachaOK}</div>
-            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>DÍAS SIN ANOMALÍA</div>
-          </div>
-          <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 10px",textAlign:"center"}}>
-            <div style={{fontSize:22,fontWeight:900,color:tiempoPromResp!=null?colorTiempo(tiempoPromResp):"var(--muted)"}}>
-              {tiempoPromResp!=null?`${tiempoPromResp}m`:"—"}
-            </div>
-            <div style={{fontSize:9,color:"var(--muted)",fontWeight:700,marginTop:2}}>T. RESP. PROM.</div>
-          </div>
-        </div>
+      )}
 
-        {/* ══ HISTORIAL ══ */}
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-          <div className="label-sec" style={{margin:0}}>📋 HISTORIAL</div>
-          <div style={{display:"flex",gap:5}}>
-            {[{k:"hoy",l:"Hoy"},{k:"semana",l:"7 días"},{k:"todo",l:"Todo"}].map(f=>(
-              <button key={f.k} onClick={()=>setFiltroHist(f.k)} style={{padding:"4px 10px",borderRadius:10,border:`1px solid ${filtroHist===f.k?CC:"var(--border)"}`,background:filtroHist===f.k?`${CC}20`:"var(--card)",color:filtroHist===f.k?CC:"var(--muted)",fontWeight:800,fontSize:10,cursor:"pointer"}}>
-                {f.l}
-              </button>
+      {/* Limpieza pendientes */}
+      {locsFaltantes.length>0&&limpiezas.length>0&&(
+        <div style={{background:"linear-gradient(135deg,#1a1400,#2d2000)",border:"1px solid #fbbf2430",borderRadius:14,padding:"14px",marginBottom:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <div style={{fontSize:10,fontWeight:800,color:"#fbbf24",letterSpacing:1}}>🧹 LIMPIEZA</div>
+            <span style={{fontSize:9,fontWeight:800,color:"#fbbf24"}}>{locsLimpiadas}/{totalLists.length}</span>
+          </div>
+          <div style={{height:5,background:"var(--border)",borderRadius:3,overflow:"hidden",marginBottom:8}}>
+            <div style={{height:"100%",width:`${Math.round((locsLimpiadas/totalLists.length)*100)}%`,background:"linear-gradient(90deg,#fbbf24,#f97316)",borderRadius:3}}/>
+          </div>
+          <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginBottom:4}}>PENDIENTES ({locsFaltantes.length})</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+            {locsFaltantes.map((l,i)=>(
+              <span key={i} style={{fontSize:8,background:"var(--bg)",border:"1px solid var(--border)",borderRadius:6,padding:"2px 6px",color:"var(--muted)"}}>{l}</span>
             ))}
           </div>
         </div>
-
-        {histFiltrado.length===0&&(
-          <div style={{color:"var(--muted)",fontSize:12,padding:"20px 0",textAlign:"center",background:"var(--card)",borderRadius:12,border:"1px solid var(--border)"}}>
-            {filtroHist==="hoy"?"Sin revisiones hoy":"Sin registros en este período"}
-          </div>
-        )}
-
-        {histFiltrado.map((r,i)=>{
-          const[ah,am,as2]=(r.horaAlerta||"0:0:0").split(":").map(Number);
-          const[bh,bm,bs2]=(r.horaAtencion||"0:0:0").split(":").map(Number);
-          const mins=r.horaAlerta&&r.horaAtencion?Math.round(((bh*3600+bm*60+bs2)-(ah*3600+am*60+as2))/60):null;
-          const esOK=r.estado==="ok";
-          return(
-            <div key={r._fbKey||i} style={{
-              background:esOK?"#22c55e08":"#ef444408",
-              border:`1px solid ${esOK?"#22c55e25":"#ef444425"}`,
-              borderLeft:`3px solid ${esOK?"#22c55e":"#ef4444"}`,
-              borderRadius:12,padding:"12px 14px",marginBottom:8
-            }}>
-              {/* Fila principal */}
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <span style={{fontSize:18,flexShrink:0}}>{esOK?"✅":"⚠️"}</span>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:900,color:esOK?"#22c55e":"#ef4444"}}>
-                    {esOK?"Sin novedad":"Anomalía detectada"}
-                  </div>
-                  <div style={{fontSize:10,color:"var(--text3,#5a7a9a)",marginTop:1}}>
-                    📅 {r.fecha} · 👤 {r.usuario||"Sistema"}
-                  </div>
-                </div>
-                {/* Badge de tiempo de respuesta con semáforo */}
-                {mins!=null&&mins>=0&&mins<999&&(
-                  <div style={{textAlign:"center",flexShrink:0}}>
-                    <div style={{fontSize:13,fontWeight:900,color:colorTiempo(mins)}}>{mins}m</div>
-                    <div style={{fontSize:8,color:"var(--text3,#5a7a9a)",fontWeight:700}}>RESP.</div>
-                  </div>
-                )}
-              </div>
-
-              {/* Tiempos alerta/atención */}
-              {r.horaAlerta&&r.horaAtencion&&(
-                <div style={{background:"#0c1018",borderRadius:8,padding:"7px 10px",marginTop:8,display:"flex",gap:12,alignItems:"center"}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:8,fontWeight:800,color:"var(--text3,#5a7a9a)",marginBottom:1}}>ALERTA</div>
-                    <div style={{fontSize:11,fontWeight:900,color:"#f97316"}}>{r.horaAlerta}</div>
-                  </div>
-                  <div style={{fontSize:14,color:"var(--border)"}}>→</div>
-                  <div style={{flex:1}}>
-                    <div style={{fontSize:8,fontWeight:800,color:"var(--text3,#5a7a9a)",marginBottom:1}}>ATENDIDA</div>
-                    <div style={{fontSize:11,fontWeight:900,color:"#22c55e"}}>{r.horaAtencion}</div>
-                  </div>
-                  {mins!=null&&mins>=0&&mins<999&&(
-                    <div style={{background:colorTiempo(mins)+"20",border:`1px solid ${colorTiempo(mins)}50`,borderRadius:8,padding:"4px 10px",textAlign:"center"}}>
-                      <div style={{fontSize:13,fontWeight:900,color:colorTiempo(mins)}}>{mins}m</div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Descripción de anomalía */}
-              {!esOK&&r.notas&&r.notas.trim()&&(
-                <div style={{background:"#1a0808",border:"1px solid #ef444425",borderRadius:8,padding:"8px 10px",marginTop:8,display:"flex",gap:8,alignItems:"flex-start"}}>
-                  <span style={{fontSize:14,flexShrink:0}}>📝</span>
-                  <div style={{fontSize:11,color:"#fca5a5",lineHeight:1.5}}>{r.notas}</div>
-                </div>
-              )}
-
-              {!r.horaAlerta&&r.hora&&(
-                <div style={{fontSize:9,color:"var(--text3,#5a7a9a)",marginTop:4}}>🕒 {r.hora}</div>
-              )}
-            </div>
-          );
-        })}
-
-      </div>
-    </div>
-  );
-}
-
-
-// ── Tarjeta de OT de cámara en home de Monitoreo ──
-function MonitoreoCamOT({ot, usuario, clock, fb, openMod, hoy}){
-  const[step,setStep]=useState(null);
-  const[saving,setSaving]=useState(false);
-  const[done,setDone]=useState(null);
-  const[notaAnomalia,setNotaAnomalia]=useState("");
-  const CC="#06b6d4";
-
-  const cerrar=async(opcion)=>{
-    const _fb=fb||window._fb;
-    if(!_fb){console.error("fb undefined in MonitoreoCamOT");return;}
-    setSaving(true);
-    try{
-      const ahora=new Date();
-      const hora=ahora.toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-      const fecha=ahora.toLocaleDateString("es");
-      const {db,ref,push,remove}=_fb;
-      const nota=opcion==="ok"
-        ?"Revisión completada — Sin novedad"
-        :`Anomalía detectada — OT generada para técnicos${notaAnomalia.trim()?` — Detalle: ${notaAnomalia.trim()}`:""}`;
-      await push(ref(db,"registros"),{
-        USUARIO:usuario.nombre,ROL:usuario.rol||"Monitoreo",
-        FECHA:fecha,HORA:hora,
-        MODULO:"Cámaras Perimetrales",
-        ACCION:opcion==="ok"?"REVISIÓN OK":"ANOMALÍA DETECTADA",
-        UBICACION:"Cámaras Perimetrales",
-        ORDEN_ID:ot.ot_id,
-        NOTAS:nota,_ts:Date.now()
-      });
-      await push(ref(db,"cam_revisiones"),{
-        estado:opcion==="ok"?"ok":"anomalia",
-        horaAlerta:ot.hora||hora,
-        horaAtencion:hora,
-        notas:opcion==="ok"?"":notaAnomalia.trim(),
-        fecha,usuario:usuario.nombre,ts:Date.now()
-      });
-      if(window._camArrancar) window._camArrancar();
-      if(opcion!=="ok"){
-        const otMod=MODS.find(m=>m.id==="ot");
-        if(otMod&&openMod) setTimeout(()=>openMod(otMod),50);
-      } else {
-        setDone("ok");
-      }
-    }catch(err){
-      console.error("Error cerrando OT cámara:",err);
-      alert("Error al guardar. Intente de nuevo.");
-    }
-    setSaving(false);
-  };
-
-  if(done==="ok") return(
-    <div style={{background:"#071f12",border:"2px solid #22c55e",borderRadius:14,padding:"16px",marginBottom:10,textAlign:"center"}}>
-      <div style={{fontSize:28,marginBottom:6}}>✅</div>
-      <div style={{fontSize:13,fontWeight:900,color:"#22c55e",marginBottom:4}}>Revisión completada — Sin novedad</div>
-      <div style={{fontSize:9,color:"var(--muted)"}}>🕒 {clock} · El marcador se reiniciará pronto</div>
-    </div>
-  );
-
-  return(
-    <div style={{background:"#071a22",border:`2px solid ${CC}`,borderRadius:14,padding:"14px",marginBottom:10}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-        <div>
-          <div style={{fontSize:9,fontWeight:900,color:CC,marginBottom:2}}>{ot.ot_id}</div>
-          <div style={{fontSize:14,fontWeight:900,color:"#e2ecf8"}}>📹 Revisión de Cámaras</div>
-          <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>Generada: {ot.hora} · {ot.fecha}</div>
-        </div>
-        <span style={{fontSize:9,fontWeight:800,padding:"3px 8px",borderRadius:10,background:"#ef444425",color:"#ef4444",animation:"blink 1.5s infinite"}}>PENDIENTE</span>
-      </div>
-      {!step&&(
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>setStep("ok")}
-            style={{flex:1,padding:"12px",background:"#22c55e20",border:"2px solid #22c55e",borderRadius:12,color:"#22c55e",fontWeight:900,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            <span>✅</span> Sin novedad
-          </button>
-          <button onClick={()=>setStep("falla")}
-            style={{flex:1,padding:"12px",background:"#ef444420",border:"2px solid #ef4444",borderRadius:12,color:"#ef4444",fontWeight:900,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            <span>⚠️</span> Anomalía
-          </button>
-        </div>
       )}
-      {step==="ok"&&(
-        <div>
-          <div style={{background:"#22c55e12",border:"1px solid #22c55e40",borderRadius:10,padding:"10px",marginBottom:8,textAlign:"center"}}>
-            <div style={{fontSize:13,fontWeight:900,color:"#22c55e"}}>✅ Sin novedad · {clock}</div>
-          </div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>setStep(null)} style={{flex:1,padding:"10px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>← ATRÁS</button>
-            <button onClick={()=>cerrar("ok")} disabled={saving}
-              style={{flex:2,padding:"10px",background:"#22c55e",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:12,cursor:"pointer",opacity:saving?0.5:1}}>
-              {saving?"⏳...":"✅ CONFIRMAR"}
-            </button>
-          </div>
-        </div>
-      )}
-      {step==="falla"&&(
-        <div>
-          <div style={{fontSize:11,fontWeight:800,color:"#ef4444",marginBottom:6}}>⚠️ DESCRIBE LA ANOMALÍA</div>
-          <textarea
-            rows={2}
-            placeholder="¿Qué se observó? (opcional pero útil para los técnicos)"
-            value={notaAnomalia}
-            onChange={e=>setNotaAnomalia(e.target.value)}
-            style={{width:"100%",background:"#0c1018",border:"1px solid #ef444440",borderRadius:8,padding:"9px",color:"white",fontSize:12,outline:"none",resize:"none",fontFamily:"inherit",marginBottom:8,lineHeight:1.5}}
-          />
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>setStep(null)} style={{flex:1,padding:"10px",background:"var(--border)",border:"none",borderRadius:10,color:"var(--text)",fontWeight:900,fontSize:11,cursor:"pointer"}}>← ATRÁS</button>
-            <button onClick={()=>cerrar("falla")} disabled={saving}
-              style={{flex:2,padding:"10px",background:"#ef4444",border:"none",borderRadius:10,color:"white",fontWeight:900,fontSize:12,cursor:"pointer",opacity:saving?0.5:1}}>
-              {saving?"⏳...":"⚠️ CONFIRMAR ANOMALÍA"}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
-
-// ══════════════════════════════════════════════════════
-// NOTIFICATION CENTER COMPONENT
-// ══════════════════════════════════════════════════════
-function NotifCenter({notifs,notifOpen,setNotifOpen,markRead,markAllRead,clearNotif,setScreen,usuario}){
-  const unread=notifs.filter(n=>!n.leido).length;
-  const handleClick=(n)=>{
-    markRead(n.id);
-    setNotifOpen(false);
-    if(n.screen) setScreen(n.screen);
-  };
-  const fmt=(ts)=>{
-    const diff=Math.floor((Date.now()-ts)/1000);
-    if(diff<60) return "ahora";
-    if(diff<3600) return Math.floor(diff/60)+"m";
-    if(diff<86400) return Math.floor(diff/3600)+"h";
-    return Math.floor(diff/86400)+"d";
-  };
-  return(
-    <div style={{position:"relative"}}>
-      <button className="notif-btn" onClick={()=>setNotifOpen(o=>!o)} aria-label="Notificaciones">
-        <span style={{fontSize:16}}>🔔</span>
-        {unread>0&&<span className="notif-badge">{unread>9?"9+":unread}</span>}
-      </button>
-      {notifOpen&&(
-        <>
-          <div style={{position:"fixed",inset:0,zIndex:8999}} onClick={()=>setNotifOpen(false)}/>
-          <div className="notif-panel">
-            <div className="notif-panel-hdr">
-              <div>
-                <div style={{fontSize:13,fontWeight:800,color:"var(--text)"}}>Notificaciones</div>
-                {unread>0&&<div style={{fontSize:10,color:"var(--accent)",fontWeight:700,marginTop:2}}>{unread} sin leer</div>}
-              </div>
-              <div style={{display:"flex",gap:8}}>
-                {unread>0&&<button onClick={markAllRead} style={{fontSize:10,fontWeight:700,background:"var(--info)",color:"var(--accent)",border:"1px solid var(--info-border)",padding:"4px 8px",borderRadius:"var(--r-sm)",cursor:"pointer"}}>Marcar todo</button>}
-                <button onClick={()=>setNotifOpen(false)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:18,lineHeight:1}}>×</button>
+      {/* Por módulo */}
+      {pm.length>0&&(
+        <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:14,padding:"14px",marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:800,color:"var(--muted)",letterSpacing:1,marginBottom:10}}>📦 POR MÓDULO</div>
+          {pm.map((m,i)=>(
+            <div key={m.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:i<pm.length-1?7:0,cursor:"pointer"}}
+              onClick={()=>setSelMod(selMod===m.label?null:m.label)}>
+              <span style={{fontSize:14,flexShrink:0}}>{m.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                  <span style={{fontSize:10,fontWeight:700,color:selMod===m.label?m.color:"var(--text)"}}>{m.label}</span>
+                  <span style={{fontSize:11,fontWeight:900,color:m.color}}>{m.n}</span>
+                </div>
+                <div style={{height:4,background:"var(--border)",borderRadius:2,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.round((m.n/maxN)*100)}%`,background:m.color,borderRadius:2}}/>
+                </div>
               </div>
             </div>
-            <div style={{maxHeight:320,overflowY:"auto"}}>
-              {notifs.length===0&&(
-                <div style={{padding:"28px 16px",textAlign:"center",color:"var(--text3)"}}>
-                  <div style={{fontSize:28,marginBottom:8}}>🔕</div>
-                  <div style={{fontSize:12,fontWeight:700}}>Sin notificaciones</div>
-                </div>
-              )}
-              {notifs.map(n=>(
-                <div key={n.id} className={`notif-item${n.leido?"":" unread"}`} onClick={()=>handleClick(n)}>
-                  <div className="notif-dot" style={{background:n.color||"var(--accent)"}}/>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-                      <div style={{fontSize:12,fontWeight:800,color:n.leido?"var(--text2)":"var(--text)"}}>{n.titulo}</div>
-                      <div style={{fontSize:10,color:"var(--text3)",flexShrink:0}}>{fmt(n.ts)}</div>
-                    </div>
-                    <div style={{fontSize:11,color:"var(--text3)",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.msg}</div>
+          ))}
+        </div>
+      )}
+
+      {/* OTs del día */}
+      {todasOTs.length>0&&(
+        <div style={{marginBottom:12}}>
+          <div onClick={()=>setShowOTs(!showOTs)} style={{background:"var(--card)",border:"2px solid var(--accent)",borderRadius:12,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:16}}>🔧</span>
+              <span style={{fontSize:12,fontWeight:900,color:"var(--accent)"}}>OTs DEL DÍA</span>
+              <span style={{fontSize:10,background:"var(--border)",color:"var(--muted)",borderRadius:10,padding:"1px 7px",fontWeight:700}}>{todasOTs.length}</span>
+            </div>
+            <span style={{color:"var(--accent)",fontSize:14,transition:"transform .2s",transform:showOTs?"rotate(180deg)":"none"}}>▼</span>
+          </div>
+          {showOTs&&(
+            <div style={{borderLeft:"2px solid var(--border)",marginLeft:14,paddingLeft:12,marginTop:6}}>
+              {todasOTs.map((ot,idx)=>(
+                <div key={idx} style={{background:ot.ACCION==="ABRIR ORDEN DE TRABAJO"?"#1e1111":"#0d1e0d",border:`1px solid ${ot.ACCION==="ABRIR ORDEN DE TRABAJO"?"#ef444430":"#22c55e30"}`,borderRadius:10,padding:"10px 12px",marginBottom:6,borderLeft:`3px solid ${ot.ACCION==="ABRIR ORDEN DE TRABAJO"?"#ef4444":"#22c55e"}`}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <span style={{fontSize:12,fontWeight:900,color:ot.ACCION==="ABRIR ORDEN DE TRABAJO"?"#f87171":"#22c55e"}}>{ot.ACCION==="ABRIR ORDEN DE TRABAJO"?"🔧":"✅"} {ot.ORDEN_ID}</span>
+                    <span style={{fontSize:9,color:"var(--muted)"}}>{ot.HORA}</span>
                   </div>
-                  <button onClick={e=>{e.stopPropagation();clearNotif(n.id);}} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:14,padding:"0 2px",opacity:.6,flexShrink:0}}>×</button>
+                  <div style={{fontSize:11,color:"var(--text)"}}>📍 {ot.UBICACION}</div>
+                  <div style={{fontSize:9,color:"var(--muted)",marginTop:2}}>👤 {ot.USUARIO}{ot.NOTAS&&ot.NOTAS!=="-"?` · ${ot.NOTAS.slice(0,60)}`:""}</div>
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+
+// ── Centro de Notificaciones ─────────────────────────────────
+function NotifCenter({notifs,notifOpen,setNotifOpen,markRead,markAllRead,clearNotif,setScreen,usuario}){
+  const unread=notifs.filter(n=>!n.leido).length;
+  return(
+    <div style={{position:"relative"}}>
+      <button className="notif-btn" onClick={()=>setNotifOpen(o=>!o)} aria-label="Notificaciones"
+        style={{animation:unread>0?"blink 2s infinite":"none"}}>
+        <span style={{fontSize:16}}>{unread>0?"🔔":"🔕"}</span>
+        {unread>0&&<span className="notif-badge">{unread>9?"9+":unread}</span>}
+      </button>
+      {notifOpen&&(
+        <div className="notif-panel fi">
+          <div className="notif-panel-hdr">
+            <span style={{fontSize:12,fontWeight:900,color:"var(--text)"}}>🔔 Notificaciones</span>
+            <div style={{display:"flex",gap:8}}>
+              {notifs.length>0&&<button onClick={markAllRead} style={{fontSize:9,fontWeight:800,color:"var(--accent)",background:"none",border:"none",cursor:"pointer"}}>Todo leído</button>}
+              {notifs.length>0&&<button onClick={clearNotif} style={{fontSize:9,fontWeight:800,color:"#ef4444",background:"none",border:"none",cursor:"pointer"}}>Limpiar</button>}
+              <button onClick={()=>setNotifOpen(false)} style={{fontSize:14,background:"none",border:"none",color:"var(--muted)",cursor:"pointer",lineHeight:1}}>✕</button>
+            </div>
           </div>
-        </>
+          {notifs.length===0&&(
+            <div style={{padding:"24px 16px",textAlign:"center",color:"var(--muted)",fontSize:12}}>Sin notificaciones</div>
+          )}
+          {notifs.map((n,i)=>(
+            <div key={i} className={`notif-item${n.leido?"":" unread"}`}
+              onClick={()=>{markRead(n.id);if(n.screen)setScreen(n.screen);setNotifOpen(false);}}>
+              <div style={{width:32,height:32,borderRadius:10,background:`${n.color||"#0ea5e9"}18`,border:`1px solid ${n.color||"#0ea5e9"}30`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{n.icon||"🔔"}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:11,fontWeight:900,color:n.leido?"var(--muted)":"var(--text)",lineHeight:1.3}}>{n.titulo}</div>
+                {n.msg&&<div style={{fontSize:10,color:"var(--muted)",marginTop:2,lineHeight:1.4,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.msg}</div>}
+              </div>
+              {!n.leido&&<div className="notif-dot" style={{background:n.color||"var(--accent)"}}/>}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-// ══════════════════════════════════════════════════════
-// SMART ALERT TOASTS
-// ══════════════════════════════════════════════════════
-function ToastStack({toasts,onClose}){
-  if(!toasts||toasts.length===0) return null;
-  return(
-    <div className="toast-stack">
-      {toasts.map(t=>(
-        <div key={t.id} className="toast" style={{borderLeft:`3px solid ${t.color||"var(--accent)"}`}}>
-          <span style={{fontSize:20,flexShrink:0}}>{t.icon||"🔔"}</span>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:12,fontWeight:800,color:"var(--text)"}}>{t.titulo}</div>
-            <div style={{fontSize:11,color:"var(--text2)",marginTop:1}}>{t.msg}</div>
-          </div>
-          <button className="toast-close" onClick={()=>onClose(t.id)}>×</button>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function App(){
   const[usuario,setUsuario]=useState(null);
@@ -4421,7 +4384,7 @@ function App(){
   },[]);
   const[permisosDB,setPermisosDB]=useState({});
   // ── Módulo Cámaras Monitoreo
-  const[camConfig,setCamConfig]=useState({intervalo:40,escalamiento:10,horaInicio:9,horaFin:21.5});
+  const[camConfig,setCamConfig]=useState({intervalo:30,escalamiento:10,horaInicio:9,horaFin:21.5});
   const[camSiguiente,setCamSiguiente]=useState(null);
   const[camPendiente,setCamPendiente]=useState(false);
   const[camRevisiones,setCamRevisiones]=useState([]);
@@ -4491,7 +4454,7 @@ function App(){
           sig=inicio.getTime();
         } else {
           // Ya estamos en horario o pasó → primer ciclo en 30 min
-          sig=Date.now()+CAM_INTERVALO_MS;
+          sig=Date.now()+getIntervalMs();
         }
         set(ref(db,"cam_estado"),{siguiente:sig,pendiente:false,ts:Date.now()});
       }
@@ -4575,7 +4538,8 @@ function App(){
   //     apunta al próximo ciclo desde ese momento → reloj sigue corriendo.
   //   • Al atender: SOLO pendiente=false. No se toca "siguiente".
   // ───────────────────────────────────────────────────────────────────────
-  const CAM_INTERVALO_MS = 30 * 60 * 1000; // 30 minutos fijos
+  // Intervalo dinámico — se lee de camConfigRef para respetar la config del admin
+  const getIntervalMs=()=>(camConfigRef.current?.intervalo||30)*60*1000;
 
   useEffect(()=>{
     if(!window._fb)return;
@@ -4591,7 +4555,7 @@ function App(){
 
         // Venció → reprogramar el siguiente ciclo (siempre, sin importar horario)
         const horaAlerta=new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-        const siguienteTs=ahora+CAM_INTERVALO_MS;
+        const siguienteTs=ahora+getIntervalMs();
 
         // Verificar horario para decidir si generar alerta
         const cfg=camConfigRef.current;
@@ -4634,14 +4598,14 @@ function App(){
     get(ref(db,"cam_estado")).then(snap=>{
       const d=snap.val()||{};
       set(ref(db,"cam_estado"),{
-        siguiente:d.siguiente||Date.now()+CAM_INTERVALO_MS, // conservar el siguiente ya programado
+        siguiente:d.siguiente||Date.now()+getIntervalMs(), // conservar el siguiente ya programado
         pendiente:false,
         horaAlerta:"",
         ts:Date.now(),
       });
     }).catch(()=>{
       set(ref(db,"cam_estado"),{
-        siguiente:Date.now()+CAM_INTERVALO_MS,
+        siguiente:Date.now()+getIntervalMs(),
         pendiente:false,ts:Date.now(),
       });
     });
@@ -4713,9 +4677,24 @@ function App(){
   },[]);
 
   useEffect(()=>{
-    const u=()=>{if(!actx.current)actx.current=new(window.AudioContext||window.webkitAudioContext)();if(actx.current.state==='suspended')actx.current.resume();};
-    document.addEventListener('touchstart',u,{passive:true});document.addEventListener('click',u);
-    return()=>{document.removeEventListener('touchstart',u);document.removeEventListener('click',u);};
+    // Unlock AudioContext on first user interaction (required by iOS/Android autoplay policy)
+    // {once:true} auto-removes the listener after first fire — no leak, no double-call
+    const unlock=()=>{
+      if(!actx.current){
+        try{ actx.current=new(window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+      }
+      if(actx.current&&actx.current.state==='suspended'){
+        actx.current.resume().catch(()=>{});
+      }
+    };
+    document.addEventListener('touchstart',unlock,{once:true,passive:true});
+    document.addEventListener('click',unlock,{once:true});
+    document.addEventListener('keydown',unlock,{once:true});
+    return()=>{
+      document.removeEventListener('touchstart',unlock);
+      document.removeEventListener('click',unlock);
+      document.removeEventListener('keydown',unlock);
+    };
   },[]);
 
   const migrarPasswordsAHash = async () => {
@@ -4789,9 +4768,7 @@ function App(){
         nuevas.forEach(n=>{
           notifiedOTsRef.current.add(n.ot_id||n._fbKey);
           playSound("ot_nueva");
-          setOtAlert({loc:n?.loc,det:n?.det,id:n?.ot_id});
-          setTimeout(()=>setOtAlert(null),8000);
-          // Notificación persistente en el centro
+          // Notificación en el centro de la campana
           addNotif({
             icon:"🔧",
             titulo:`Nueva OT · ${n.ot_id||""}`,
@@ -4845,11 +4822,12 @@ function App(){
       const urgentes=otsNormales.filter(o=>o._ts&&(Date.now()-o._ts)>5*60*1000);
       if(urgentes.length>0){
         playSound("ot_urgente");
-        showToast({
+        addNotif({
           icon:"🚨",
           titulo:`${urgentes.length} OT${urgentes.length>1?"s":""} sin cerrar`,
           msg:`La${urgentes.length>1?"s":""} más antigua lleva ${Math.floor((Date.now()-Math.min(...urgentes.map(o=>o._ts||Date.now())))/60000)} min abierta`,
           color:"#ef4444",
+          screen:"home",
         });
       }
     },3*60*1000);
@@ -4972,12 +4950,12 @@ function App(){
   };
 
   const save=async()=>{
-    if(!firebaseReady){alert("Firebase no listo");return;}
+    if(!firebaseReady){console.warn("Firebase no listo");return;}
     if(!isOTValid()){
       if(form.ot_tipo === "ABRIR ORDEN DE TRABAJO"){
-        alert("⚠️ Debes seleccionar una RESPUESTA RÁPIDA o escribir el DETALLE TÉCNICO para abrir la orden");
+        setSync("err"); // validation: needs quick answer or detail
       } else {
-        alert("⚠️ Debes seleccionar una RESPUESTA RÁPIDA o escribir la SOLUCIÓN APLICADA para cerrar la orden");
+        setSync("err"); // validation: needs close answer or solution
       }
       return;
     }
@@ -5005,12 +4983,11 @@ function App(){
               }
             }
           }
-          showToast({icon:"✅",titulo:`OT ${form.ot_id} cerrada`,msg:`📍 ${loc} — Solucionada por ${usuario.nombre}`,color:"#22c55e"});
+          addNotif({icon:"✅",titulo:`OT ${form.ot_id} cerrada`,msg:`📍 ${loc} — Solucionada por ${usuario.nombre}`,color:"#22c55e"});
         }else{
           const otDet=[form.ot_rapido,form.ot_detalle].filter(Boolean).join(' · ')||form.ot_tipo;
           await push(ref(db,"activeOTs"),{ot_id:form.ot_id,loc,det:otDet,fecha:rec.FECHA,usuario:usuario.nombre,_ts:Date.now()});
           playSound("ot_nueva");
-          showToast({icon:"🔧",titulo:`OT ${form.ot_id} abierta`,msg:`📍 ${loc}${otDet&&otDet!==loc?" — "+otDet.slice(0,50):""}`,color:"#ef4444"});
         }
       }
       setSync("ok");
@@ -5036,16 +5013,17 @@ function App(){
         setRafagaRecorrido([]);
       }
       setScreen("success");
-    }catch(e){console.error(e);setSync("err");alert("Error: "+e.message);}
+    }catch(e){console.error(e);setSync("err");if(window._addNotif)window._addNotif({icon:"❌",titulo:"Error al guardar",msg:e.message,color:"#ef4444"});}
   };
 
   const[xlsLimpiarModal,setXlsLimpiarModal]=useState(false);
+  const[xlsPwModal,setXlsPwModal]=useState(false);
+  const[xlsPwInput,setXlsPwInput]=useState("");
   const[xlsCleaning,setXlsCleaning]=useState(false);
 
   const downloadXLS=async()=>{
-    const pw=prompt("Ingrese la clave de acceso:");
-    if(pw!=="2026"){if(pw!==null)alert("Clave incorrecta.");return;}
-    if(!window._fb){alert("Sin conexión a Firebase");return;}
+    // Password check handled by modal before calling this function
+    if(!window._fb){console.warn("Firebase no listo");return;}
     const{db,ref,get}=window._fb;
     const wb=XLSX.utils.book_new();
     const applyS=(ws,rng,hc,ec)=>{
@@ -5154,7 +5132,7 @@ function App(){
         await Promise.all(sesViejas.map(([k])=>remove(ref(db,`sesiones/${k}`))));
       }
       // NO se borran: activeOTs, passwords, usuarios, config_listas, cam_config, permisos, anuncio
-    }catch(e){alert("Error al limpiar: "+e.message);}
+    }catch(e){console.error("Error al limpiar:",e.message);}
     setXlsCleaning(false);
     setXlsLimpiarModal(false);
   };
@@ -5355,6 +5333,43 @@ function App(){
         </div>
       )}
 
+      {/* ── MODAL CLAVE EXCEL ── */}
+      {xlsPwModal&&(
+        <div style={{position:"absolute",inset:0,background:"#000000d8",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"var(--card)",border:"1px solid #22c55e60",borderRadius:20,padding:22,width:"100%",maxWidth:300}}>
+            <div style={{fontSize:28,textAlign:"center",marginBottom:8}}>🔐</div>
+            <div style={{fontSize:14,fontWeight:900,color:"var(--text)",textAlign:"center",marginBottom:6}}>Clave de acceso</div>
+            <input
+              type="password"
+              value={xlsPwInput}
+              onChange={e=>setXlsPwInput(e.target.value)}
+              onKeyDown={e=>{
+                if(e.key==="Enter"){
+                  if(xlsPwInput==="2026"){setXlsPwModal(false);setXlsPwInput("");downloadXLS();}
+                  else{setXlsPwInput("");}
+                }
+              }}
+              placeholder="Contraseña..."
+              autoFocus
+              style={{width:"100%",background:"var(--bg)",border:"1px solid var(--accent)",borderRadius:10,padding:"12px",color:"white",fontSize:15,outline:"none",marginBottom:12,textAlign:"center",letterSpacing:4,fontFamily:"inherit"}}
+            />
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>{setXlsPwModal(false);setXlsPwInput("");}}
+                style={{flex:1,padding:"12px",background:"var(--border)",border:"none",borderRadius:12,color:"var(--text)",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+                CANCELAR
+              </button>
+              <button onClick={()=>{
+                if(xlsPwInput==="2026"){setXlsPwModal(false);setXlsPwInput("");downloadXLS();}
+                else{setXlsPwInput("");}
+              }}
+                style={{flex:1,padding:"12px",background:"#22c55e",border:"none",borderRadius:12,color:"white",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+                CONFIRMAR
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL LIMPIAR DATOS POST-EXCEL ── */}
       {xlsLimpiarModal&&(
         <div style={{position:"absolute",inset:0,background:"#000000d8",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
@@ -5424,23 +5439,10 @@ function App(){
           </div>
         </div>
       )}
-      {otAlert&&(
-        <div className="fi" style={{position:'absolute',top:0,left:0,right:0,zIndex:999,background:'linear-gradient(135deg,#7f1d1d,#ef4444)',padding:'12px 14px',boxShadow:'0 6px 28px #ef444480',display:'flex',alignItems:'center',gap:10,animation:"slideDown .2s ease"}}>
-          <div style={{fontSize:26,animation:"blink .6s infinite"}}>🚨</div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:900,color:'white',letterSpacing:.3}}>¡NUEVA ORDEN DE TRABAJO!</div>
-            <div style={{fontSize:11,color:'#fecaca',marginTop:1}}>📍 {otAlert.loc}{otAlert.id?` · ${otAlert.id}`:""}</div>
-            {otAlert.det&&otAlert.det!==otAlert.loc&&<div style={{fontSize:10,color:'#fca5a5',marginTop:1}}>{otAlert.det.slice(0,70)}</div>}
-          </div>
-          <div style={{display:'flex',gap:6,flexShrink:0}}>
-            <button onClick={()=>{setOtAlert(null);setScreen("home");}} style={{background:'#ffffff25',border:'1px solid #ffffff50',color:'white',fontWeight:900,fontSize:10,padding:'6px 10px',borderRadius:8,cursor:'pointer'}}>VER</button>
-            <button onClick={()=>setOtAlert(null)} style={{background:'transparent',border:'none',color:'#fca5a5',fontWeight:900,fontSize:16,padding:'4px 6px',borderRadius:8,cursor:'pointer',lineHeight:1}}>✕</button>
-          </div>
-        </div>
-      )}
+
 
       {/* ── TOAST STACK ── */}
-      <ToastStack toasts={toasts} onClose={closeToast}/>
+
 
       {/* ── NOTIFICACIÓN CÁMARAS — persiste hasta que se hace la revisión ── */}
       {camPendiente&&usuario&&(usuario.rol==="Monitoreo"||usuario.nombre==="Vicente")&&(
@@ -5781,50 +5783,269 @@ function App(){
 
             {/* ══ GRILLA DE MÓDULOS ══ */}
             <div className="label-sec" style={{marginTop:20}}>MÓDULOS</div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:20}}>
-              {MODS.map(m=>{
-                const ok=canAccess(m,usuario);
-                const hasPending=m.id==="camaras"&&camPendiente;
-                const notifCount=notifs.filter(n=>!n.leido&&n.screen===m.id).length;
-                return(
-                  <div key={m.id}
-                    onClick={()=>{if(!ok)return;if(m.id==='almuerzo')setScreen("almuerzo");else if(m.id==='camaras')setScreen("camaras");else openMod(m);}}
-                    style={{
-                      position:'relative',
-                      padding:'18px 12px 14px',
-                      borderRadius:16,
-                      border:`1px solid ${ok?(hasPending?'#ef444440':`${m.color}25`):'var(--border)'}`,
-                      background:ok?(hasPending?'#1a0808':`${m.color}08`):'var(--card)',
-                      cursor:ok?'pointer':'not-allowed',
-                      opacity:ok?1:0.35,
-                      transition:'all .2s',
-                      textAlign:'center',
-                      overflow:'hidden',
-                    }}
-                    onMouseEnter={e=>{if(ok){e.currentTarget.style.borderColor=hasPending?'#ef4444':m.color;e.currentTarget.style.background=hasPending?'#1f0a0a':`${m.color}14`;}}}
-                    onMouseLeave={e=>{if(ok){e.currentTarget.style.borderColor=hasPending?'#ef444440':`${m.color}25`;e.currentTarget.style.background=hasPending?'#1a0808':`${m.color}08`;}}}>
-                    {/* Glow corner */}
-                    {ok&&<div style={{position:'absolute',top:-20,right:-20,width:60,height:60,borderRadius:'50%',background:`${hasPending?'#ef4444':m.color}15`,filter:'blur(15px)',pointerEvents:'none'}}/>}
-                    {/* Badge urgente */}
-                    {hasPending&&<div style={{position:'absolute',top:6,right:6,width:8,height:8,borderRadius:'50%',background:'#ef4444',border:'1.5px solid var(--bg)',animation:'blink 1s infinite'}}/>}
-                    {notifCount>0&&!hasPending&&<div style={{position:'absolute',top:6,right:6,minWidth:16,height:16,borderRadius:8,background:'#f97316',border:'1.5px solid var(--bg)',fontSize:8,color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,padding:'0 3px'}}>{notifCount}</div>}
-                    {/* Icon */}
-                    <div style={{
-                      width:46,height:46,borderRadius:14,margin:'0 auto 10px',
-                      background:`linear-gradient(135deg,${m.color}30,${m.color}10)`,
-                      border:`1px solid ${m.color}35`,
-                      display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,
-                      boxShadow:`0 0 12px ${m.color}20`,
-                    }}>{m.icon}</div>
-                    <div style={{fontSize:11,fontWeight:800,color:ok?'var(--text)':'var(--muted)',lineHeight:1.3}}>{m.label}</div>
-                    {!ok&&<div style={{position:'absolute',top:8,left:8,fontSize:10}}>🔒</div>}
-                  </div>
+            {(()=>{
+              // ── Calcular indicador de calidad por módulo (últimas 3 fechas con actividad) ──
+              // Solo aplica a módulos con lista de equipos: cajero, entrada, salida, limpieza
+              const CALIDAD_MODULOS={
+                cajero:{modLabel:"Cajero",lista:listaCajeros},
+                entrada:{modLabel:"Entrada",lista:listaEntradas},
+                salida:{modLabel:"Salida",lista:listaSalidas},
+                limpieza:{
+                  modLabel:"Limpieza",
+                  lista:[...listaLimCajeros,...listaLimSalidas],
+                },
+              };
+
+              // Para un módulo: obtener las últimas 3 fechas con actividad del usuario
+              // y calcular el % de cobertura de cada una
+              const getCalidad=(modId)=>{
+                const cfg=CALIDAD_MODULOS[modId];
+                if(!cfg)return null;
+                const regsModulo=history.filter(h=>
+                  h.USUARIO===usuario.nombre&&
+                  h.MODULO===cfg.modLabel&&
+                  cfg.lista.includes(h.UBICACION)
                 );
-              })}
-            </div>
+                if(regsModulo.length===0)return{estado:"sin_datos",pct:0,fechas:[]};
+
+                // Agrupar por fecha y calcular equipos únicos por fecha
+                const porFecha={};
+                regsModulo.forEach(h=>{
+                  if(!porFecha[h.FECHA])porFecha[h.FECHA]=new Set();
+                  if(h.UBICACION)porFecha[h.FECHA].add(h.UBICACION);
+                });
+
+                // Ordenar por fecha más reciente (usar _ts si existe, sino string)
+                const fechasOrdenadas=Object.keys(porFecha).sort((a,b)=>{
+                  const ta=regsModulo.find(h=>h.FECHA===a)?._ts||0;
+                  const tb=regsModulo.find(h=>h.FECHA===b)?._ts||0;
+                  return tb-ta;
+                });
+
+                // Tomar las últimas 3
+                const ultimas3=fechasOrdenadas.slice(0,3);
+                const pcts=ultimas3.map(f=>Math.round((porFecha[f].size/cfg.lista.length)*100));
+
+                // Promedio de las últimas 3
+                const promedio=Math.round(pcts.reduce((s,p)=>s+p,0)/pcts.length);
+
+                // Hoy específicamente
+                const hoyPct=porFecha[hoy]?Math.round((porFecha[hoy].size/cfg.lista.length)*100):null;
+
+                // Estado final: priorizar si hay datos de hoy
+                let estado;
+                if(hoyPct===null&&promedio===0)estado="sin_datos";
+                else if((hoyPct??promedio)>=100)estado="verde";
+                else if((hoyPct??promedio)>=70)estado="amarillo";
+                else estado="rojo";
+
+                return{
+                  estado,
+                  pct:hoyPct??promedio,
+                  hoyPct,
+                  promedio,
+                  fechas:ultimas3.length,
+                  ultimaFecha:ultimas3[0]||null,
+                };
+              };
+
+              // Calidad pre-calculada para los 4 módulos relevantes
+              const calidadMap={};
+              Object.keys(CALIDAD_MODULOS).forEach(id=>{
+                calidadMap[id]=getCalidad(id);
+              });
+
+              // Color y texto del indicador
+              const getIndicador=(cal)=>{
+                if(!cal||cal.estado==="sin_datos")return null;
+                const c=cal.estado==="verde"?"#22c55e":cal.estado==="amarillo"?"#f59e0b":"#ef4444";
+                const icon=cal.estado==="verde"?"●":cal.estado==="amarillo"?"●":"●";
+                return{c,pct:cal.pct,hoy:cal.hoyPct!=null};
+              };
+
+              return(
+                <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10,marginBottom:20}}>
+                  {MODS.map(m=>{
+                    const ok=canAccess(m,usuario);
+                    const hasPending=m.id==="camaras"&&camPendiente;
+                    const notifCount=notifs.filter(n=>!n.leido&&n.screen===m.id).length;
+                    const cal=calidadMap[m.id];
+                    const ind=ok&&!hasPending?getIndicador(cal):null;
+
+                    return(
+                      <div key={m.id}
+                        onClick={()=>{if(!ok)return;if(m.id==='almuerzo')setScreen("almuerzo");else if(m.id==='camaras')setScreen("camaras");else openMod(m);}}
+                        style={{
+                          position:'relative',
+                          padding:'18px 12px 14px',
+                          borderRadius:16,
+                          border:`1px solid ${ok?(hasPending?'#ef444440':`${m.color}25`):'var(--border)'}`,
+                          background:ok?(hasPending?'#1a0808':`${m.color}08`):'var(--card)',
+                          cursor:ok?'pointer':'not-allowed',
+                          opacity:ok?1:0.35,
+                          transition:'all .2s',
+                          textAlign:'center',
+                          overflow:'hidden',
+                        }}
+                        onMouseEnter={e=>{if(ok){e.currentTarget.style.borderColor=hasPending?'#ef4444':m.color;e.currentTarget.style.background=hasPending?'#1f0a0a':`${m.color}14`;}}}
+                        onMouseLeave={e=>{if(ok){e.currentTarget.style.borderColor=hasPending?'#ef444440':`${m.color}25`;e.currentTarget.style.background=hasPending?'#1a0808':`${m.color}08`;}}}>
+
+                        {/* Glow corner */}
+                        {ok&&<div style={{position:'absolute',top:-20,right:-20,width:60,height:60,borderRadius:'50%',background:`${hasPending?'#ef4444':m.color}15`,filter:'blur(15px)',pointerEvents:'none'}}/>}
+
+                        {/* Badge urgente cámaras */}
+                        {hasPending&&<div style={{position:'absolute',top:6,right:6,width:8,height:8,borderRadius:'50%',background:'#ef4444',border:'1.5px solid var(--bg)',animation:'blink 1s infinite'}}/>}
+
+                        {/* Badge notificación */}
+                        {notifCount>0&&!hasPending&&!ind&&<div style={{position:'absolute',top:6,right:6,minWidth:16,height:16,borderRadius:8,background:'#f97316',border:'1.5px solid var(--bg)',fontSize:8,color:'white',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:900,padding:'0 3px'}}>{notifCount}</div>}
+
+                        {/* ── Indicador de calidad (esquina superior derecha) ── */}
+                        {ind&&(
+                          <div style={{
+                            position:'absolute',top:6,right:6,
+                            display:'flex',alignItems:'center',gap:2,
+                            background:`${ind.c}18`,border:`1px solid ${ind.c}40`,
+                            borderRadius:10,padding:'2px 5px',
+                          }}>
+                            <span style={{fontSize:7,color:ind.c,fontWeight:900,lineHeight:1}}>
+                              {ind.c==='#22c55e'?'✓':ind.c==='#f59e0b'?'~':'!'}
+                            </span>
+                            <span style={{fontSize:8,color:ind.c,fontWeight:900}}>{ind.pct}%</span>
+                          </div>
+                        )}
+
+                        {/* Icon */}
+                        <div style={{
+                          width:46,height:46,borderRadius:14,margin:'0 auto 10px',
+                          background:`linear-gradient(135deg,${m.color}30,${m.color}10)`,
+                          border:`1px solid ${m.color}35`,
+                          display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,
+                          boxShadow:`0 0 12px ${m.color}20`,
+                        }}>{m.icon}</div>
+
+                        <div style={{fontSize:11,fontWeight:800,color:ok?'var(--text)':'var(--muted)',lineHeight:1.3}}>{m.label}</div>
+
+                        {/* Mini barra de progreso bajo el nombre */}
+                        {ind&&(
+                          <div style={{height:2,background:`${ind.c}20`,borderRadius:2,overflow:'hidden',marginTop:6,marginBottom:-4}}>
+                            <div style={{height:'100%',width:`${ind.pct}%`,background:ind.c,borderRadius:2}}/>
+                          </div>
+                        )}
+
+                        {!ok&&<div style={{position:'absolute',top:8,left:8,fontSize:10}}>🔒</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            {/* ══ PROGRESO DEL EQUIPO (Vicente) ══ */}
+            {usuario.nombre==="Vicente"&&(()=>{
+              const tecnicos=USUARIOS_ORIGINALES.filter(u=>u.nombre!=="Vicente"&&u.activo!==false);
+              const progModulos=[
+                {id:"cajero",label:"Cajeros",icon:"🏧",lista:listaCajeros,modLabel:"Cajero",color:"#0ea5e9"},
+                {id:"entrada",label:"Entradas",icon:"🚗",lista:listaEntradas,modLabel:"Entrada",color:"#22c55e"},
+                {id:"salida",label:"Salidas",icon:"🚦",lista:listaSalidas,modLabel:"Salida",color:"#f97316"},
+                {id:"limpieza_cajeros",label:"Lim. Cajeros",icon:"🧹",lista:listaLimCajeros,modLabel:"Limpieza",filtroExtra:(h)=>listaLimCajeros.includes(h.UBICACION),color:"#fbbf24"},
+                {id:"limpieza_salidas",label:"Lim. Salidas",icon:"🧹",lista:listaLimSalidas,modLabel:"Limpieza",filtroExtra:(h)=>listaLimSalidas.includes(h.UBICACION),color:"#fbbf24"},
+              ];
+
+              // Por técnico: filtrar módulos por permisos reales y calcular cobertura
+              const getProgTecnico=(nombre)=>{
+                // Obtener el objeto de usuario para verificar permisos
+                const tecU=tecnicos.find(t=>t.nombre===nombre)||{nombre,rol:"Técnico"};
+                return progModulos
+                  // Solo incluir módulos a los que el técnico tiene acceso
+                  .filter(m=>{
+                    // Mapear los IDs internos al ID del módulo real en MODS
+                    const realId=m.id==="limpieza_cajeros"||m.id==="limpieza_salidas"?"limpieza":m.id;
+                    const modObj=MODS.find(x=>x.id===realId)||{id:realId};
+                    return canAccess(modObj,tecU);
+                  })
+                  .map(m=>{
+                    const regs=hoyH.filter(h=>h.USUARIO===nombre&&h.MODULO===m.modLabel&&(m.filtroExtra?m.filtroExtra(h):m.lista.includes(h.UBICACION)));
+                    const hechos=new Set(regs.map(h=>h.UBICACION)).size;
+                    return{...m,hechos,pct:m.lista.length>0?Math.round((hechos/m.lista.length)*100):0};
+                  });
+              };
+
+              // Total global del equipo hoy
+              const totalEquipo=hoyH.filter(h=>h.USUARIO!=="Vicente").length;
+              const totalConFallas=hoyH.filter(h=>h.USUARIO!=="Vicente"&&Object.keys(h).some(k=>h[k]==="NO")).length;
+
+              return(
+                <div style={{marginBottom:20}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                    <div className="label-sec" style={{margin:0}}>👥 PROGRESO DEL EQUIPO HOY</div>
+                    <div style={{display:"flex",gap:6}}>
+                      <span style={{fontSize:9,fontWeight:800,color:"#a855f7",background:"#a855f715",border:"1px solid #a855f730",padding:"2px 8px",borderRadius:10}}>{totalEquipo} reg.</span>
+                      {totalConFallas>0&&<span style={{fontSize:9,fontWeight:800,color:"#f97316",background:"#f9731615",border:"1px solid #f9731630",padding:"2px 8px",borderRadius:10}}>⚠️ {totalConFallas}</span>}
+                    </div>
+                  </div>
+
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {tecnicos.map(tec=>{
+                      const mods=getProgTecnico(tec.nombre);
+                      const regsHoy=hoyH.filter(h=>h.USUARIO===tec.nombre).length;
+                      const conFallas=hoyH.filter(h=>h.USUARIO===tec.nombre&&Object.keys(h).some(k=>h[k]==="NO")).length;
+                      const enLinea=onlineU.includes(tec.nombre);
+                      const totalEqs=mods.reduce((s,m)=>s+m.lista.length,0);
+                      const hechosEqs=mods.reduce((s,m)=>s+m.hechos,0);
+                      const pctGlobal=totalEqs>0?Math.round((hechosEqs/totalEqs)*100):0;
+                      const color=CU[tec.nombre]||"#0ea5e9";
+                      const icon=IU[tec.nombre]||"👤";
+
+                      return(
+                        <div key={tec.nombre} style={{background:"var(--card)",border:`1px solid ${color}25`,borderRadius:12,padding:"12px 14px",borderLeft:`3px solid ${enLinea?color:"var(--border)"}`}}>
+                          {/* Cabecera técnico */}
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                            <span style={{fontSize:18}}>{icon}</span>
+                            <div style={{flex:1}}>
+                              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                                <span style={{fontSize:12,fontWeight:900,color}}>{tec.nombre}</span>
+                                {enLinea&&<span style={{width:6,height:6,borderRadius:"50%",background:"#22c55e",display:"inline-block",animation:"blink 2s infinite"}}/>}
+                                {!enLinea&&<span style={{fontSize:8,color:"var(--muted)"}}>offline</span>}
+                              </div>
+                              <div style={{fontSize:9,color:"var(--muted)"}}>
+                                {regsHoy} registros hoy
+                                {conFallas>0&&<span style={{color:"#f97316",fontWeight:700}}> · ⚠️ {conFallas} falla{conFallas!==1?"s":""}</span>}
+                              </div>
+                            </div>
+                            {/* Progreso global */}
+                            <div style={{textAlign:"right",flexShrink:0}}>
+                              <div style={{fontSize:14,fontWeight:900,color:pctGlobal===100?"#22c55e":pctGlobal>0?color:"var(--muted)"}}>{pctGlobal}%</div>
+                              <div style={{fontSize:8,color:"var(--muted)",fontWeight:700}}>{hechosEqs}/{totalEqs}</div>
+                            </div>
+                          </div>
+
+                          {/* Barras por módulo */}
+                          {regsHoy>0&&(
+                            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                              {mods.filter(m=>m.lista.length>0).map((m,i)=>(
+                                <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+                                  <span style={{fontSize:10,width:14,textAlign:"center",flexShrink:0}}>{m.icon}</span>
+                                  <div style={{flex:1,height:5,background:"var(--border)",borderRadius:3,overflow:"hidden"}}>
+                                    <div style={{height:"100%",width:`${m.pct}%`,background:m.pct===100?"#22c55e":m.color,borderRadius:3,transition:"width .4s"}}/>
+                                  </div>
+                                  <span style={{fontSize:9,fontWeight:800,color:m.pct===100?"#22c55e":m.hechos>0?m.color:"var(--muted)",width:28,textAlign:"right",flexShrink:0}}>{m.hechos}/{m.lista.length}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {regsHoy===0&&(
+                            <div style={{fontSize:9,color:"var(--muted)",fontStyle:"italic"}}>Sin actividad hoy</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ══ MI PROGRESO HOY ══ */}
-            {(()=>{
+            {usuario.nombre!=="Vicente"&&(()=>{
               // Solo mostrar si el usuario tiene acceso a algún módulo de recorrido
               const progModulos=[
                 {
@@ -5864,6 +6085,7 @@ function App(){
                 return mod&&canAccess(mod,usuario)&&m.lista.length>0;
               });
 
+              // Only show for non-Vicente (Vicente sees team view above)
               if(progModulos.length===0) return null;
 
               // Calcular revisados hoy (únicos) por módulo para ESTE usuario
@@ -5990,7 +6212,7 @@ function App(){
               />
             )}
 
-            {usuario.nombre==="Vicente"&&<button className="btn-xl" style={{marginTop:8}} onClick={downloadXLS}>📥 DESCARGAR EXCEL Y LIMPIAR</button>}
+            {usuario.nombre==="Vicente"&&<button className="btn-xl" style={{marginTop:8}} onClick={()=>setXlsPwModal(true)}>📥 DESCARGAR EXCEL Y LIMPIAR</button>}
           </div>
         </div>
       )}
@@ -6816,7 +7038,7 @@ function App(){
           activeOTs={activeOTs}
           camRevisiones={camRevisiones}
           camSiguiente={camSiguiente}
-          camConfig={camConfig||{intervalo:40,escalamiento:10,horaInicio:9,horaFin:21.5}}
+          camConfig={camConfig||{intervalo:30,escalamiento:10,horaInicio:9,horaFin:21.5}}
           clock={clock}
           fb={window._fb}
           openMod={openMod}
