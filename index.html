@@ -67,7 +67,7 @@ body{background:var(--bg);color:var(--text);font-size:13px;}
 @media(min-width:600px){
   .shell{max-width:600px;border-left:1px solid var(--border);border-right:1px solid var(--border);box-shadow:0 0 40px #0ea5e910;}
   .mod-grid{grid-template-columns:repeat(3,1fr)!important;}
-  .scrollable{padding:20px;padding-bottom:160px;}
+  .scrollable{padding:18px;padding-bottom:180px;}
 }
 
 /* DESKTOP ≥ 1024px */
@@ -86,7 +86,7 @@ body{background:var(--bg);color:var(--text);font-size:13px;}
   .label-sec{font-size:9px;margin:12px 0 8px;}
   .pill{padding:7px 10px;font-size:10px;}
   .btn-save{padding:14px;font-size:14px;}
-  .scrollable{padding:12px;padding-bottom:130px;}
+  .scrollable{padding:12px;padding-bottom:160px;}
   .mod-item{padding:14px 8px 10px;}
   .mod-icon{font-size:20px;}
   .mod-name{font-size:10px;}
@@ -99,7 +99,7 @@ body{background:var(--bg);color:var(--text);font-size:13px;}
 .hdr{padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border);flex-shrink:0;}
 
 /* ═══════ SCROLLABLE ═══════ */
-.scrollable{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px;padding-bottom:150px;}
+.scrollable{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px;padding-bottom:180px;overscroll-behavior-y:contain;}
 /* Admin panel scrollable — no footer button so less pb needed */
 .admin-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px;padding-bottom:24px;}
 
@@ -133,6 +133,8 @@ body{background:var(--bg);color:var(--text);font-size:13px;}
 
 /* ═══════ PILLS ═══════ */
 .pill-grid{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;max-width:100%;}
+/* Extra space after last pill group so footer doesn't cover it */
+.pill-grid:last-of-type{margin-bottom:20px;}
 .pill{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:9px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;}
 .pill.active{background:var(--accent);color:white;border-color:var(--accent);}
 
@@ -140,7 +142,7 @@ body{background:var(--bg);color:var(--text);font-size:13px;}
 .inp{width:100%;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;color:white;font-size:15px;margin-bottom:14px;outline:none;resize:none;}
 
 /* ═══════ BUTTONS ═══════ */
-.footer-fixed{position:absolute;bottom:0;left:0;right:0;padding:12px 14px;background:linear-gradient(transparent,var(--bg) 35%);z-index:10;}
+.footer-fixed{position:absolute;bottom:0;left:0;right:0;padding:14px 14px 20px;background:linear-gradient(transparent,var(--bg) 30%);z-index:10;padding-bottom:max(20px,env(safe-area-inset-bottom,20px));}
 .btn-save{width:100%;padding:15px;background:var(--green);color:white;border:none;border-radius:14px;font-weight:900;font-size:15px;cursor:pointer;}
 .btn-save:disabled{opacity:.2;filter:grayscale(1);cursor:not-allowed;}
 .btn-xl{width:100%;padding:14px;background:var(--accent);color:white;border-radius:12px;border:none;font-weight:800;margin-top:10px;cursor:pointer;}
@@ -879,10 +881,89 @@ function AlmuerzoScreen({vales,soloLec,onVolver,fb,hoy,onRegreso,vpData}){
   const[tick,setTick]=useState(0);
   useEffect(()=>{const id=setInterval(()=>setTick(t=>t+1),15000);return()=>clearInterval(id);},[]);
 
+  // ── Notificación automática de tardanza ──
+  // Se dispara cuando alguien supera el límite permitido (solo para operadores, no soloLec)
+  const tardanzasNotifRef=useRef(new Set()); // fbKeys ya notificados para no repetir
+  useEffect(()=>{
+    if(soloLec)return; // solo coordinadores/Vicente reciben alertas
+    const check=()=>{
+      const ahora=new Date();
+      const hh=ahora.getHours(),mm=ahora.getMinutes(),ss=ahora.getSeconds();
+      const segsAhora=hh*3600+mm*60+ss;
+      const vpL=vpData||VP;
+      vales.forEach(v=>{
+        if(v.fecha!==hoy||v.regreso||!v.salida)return; // solo vales abiertos de hoy
+        const p=vpL.find(x=>x.nombre===v.persona);
+        if(!p)return;
+        const min=v.tipo==="almuerzo"?p.minA:p.minC;
+        const[sh,sm,ss2]=(v.salida||"0:0:0").split(":").map(Number);
+        const segsSalida=sh*3600+sm*60+ss2;
+        const minsTranscurridos=Math.floor((segsAhora-segsSalida)/60);
+        const key=(v._fbKey||v.salida)+v.persona;
+        // Notificar al pasar el límite (solo una vez por vale)
+        if(minsTranscurridos>min&&!tardanzasNotifRef.current.has(key)){
+          tardanzasNotifRef.current.add(key);
+          const extra=minsTranscurridos-min;
+          // Sonido diferenciado "ding-dong" de tardanza
+          try{if(window._playSound) window._playSound("tardanza_almuerzo");}catch(e){}
+          if(window._addNotif){
+            window._addNotif({
+              icon:"⏰",
+              titulo:`Tardanza — ${v.persona}`,
+              msg:`Lleva ${minsTranscurridos} min fuera · límite ${min} min (+${extra} min tarde)`,
+              color:"#f97316",
+              screen:"almuerzo",
+            });
+          }
+        }
+      });
+    };
+    check(); // revisar al montar
+    const id=setInterval(check,30000); // revisar cada 30s
+    return()=>clearInterval(id);
+  },[vales,hoy,soloLec,vpData]);
+
   const vpList=vpData||VP;
   const personas=tab==="cafe"?vpList.filter(p=>p.cafe):vpList;
-  const getV=(n,t)=>vales.find(v=>v.persona===n&&v.fecha===hoy&&v.tipo===t&&!v.regreso);
+  const getV=(n,t)=>vales.find(v=>
+    (v.persona===n||v.personaBase===n)&&v.fecha===hoy&&v.tipo===t&&!v.regreso
+  );
   const TC=tab==="almuerzo"?"#f97316":"#06b6d4";
+
+  // ── Estado del día por persona (libre / incapacitada / no_llego / activo) ──
+  const[estadosPersonal,setEstadosPersonal]=useState({});
+  const[confirmEstado,setConfirmEstado]=useState(null); // {nombre, estado}
+  const[outsModal,setOutsModal]=useState(null); // {persona} — pedir nombre outsourcing
+  const[outsNombre,setOutsNombre]=useState("");
+  useEffect(()=>{
+    if(!fb)return;
+    const{db,ref,onValue}=fb;
+    const unsub=onValue(ref(db,`estado_personal_dia/${hoy}`),snap=>{
+      setEstadosPersonal(snap.val()||{});
+    });
+    return()=>unsub();
+  },[fb,hoy]);
+
+  const setEstadoPersona=async(nombre,estado)=>{
+    if(!fb||soloLec)return;
+    const{db,ref,set,remove}=fb;
+    if(estado==="activo"){
+      await remove(ref(db,`estado_personal_dia/${hoy}/${nombre.replace(/\s/g,"_")}`));
+    } else {
+      await set(ref(db,`estado_personal_dia/${hoy}/${nombre.replace(/\s/g,"_")}`),{
+        estado,nombre,fecha:hoy,ts:Date.now()
+      });
+    }
+  };
+
+  const getEstado=(nombre)=>estadosPersonal[nombre.replace(/\s/g,"_")]?.estado||"activo";
+
+  const ESTADOS_LABELS={
+    activo:{label:"Activo",icon:"✅",color:"#22c55e"},
+    libre:{label:"Día libre",icon:"🏖",color:"#06b6d4"},
+    incapacitada:{label:"Incapacitado",icon:"🤒",color:"#f59e0b"},
+    no_llego:{label:"No llegó",icon:"❌",color:"#ef4444"},
+  };
 
   // Calcular minutos fuera de una persona
   const minsFuera=(salida)=>{
@@ -892,14 +973,28 @@ function AlmuerzoScreen({vales,soloLec,onVolver,fb,hoy,onRegreso,vpData}){
     return Math.max(0,Math.floor(((ch*3600+cm*60+cs)-(sh*3600+sm*60+ss))/60));
   };
 
-  const regSal=async n=>{
+  // Guardar salida con nombre real (puede ser "Outsourcing - Juan" o nombre normal)
+  const regSalConNombre=async(n,nombreReal)=>{
     if(!fb)return;
     setSaving(n+tab);
     const h=new Date().toLocaleTimeString("es",{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    await fb.push(fb.ref(fb.db,"vales"),{persona:n,fecha:hoy,tipo:tab,salida:h,regreso:null,_ts:Date.now()});
-    // Avanzar cola si estaba programado
+    await fb.push(fb.ref(fb.db,"vales"),{
+      persona:nombreReal||n,
+      personaBase:n, // guardar el slot original (Outsorcin 1 / 2)
+      fecha:hoy,tipo:tab,salida:h,regreso:null,_ts:Date.now()
+    });
     setCola(prev=>prev.filter(x=>x!==n));
     setSaving(null);
+  };
+
+  const regSal=async n=>{
+    // Si es outsourcing, pedir nombre antes
+    if(n.toLowerCase().includes("outsorcin")||n.toLowerCase().includes("outsourcing")){
+      setOutsModal({persona:n});
+      setOutsNombre("");
+      return;
+    }
+    regSalConNombre(n,n);
   };
 
   const regRegConMotivo=async(v,min,motivo,obs)=>{
@@ -957,6 +1052,92 @@ function AlmuerzoScreen({vales,soloLec,onVolver,fb,hoy,onRegreso,vpData}){
 
   return(
     <div className="fi" style={{height:"100%",display:"flex",flexDirection:"column"}}>
+
+      {/* ── Modal nombre outsourcing ── */}
+      {outsModal&&(
+        <div style={{position:"absolute",inset:0,background:"#000000d8",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+          <div style={{background:"var(--card)",border:"2px solid #6b7280",borderRadius:18,padding:20,width:"100%",maxWidth:300}}>
+            <div style={{fontSize:28,textAlign:"center",marginBottom:8}}>⚙️</div>
+            <div style={{fontSize:14,fontWeight:900,color:"#e2e8f0",textAlign:"center",marginBottom:4}}>
+              {outsModal.persona}
+            </div>
+            <div style={{fontSize:11,color:"var(--muted)",textAlign:"center",marginBottom:14,lineHeight:1.5}}>
+              Ingresa el nombre real de la persona outsourcing para registrar la salida
+            </div>
+            <div style={{marginBottom:6}}>
+              <div style={{fontSize:9,fontWeight:800,color:"var(--muted)",marginBottom:5}}>NOMBRE COMPLETO</div>
+              <input
+                type="text"
+                value={outsNombre}
+                onChange={e=>setOutsNombre(e.target.value)}
+                onKeyDown={e=>{
+                  if(e.key==="Enter"&&outsNombre.trim().length>=2){
+                    regSalConNombre(outsModal.persona,"Outsourcing - "+outsNombre.trim());
+                    setOutsModal(null);
+                  }
+                }}
+                placeholder="Ej: Juan Pérez"
+                autoFocus
+                style={{width:"100%",background:"var(--bg)",border:"1px solid var(--accent)",borderRadius:10,padding:"12px",color:"white",fontSize:14,outline:"none",fontFamily:"inherit"}}
+              />
+              {outsNombre.trim().length>0&&(
+                <div style={{fontSize:10,color:"#6b7280",marginTop:6,padding:"6px 10px",background:"#6b728015",borderRadius:8,fontWeight:700}}>
+                  Se guardará como: <span style={{color:"#e2e8f0"}}>"Outsourcing - {outsNombre.trim()}"</span>
+                </div>
+              )}
+            </div>
+            <div style={{display:"flex",gap:8,marginTop:14}}>
+              <button onClick={()=>setOutsModal(null)}
+                style={{flex:1,padding:"12px",background:"var(--border)",border:"none",borderRadius:12,color:"var(--muted)",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+                Cancelar
+              </button>
+              <button
+                disabled={outsNombre.trim().length<2}
+                onClick={()=>{
+                  regSalConNombre(outsModal.persona,"Outsourcing - "+outsNombre.trim());
+                  setOutsModal(null);
+                }}
+                style={{flex:2,padding:"12px",background:outsNombre.trim().length>=2?"#6b7280":"var(--border)",border:"none",borderRadius:12,color:"white",fontWeight:900,fontSize:13,cursor:outsNombre.trim().length>=2?"pointer":"not-allowed",opacity:outsNombre.trim().length>=2?1:0.5}}>
+                {tab==="almuerzo"?"REGISTRAR SALIDA 🍽":"REGISTRAR SALIDA ☕"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal confirmación estado persona ── */}
+      {confirmEstado&&(
+        <div style={{position:"absolute",inset:0,background:"#000000d8",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:18}}>
+          <div style={{background:"var(--card)",border:`2px solid ${ESTADOS_LABELS[confirmEstado.estado]?.color||"#f59e0b"}`,borderRadius:18,padding:20,width:"100%",maxWidth:300}}>
+            <div style={{fontSize:32,textAlign:"center",marginBottom:8}}>{ESTADOS_LABELS[confirmEstado.estado]?.icon}</div>
+            <div style={{fontSize:14,fontWeight:900,color:ESTADOS_LABELS[confirmEstado.estado]?.color||"#22c55e",textAlign:"center",marginBottom:4}}>
+              {confirmEstado.estado==="activo"?"Restaurar a Activo":ESTADOS_LABELS[confirmEstado.estado]?.label}
+            </div>
+            <div style={{fontSize:12,color:"var(--text)",textAlign:"center",marginBottom:4}}>
+              <b>{confirmEstado.nombre}</b>
+            </div>
+            <div style={{fontSize:11,color:"var(--muted)",textAlign:"center",marginBottom:18,lineHeight:1.5}}>
+              {confirmEstado.estado==="activo"
+                ?<>¿Restaurar a <b>{confirmEstado.nombre}</b> como <b>activo</b> hoy?</>
+                :(<>¿Confirmar que <b>{confirmEstado.nombre}</b> tiene <b>{ESTADOS_LABELS[confirmEstado.estado]?.label.toLowerCase()}</b> hoy?</>)
+              }
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setConfirmEstado(null)}
+                style={{flex:1,padding:"12px",background:"var(--border)",border:"none",borderRadius:12,color:"var(--muted)",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+                Cancelar
+              </button>
+              <button onClick={async()=>{
+                await setEstadoPersona(confirmEstado.nombre,confirmEstado.estado);
+                setConfirmEstado(null);
+              }}
+                style={{flex:1,padding:"12px",background:confirmEstado.estado==="activo"?"#22c55e":ESTADOS_LABELS[confirmEstado.estado]?.color,border:"none",borderRadius:12,color:"white",fontWeight:900,fontSize:13,cursor:"pointer"}}>
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Modal motivo tardanza ── */}
       {motivoModal&&(
@@ -1069,7 +1250,14 @@ function AlmuerzoScreen({vales,soloLec,onVolver,fb,hoy,onRegreso,vpData}){
                       <div style={{padding:"12px 14px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                           <div>
-                            <div style={{fontWeight:900,fontSize:14,color:exc?"#ef4444":TC}}>{p.nombre}</div>
+                            <div style={{fontWeight:900,fontSize:14,color:exc?"#ef4444":TC}}>
+                              {v.personaBase&&v.persona!==v.personaBase
+                                ?v.persona   // show "Outsourcing - Juan"
+                                :p.nombre}
+                            </div>
+                            {v.personaBase&&v.persona!==v.personaBase&&(
+                              <div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>slot: {p.nombre}</div>
+                            )}
                             <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>Salió: {v.salida} · máx {min} min</div>
                           </div>
                           <div style={{textAlign:"right"}}>
@@ -1098,37 +1286,76 @@ function AlmuerzoScreen({vales,soloLec,onVolver,fb,hoy,onRegreso,vpData}){
             )}
 
             {/* ── Personas en puesto ── */}
-            {!soloLec&&(
-              <>
-                <div className="label-sec">✅ EN PUESTO</div>
-                {personas.filter(p=>!getV(p.nombre,tab)&&!vales.some(x=>x.persona===p.nombre&&x.fecha===hoy&&x.tipo===tab&&x.regreso)).map(p=>{
+            {(()=>{
+              const enPuesto=personas.filter(p=>{
+                const est=getEstado(p.nombre);
+                return est==="activo"&&!getV(p.nombre,tab)&&!vales.some(x=>x.persona===p.nombre&&x.fecha===hoy&&x.tipo===tab&&x.regreso);
+              });
+              const sinAsistir=personas.filter(p=>getEstado(p.nombre)!=="activo");
+              return(<>
+                {enPuesto.length>0&&<div className="label-sec">✅ EN PUESTO</div>}
+                {enPuesto.map(p=>{
                   const sv=saving===p.nombre+tab;
                   return(
-                    <div key={p.nombre} style={{borderRadius:12,marginBottom:7,border:"1px solid var(--border)",background:"var(--card)",padding:"11px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div>
-                        <div style={{fontWeight:800,fontSize:13,color:"var(--text)"}}>{p.nombre}</div>
-                        <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>máx {tab==="almuerzo"?p.minA:p.minC} min</div>
+                    <div key={p.nombre} style={{borderRadius:12,marginBottom:7,border:"1px solid var(--border)",background:"var(--card)",padding:"11px 14px"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:!soloLec?8:0}}>
+                        <div>
+                          <div style={{fontWeight:800,fontSize:13,color:"var(--text)"}}>{p.nombre}</div>
+                          <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>máx {tab==="almuerzo"?p.minA:p.minC} min</div>
+                        </div>
+                        {!soloLec?(
+                          <button onClick={()=>regSal(p.nombre)} disabled={sv}
+                            style={{background:TC,color:"white",border:"none",padding:"10px 14px",borderRadius:10,fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                            {sv?"...":`SALIDA ${tab==="almuerzo"?"🍽":"☕"}`}
+                          </button>
+                        ):(
+                          <span style={{fontSize:10,fontWeight:800,color:"#22c55e",background:"#22c55e15",padding:"4px 10px",borderRadius:20}}>✅ EN PUESTO</span>
+                        )}
                       </div>
-                      <button onClick={()=>regSal(p.nombre)} disabled={sv}
-                        style={{background:TC,color:"white",border:"none",padding:"10px 14px",borderRadius:10,fontWeight:900,fontSize:11,cursor:"pointer"}}>
-                        {sv?"...":`SALIDA ${tab==="almuerzo"?"🍽":"☕"}`}
-                      </button>
+                      {/* Selector de estado — solo para operadores */}
+                      {!soloLec&&(
+                        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                          {["libre","incapacitada","no_llego"].map(est=>{
+                            const e=ESTADOS_LABELS[est];
+                            return(
+                              <button key={est} onClick={()=>setConfirmEstado({nombre:p.nombre,estado:est})}
+                                style={{padding:"4px 9px",borderRadius:20,border:`1px solid ${e.color}40`,background:`${e.color}10`,color:e.color,fontSize:9,fontWeight:800,cursor:"pointer"}}>
+                                {e.icon} {e.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
-                {/* Solo lectura: mostrar todos */}
-              </>
-            )}
-            {soloLec&&personas.map(p=>{
-              const v=getV(p.nombre,tab);
-              const fuera=!!v;
-              return(
-                <div key={p.nombre} style={{borderRadius:12,marginBottom:7,border:`1px solid ${fuera?TC:"var(--border)"}`,background:fuera?`${TC}0a`:"var(--card)",padding:"11px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div style={{fontWeight:800,fontSize:13,color:fuera?TC:"var(--text)"}}>{p.nombre}</div>
-                  <span style={{fontSize:10,fontWeight:800,color:fuera?TC:"#22c55e",background:fuera?`${TC}15`:"#22c55e15",padding:"4px 10px",borderRadius:20}}>{fuera?"⏳ FUERA":"✅ EN PUESTO"}</span>
-                </div>
-              );
-            })}
+
+                {/* Personas con estado especial */}
+                {sinAsistir.length>0&&(
+                  <>
+                    <div className="label-sec">📋 ESTADO DEL DÍA</div>
+                    {sinAsistir.map(p=>{
+                      const est=ESTADOS_LABELS[getEstado(p.nombre)];
+                      return(
+                        <div key={p.nombre} style={{borderRadius:12,marginBottom:7,border:`1.5px solid ${est.color}40`,background:`${est.color}0a`,padding:"11px 14px",display:"flex",alignItems:"center",gap:10}}>
+                          <span style={{fontSize:22,flexShrink:0}}>{est.icon}</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:800,fontSize:13,color:est.color}}>{p.nombre}</div>
+                            <div style={{fontSize:9,color:"var(--muted)",marginTop:1}}>{est.label}</div>
+                          </div>
+                          {!soloLec&&(
+                            <button onClick={()=>setConfirmEstado({nombre:p.nombre,estado:"activo"})}
+                              style={{padding:"5px 10px",borderRadius:20,border:"1px solid var(--border)",background:"var(--card)",color:"var(--muted)",fontSize:9,fontWeight:800,cursor:"pointer"}}>
+                              ↩ Restaurar
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </>);
+            })()}
           </>
         )}
 
@@ -1216,6 +1443,7 @@ function AlmuerzoScreen({vales,soloLec,onVolver,fb,hoy,onRegreso,vpData}){
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:900,fontSize:12,color:v.aTiempo?"#22c55e":"#ef4444"}}>{v.aTiempo?"✅":"🔴"} {v.persona}</div>
+                        {v.personaBase&&v.persona!==v.personaBase&&<div style={{fontSize:9,color:"#6b7280",fontWeight:700}}>slot: {v.personaBase}</div>}
                     <div style={{fontSize:10,color:"var(--muted)",marginTop:2}}>🚶 {v.salida} → ✅ {v.regreso}</div>
                     {v.motivo&&v.motivo!=="Sin motivo"&&(
                       <div style={{fontSize:9,color:"#f97316",marginTop:3,background:"#f9731610",border:"1px solid #f9731630",borderRadius:6,padding:"2px 7px",display:"inline-block"}}>
@@ -1326,10 +1554,21 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
   // ── Valet
   const[valetClock,setValetClock]=useState("");
   const[valetTab,setValetTab]=useState("almuerzo");
+  const[estadosAdmin,setEstadosAdmin]=useState({});
+  const[editVale,setEditVale]=useState(null); // vale being edited
   useEffect(()=>{
     const t=()=>setValetClock(new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
     t();const id=setInterval(t,1000);return()=>clearInterval(id);
   },[]);
+
+  // ── Cargar estados personal del día para admin
+  useEffect(()=>{
+    if(!fb)return;
+    const unsub=fb.onValue(fb.ref(fb.db,`estado_personal_dia/${hoy}`),snap=>{
+      setEstadosAdmin(snap.val()||{});
+    });
+    return()=>unsub();
+  },[fb,hoy]);
 
   // ── Cargar usuarios dinámicos
   useEffect(()=>{
@@ -2614,6 +2853,7 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                   {id:"cafe",l:"☕ Café",c:TC_C},
                   {id:"personal",l:"👥 Personal",c:"#a855f7"},
                   {id:"historial",l:"📋 Historial",c:"#22c55e"},
+                  {id:"estados",l:"📋 Estados",c:"#a855f7"},
                 ].map(t=>(
                   <button key={t.id} onClick={()=>setValetTab(t.id)} style={{padding:"7px 12px",borderRadius:20,border:`1px solid ${valetTab===t.id?t.c+"60":"var(--border)"}`,background:valetTab===t.id?`${t.c}18`:"var(--card)",color:valetTab===t.id?t.c:"var(--muted)",fontWeight:800,fontSize:11,cursor:"pointer"}}>
                     {t.l}
@@ -2748,24 +2988,145 @@ function AdminPanel({history,activeOTs,passwords,permisosDB,onlineU,vales,onVolv
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                     <div style={{fontSize:12,fontWeight:900,color:"#22c55e"}}>📋 Historial · {hoy}</div>
                     <div style={{display:"flex",gap:6}}>
-                      <span style={{fontSize:9,padding:"3px 8px",borderRadius:10,background:"#22c55e18",color:"#22c55e",fontWeight:800}}>{aT} ✅ a tiempo</span>
-                      <span style={{fontSize:9,padding:"3px 8px",borderRadius:10,background:"#ef444418",color:"#ef4444",fontWeight:800}}>{tard} 🔴 tarde</span>
+                      <span style={{fontSize:9,padding:"3px 8px",borderRadius:10,background:"#22c55e18",color:"#22c55e",fontWeight:800}}>{aT} ✅</span>
+                      <span style={{fontSize:9,padding:"3px 8px",borderRadius:10,background:"#ef444418",color:"#ef4444",fontWeight:800}}>{tard} 🔴</span>
                     </div>
                   </div>
                   {histHoy.length===0&&<div style={{color:"var(--muted)",fontSize:12,padding:"20px 0",textAlign:"center"}}>Sin registros hoy</div>}
-                  {histHoy.map((v,i)=>(
-                    <div key={i} style={{background:v.aTiempo?"#22c55e0a":"#ef44440a",border:`1px solid ${v.aTiempo?"#22c55e30":"#ef444430"}`,borderRadius:10,padding:"10px 12px",marginBottom:7,display:"flex",gap:10,alignItems:"center"}}>
-                      <span style={{fontSize:18}}>{v.tipo==="almuerzo"?"🍽":"☕"}</span>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:12,fontWeight:900}}>{v.persona}</div>
-                        <div style={{fontSize:10,color:"var(--muted)"}}>🚶 {v.salida} → ✅ {v.regreso}</div>
+                  {histHoy.map((v,i)=>{
+                    const isEdit=editVale?._fbKey===v._fbKey;
+                    return(
+                      <div key={i} style={{background:v.aTiempo?"#22c55e0a":"#ef44440a",border:`1px solid ${v.aTiempo?"#22c55e30":"#ef444430"}`,borderRadius:12,padding:"11px 12px",marginBottom:8}}>
+                        {/* Fila principal */}
+                        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:isEdit?10:0}}>
+                          <span style={{fontSize:18,flexShrink:0}}>{v.tipo==="almuerzo"?"🍽":"☕"}</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:12,fontWeight:900}}>{v.persona}</div>
+                            <div style={{fontSize:10,color:"var(--muted)"}}>🚶 {v.salida} → ✅ {v.regreso}</div>
+                            {v.motivo&&v.motivo!=="Sin motivo"&&(
+                              <div style={{fontSize:9,color:"#f97316",marginTop:2}}>⚠️ {v.motivo}{v.obsMotivo?` · ${v.obsMotivo}`:""}</div>
+                            )}
+                          </div>
+                          <div style={{display:"flex",gap:5,flexShrink:0}}>
+                            <span style={{fontSize:16}}>{v.aTiempo?"✅":"🔴"}</span>
+                            <button onClick={()=>setEditVale(isEdit?null:v)}
+                              style={{background:isEdit?"var(--accent)15":"var(--border)",border:`1px solid ${isEdit?"var(--accent)":"transparent"}`,color:isEdit?"var(--accent)":"var(--muted)",padding:"4px 8px",borderRadius:7,fontWeight:900,fontSize:10,cursor:"pointer"}}>
+                              ✏️
+                            </button>
+                            <button onClick={()=>setConfirm({icon:"🗑",titulo:"Eliminar registro",label:`${v.persona} — ${v.tipo}`,color:"#ef4444",accion:"ELIMINAR",fn:async()=>{await fb.remove(fb.ref(fb.db,`vales/${v._fbKey}`));setConfirm(null);showMsg("ok","Registro eliminado");}})}
+                              style={{background:"#ef444415",border:"1px solid #ef444430",color:"#ef4444",padding:"4px 8px",borderRadius:7,fontWeight:900,fontSize:10,cursor:"pointer"}}>🗑</button>
+                          </div>
+                        </div>
+                        {/* Panel de edición inline */}
+                        {isEdit&&(
+                          <div style={{background:"var(--bg)",borderRadius:10,padding:"12px",borderTop:"1px solid var(--border)"}}>
+                            <div style={{fontSize:9,fontWeight:800,color:"var(--accent)",marginBottom:8,letterSpacing:1}}>EDITAR REGISTRO</div>
+                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                              <div>
+                                <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginBottom:3}}>HORA SALIDA</div>
+                                <input type="time" defaultValue={(v.salida||"").slice(0,5)}
+                                  id={`sal_${v._fbKey}`}
+                                  style={{width:"100%",background:"var(--card)",border:"1px solid var(--border)",borderRadius:7,padding:"7px",color:"var(--text)",fontSize:12,outline:"none"}}/>
+                              </div>
+                              <div>
+                                <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginBottom:3}}>HORA REGRESO</div>
+                                <input type="time" defaultValue={(v.regreso||"").slice(0,5)}
+                                  id={`reg_${v._fbKey}`}
+                                  style={{width:"100%",background:"var(--card)",border:"1px solid var(--border)",borderRadius:7,padding:"7px",color:"var(--text)",fontSize:12,outline:"none"}}/>
+                              </div>
+                            </div>
+                            <div style={{marginBottom:8}}>
+                              <div style={{fontSize:8,color:"var(--muted)",fontWeight:700,marginBottom:3}}>MOTIVO (si aplica)</div>
+                              <input type="text" defaultValue={v.motivo||""} id={`mot_${v._fbKey}`}
+                                placeholder="Motivo de tardanza o nota..."
+                                style={{width:"100%",background:"var(--card)",border:"1px solid var(--border)",borderRadius:7,padding:"7px",color:"var(--text)",fontSize:11,outline:"none",fontFamily:"inherit"}}/>
+                            </div>
+                            <div style={{display:"flex",gap:6}}>
+                              <button onClick={()=>setEditVale(null)}
+                                style={{flex:1,padding:"9px",background:"var(--border)",border:"none",borderRadius:9,color:"var(--muted)",fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                                Cancelar
+                              </button>
+                              <button onClick={async()=>{
+                                const sal=document.getElementById(`sal_${v._fbKey}`)?.value;
+                                const reg=document.getElementById(`reg_${v._fbKey}`)?.value;
+                                const mot=document.getElementById(`mot_${v._fbKey}`)?.value||"";
+                                if(!sal||!reg){showMsg("warn","Completa ambas horas");return;}
+                                const p2=vpList.find(x=>x.nombre===v.persona);
+                                const min2=v.tipo==="almuerzo"?(p2?.minA||65):(p2?.minC||15);
+                                const[sh2,sm2]=sal.split(":").map(Number);
+                                const[rh2,rm2]=reg.split(":").map(Number);
+                                const ok2=(rh2*60+rm2-sh2*60-sm2)<=min2;
+                                const{_fbKey,...rest}=v;
+                                await fb.set(fb.ref(fb.db,`vales/${_fbKey}`),{
+                                  ...rest,
+                                  salida:sal+":00",
+                                  regreso:reg+":00",
+                                  aTiempo:ok2,
+                                  motivo:mot||v.motivo||"",
+                                });
+                                logBitacora("VALET EDICIÓN",`${v.persona} — sal:${sal} reg:${reg}`);
+                                showMsg("ok","✅ Registro actualizado");
+                                setEditVale(null);
+                              }}
+                                style={{flex:2,padding:"9px",background:"var(--accent)",border:"none",borderRadius:9,color:"white",fontWeight:900,fontSize:11,cursor:"pointer"}}>
+                                💾 GUARDAR CAMBIOS
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div style={{textAlign:"right"}}>
-                        <span style={{fontSize:20}}>{v.aTiempo?"✅":"🔴"}</span>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── Estados del día ── */}
+              {valetTab==="estados"&&(
+                <div>
+                  <div style={{fontSize:12,fontWeight:900,color:"#a855f7",marginBottom:12}}>📋 ESTADOS DEL DÍA · {hoy}</div>
+                  {(cfgListas.vp||VP).map(p=>{
+                    const key=p.nombre.replace(/\s/g,"_");
+                    const estadoData=estadosAdmin[key]||{estado:"activo"};
+                    const eLabel={
+                      activo:{label:"Activo",icon:"✅",color:"#22c55e"},
+                      libre:{label:"Día libre",icon:"🏖",color:"#06b6d4"},
+                      incapacitada:{label:"Incapacitado",icon:"🤒",color:"#f59e0b"},
+                      no_llego:{label:"No llegó",icon:"❌",color:"#ef4444"},
+                    };
+                    const cur=eLabel[estadoData.estado]||eLabel.activo;
+                    return(
+                      <div key={p.nombre} style={{background:"var(--card)",border:`1.5px solid ${cur.color}30`,borderRadius:12,padding:"12px 14px",marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                          <span style={{fontSize:22}}>{cur.icon}</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:12,fontWeight:900,color:cur.color}}>{p.nombre}</div>
+                            <div style={{fontSize:9,color:"var(--muted)"}}>{cur.label}</div>
+                          </div>
+                        </div>
+                        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                          {["activo","libre","incapacitada","no_llego"].map(est=>{
+                            const el=eLabel[est];
+                            const sel=estadoData.estado===est;
+                            return(
+                              <button key={est} onClick={async()=>{
+                                if(!fb)return;
+                                const{db,ref,set,remove}=fb;
+                                if(est==="activo"){
+                                  await remove(ref(db,`estado_personal_dia/${hoy}/${key}`));
+                                } else {
+                                  await set(ref(db,`estado_personal_dia/${hoy}/${key}`),{estado:est,nombre:p.nombre,fecha:hoy,ts:Date.now()});
+                                }
+                                logBitacora("ESTADO PERSONAL",`${p.nombre}: ${est}`);
+                              }}
+                                style={{padding:"5px 10px",borderRadius:20,border:`1.5px solid ${sel?el.color:el.color+"40"}`,background:sel?`${el.color}20`:`${el.color}08`,color:el.color,fontSize:9,fontWeight:900,cursor:"pointer"}}>
+                                {sel?"✓ ":""}{el.icon} {el.label}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <button onClick={()=>setConfirm({icon:"🗑",titulo:"Eliminar registro",label:`${v.persona} — ${v.tipo}`,color:"#ef4444",accion:"ELIMINAR",fn:async()=>{await fb.remove(fb.ref(fb.db,`vales/${v._fbKey}`));setConfirm(null);showMsg("ok","Registro eliminado");}})} style={{background:"#ef444415",border:"1px solid #ef444430",color:"#ef4444",padding:"5px 8px",borderRadius:8,fontWeight:900,fontSize:10,cursor:"pointer"}}>🗑</button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -4336,8 +4697,9 @@ function App(){
   const[otAlert,setOtAlert]=useState(null);
   // ── Notification Center
   const[notifOpen,setNotifOpen]=useState(false);
-  // Expose addNotif globally after mount — used by cam engine and other async contexts
+  // Expose addNotif and playSound globally after mount
   useEffect(()=>{ window._addNotif=addNotif; },[addNotif]);
+  useEffect(()=>{ window._playSound=playSound; },[playSound]);
   const[notifs,setNotifs]=useState([]);
   const[toasts,setToasts]=useState([]);
   const toastIdRef=useRef(0);
@@ -4859,6 +5221,21 @@ function App(){
           o.start(t);o.stop(t+0.28);
         });
         try{navigator.vibrate&&navigator.vibrate([400,100,400,100,400,100,600]);}catch(e){}
+      } else if(tipo==="tardanza_almuerzo"){
+        // 2 tonos descendentes suaves — "ding-dong" de tardanza
+        // Primer tono: más agudo y suave
+        // Segundo tono: más grave, como una campanada de aviso
+        [[784,0],[523,0.45]].forEach(([f,delay])=>{
+          const o=ctx.createOscillator(),g=ctx.createGain();
+          o.connect(g);g.connect(ctx.destination);
+          o.type="sine";o.frequency.value=f;
+          const t=ctx.currentTime+delay;
+          g.gain.setValueAtTime(0,t);
+          g.gain.linearRampToValueAtTime(0.45,t+0.06);
+          g.gain.exponentialRampToValueAtTime(0.001,t+0.55);
+          o.start(t);o.stop(t+0.58);
+        });
+        try{navigator.vibrate&&navigator.vibrate([200,150,400]);}catch(e){}
       }
     }catch(e){}
   },[]);
